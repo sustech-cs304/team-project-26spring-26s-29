@@ -1,0 +1,24 @@
+{
+  "name": "kao-hsiao",
+  "version": "0.0.1",
+  "description": "An AI agent app to boost student productivity.",
+  "homepage": "https://github.com/sustech-cs304/team-project-26spring-26s-29#readme",
+  "bugs": {
+    "url": "https://github.com/sustech-cs304/team-project-26spring-26s-29/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sustech-cs304/team-project-26spring-26s-29.git"
+  },
+  "license": "MIT",
+  "author": "Yihao Jiang, Jiayao Qin, Yunzhe Wang, Mingxin Wen, Yiyuan Yuan",
+  "type": "commonjs",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "electron": "^41.0.4"
+  }
+}
