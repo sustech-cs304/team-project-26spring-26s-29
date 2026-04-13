@@ -5,9 +5,14 @@ const status = $("status");
 const response = $("response");
 
 async function refresh() {
-  const { ok } = await window.agentAPI.health().catch(() => ({ ok: false }));
-  status.textContent = ok ? "ready" : "starting";
-  send.disabled = !ok;
+  const [{ ok }, config] = await Promise.all([
+    window.agentAPI.health().catch(() => ({ ok: false })),
+    window.configAPI.get().catch(() => null),
+  ]);
+  const ready = ok && Boolean(config?.openaiChatModel);
+
+  status.textContent = !ok ? "starting" : ready ? "ready" : "config needed";
+  send.disabled = !ready;
 }
 
 async function run() {

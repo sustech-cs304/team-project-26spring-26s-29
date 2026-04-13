@@ -12,11 +12,6 @@ function registerAgentIpc({ api }) {
   ipcMain.handle("agent:health", async () => ({ ok: await ping(api) }));
 
   ipcMain.handle("agent:run", async (_event, message) => {
-    message = String(message || "").trim();
-    if (!message) {
-      throw new Error("Message is empty.");
-    }
-
     const response = await fetch(`${api}/api/agent/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

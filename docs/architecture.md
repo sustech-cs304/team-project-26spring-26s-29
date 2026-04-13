@@ -28,6 +28,41 @@ They do different jobs and should stay separate.
 - Electron main owns the window, IPC, backend process, and local HTTP calls.
 - Python owns the API, the agent call, and model credentials.
 
+## Validation policy
+
+This repo follows one validation rule:
+
+- validate at the boundary once
+- keep internal helpers simple
+- do not repeat defensive checks after the boundary already normalized the data
+
+Current boundaries are:
+
+- renderer UI events
+- preload and Electron IPC
+- FastAPI request models
+- `config.json` loading in Electron
+
+That means:
+
+- renderer checks user prompt input before invoking IPC
+- Electron config code normalizes file values and runtime config updates before syncing Python
+- FastAPI validates request shapes with Pydantic
+- backend helpers like `agent_service.py` and `backend/config.py` assume their callers already passed normalized data
+
+Future agents should preserve this style. If a new check is needed, add it at the first entry point for that input instead of adding the same guard in deeper layers.
+
+## Config model
+
+The repo has two config layers:
+
+- startup app config in `config.json`: `backendHost`, `backendPort`
+- runtime agent config mirrored into Python: `openaiApiKey`, `openaiChatModel`, `openaiEndpoint`
+
+`config.json` is the persistent source of truth. Electron reads it on startup, starts Python with the startup config, then syncs the runtime agent config to FastAPI through `/api/config`.
+
+Only the OpenAI runtime keys are hot-updated through IPC. Host and port are startup settings and are read once when Electron boots.
+
 ## Request flow
 
 Current request path:
@@ -42,6 +77,14 @@ Current request path:
 
 Health checks use the same idea through `window.agentAPI.health()` and `GET /health`.
 
+Runtime config uses a parallel path:
+
+1. Renderer calls `window.configAPI.get()` or `window.configAPI.update(key, value)`.
+2. Preload forwards that call through IPC.
+3. Electron config code reads or writes `config.json`.
+4. Electron syncs the runtime agent config to `POST /api/config`.
+5. Python updates its in-memory runtime config.
+
 ## Boot flow
 
 1. `electron .` starts `src/electron/main.js`.
@@ -49,7 +92,8 @@ Health checks use the same idea through `window.agentAPI.health()` and `GET /hea
 3. Electron main starts `python -m uvicorn backend.app:app`.
 4. FastAPI listens on the host and port from `config.json`.
 5. Electron waits for `/health`.
-6. The renderer becomes usable once the backend is alive.
+6. Electron syncs the runtime agent config to Python.
+7. The renderer becomes usable once the backend is alive and runtime config is available.
 
 ## Why this shape
 

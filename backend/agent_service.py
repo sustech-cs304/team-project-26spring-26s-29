@@ -1,20 +1,34 @@
-import os
+from agent_framework.openai import OpenAIChatCompletionClient
 
-from agent_framework.openai import OpenAIChatClient
+from .config import get_config
 
 
-try:
-    if not os.environ.get("OPENAI_API_KEY") or not os.environ.get("OPENAI_CHAT_MODEL"):
-        raise RuntimeError("Missing OpenAI configuration.")
+_agent = None
+_agent_config = None
 
-    agent = OpenAIChatClient().as_agent(instructions="Answer directly and briefly.")
-except Exception as exc:
-    raise RuntimeError(
-        "Set OPENAI_API_KEY and OPENAI_CHAT_MODEL before starting the backend."
-    ) from exc
+
+def get_agent():
+    global _agent, _agent_config
+
+    config = get_config()
+    api_key = config["openaiApiKey"]
+    model = config["openaiChatModel"]
+    endpoint = config["openaiEndpoint"]
+
+    next_config = (api_key, model, endpoint)
+    if _agent is None or _agent_config != next_config:
+        _agent = OpenAIChatCompletionClient(
+            model=model,
+            api_key=api_key or "unused",
+            base_url=endpoint or None,
+        ).as_agent()
+        _agent_config = next_config
+
+    return _agent
 
 
 async def run_prompt(message: str) -> str:
+    agent = get_agent()
     reply = ((await agent.run(message)).text or "").strip()
     if not reply:
         raise RuntimeError("The agent returned an empty reply.")

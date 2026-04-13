@@ -1,7 +1,7 @@
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
-const { readConfig } = require("./config");
+const { readConfig, registerConfigIpc, syncRuntimeConfig } = require("./config");
 const { registerAgentIpc } = require("./ipc");
 
 const config = readConfig();
@@ -25,11 +25,7 @@ function startBackend() {
     String(config.backendPort),
   ], {
     cwd: app.getAppPath(),
-    env: {
-      ...process.env,
-      OPENAI_API_KEY: config.openaiApiKey,
-      OPENAI_CHAT_MODEL: config.openaiChatModel,
-    },
+    env: process.env,
     stdio: "inherit",
   });
 
@@ -68,6 +64,8 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   await startBackend();
+  await syncRuntimeConfig(config);
+  registerConfigIpc();
   registerAgentIpc({ api });
   createWindow();
 });
