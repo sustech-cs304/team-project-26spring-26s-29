@@ -35,14 +35,14 @@ src/renderer/
 
 ## Run
 
-1. Create `.env` from `.env.example`.
+1. Fill in `config.json`.
 2. Make sure `python` can import `agent_framework`, `fastapi`, and `uvicorn`.
 3. Run `npm start`.
 
 ## Backend only
 
 ```powershell
-python -m backend.app
+python -m uvicorn backend.app:app --host 127.0.0.1 --port 8765
 ```
 
 Endpoints:

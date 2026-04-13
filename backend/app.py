@@ -1,6 +1,3 @@
-import os
-
-import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
@@ -27,12 +24,3 @@ async def run_agent(payload: RunRequest) -> dict[str, str]:
         raise HTTPException(status_code=502, detail=f"Agent request failed: {exc}") from exc
 
     return {"reply": reply, "agent": "openai-chat"}
-
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "backend.app:app",
-        host=os.environ.get("BACKEND_HOST", "127.0.0.1"),
-        port=int(os.environ.get("BACKEND_PORT", "8765")),
-        log_level="info",
-    )

@@ -1,3 +1,5 @@
+# https://github.com/github/gitignore/blob/main/Node.gitignore
+
 # Logs
 logs
 *.log
@@ -142,6 +144,8 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# https://github.com/github/gitignore/blob/main/Python.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -359,3 +363,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# PROJECT CUSTOMIZATION
+config.json

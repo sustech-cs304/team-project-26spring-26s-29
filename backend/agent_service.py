@@ -1,12 +1,13 @@
-from pathlib import Path
+import os
 
 from agent_framework.openai import OpenAIChatClient
 
 
 try:
-    agent = OpenAIChatClient(
-        env_file_path=".env" if Path(".env").is_file() else None
-    ).as_agent(instructions="Answer directly and briefly.")
+    if not os.environ.get("OPENAI_API_KEY") or not os.environ.get("OPENAI_CHAT_MODEL"):
+        raise RuntimeError("Missing OpenAI configuration.")
+
+    agent = OpenAIChatClient().as_agent(instructions="Answer directly and briefly.")
 except Exception as exc:
     raise RuntimeError(
         "Set OPENAI_API_KEY and OPENAI_CHAT_MODEL before starting the backend."

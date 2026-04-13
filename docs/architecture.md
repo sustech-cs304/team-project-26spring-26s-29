@@ -45,9 +45,9 @@ Health checks use the same idea through `window.agentAPI.health()` and `GET /hea
 ## Boot flow
 
 1. `electron .` starts `src/electron/main.js`.
-2. If the shell forces `ELECTRON_RUN_AS_NODE=1`, `main.js` relaunches itself in normal Electron mode.
-3. Electron main starts `python -m backend.app`.
-4. FastAPI listens on `BACKEND_HOST:BACKEND_PORT`.
+2. Electron main reads `config.json`.
+3. Electron main starts `python -m uvicorn backend.app:app`.
+4. FastAPI listens on the host and port from `config.json`.
 5. Electron waits for `/health`.
 6. The renderer becomes usable once the backend is alive.
 
