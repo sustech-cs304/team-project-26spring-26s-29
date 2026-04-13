@@ -13,7 +13,7 @@
   "license": "MIT",
   "author": "Yihao Jiang, Jiayao Qin, Yunzhe Wang, Mingxin Wen, Yiyuan Yuan",
   "type": "commonjs",
-  "main": "main.js",
+  "main": "src/electron/main.js",
   "scripts": {
     "start": "electron .",
     "test": "echo \"Error: no test specified\" && exit 1"
