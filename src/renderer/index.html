@@ -4,17 +4,74 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agent Demo</title>
+    <title>Agent Console</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main>
-      <h1>Electron -> Python</h1>
-      <p id="status">starting</p>
-      <textarea id="prompt" rows="6" placeholder="Ask something"></textarea>
-      <button id="send" type="button">Send</button>
-      <pre id="response">waiting...</pre>
-    </main>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar__brand">
+          <p class="sidebar__eyebrow">Electron -> Python</p>
+          <h1>Agent Console</h1>
+        </div>
+
+        <nav class="sidebar__nav" aria-label="Page navigation">
+          <button class="sidebar__link is-active" data-page-target="chat" type="button">Chat</button>
+          <button class="sidebar__link" data-page-target="config" type="button">Config</button>
+        </nav>
+
+        <div class="sidebar__status-card">
+          <p class="sidebar__status-label">Backend status</p>
+          <p id="status" aria-live="polite">starting</p>
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="page is-active" data-page="chat" aria-labelledby="chat-title">
+          <header class="page__header">
+            <p class="page__eyebrow">Workspace</p>
+            <h2 id="chat-title">Chat</h2>
+            <p class="page__copy">Send prompts to the Python agent and watch the streamed reply land live.</p>
+          </header>
+
+          <label class="field" for="prompt">
+            <span class="field__label">Prompt</span>
+          </label>
+          <textarea id="prompt" rows="7" placeholder="Ask something"></textarea>
+
+          <div class="chat-toolbar">
+            <button id="send" type="button">Send</button>
+            <p class="chat-toolbar__hint">Use Ctrl/Cmd + Enter to send quickly.</p>
+          </div>
+
+          <section class="response-card" aria-labelledby="response-title">
+            <div class="response-card__header">
+              <h3 id="response-title">Response</h3>
+            </div>
+            <pre id="response">waiting...</pre>
+          </section>
+        </section>
+
+        <section class="page" data-page="config" hidden aria-labelledby="config-title">
+          <header class="page__header">
+            <p class="page__eyebrow">Settings</p>
+            <h2 id="config-title">Config</h2>
+            <p class="page__copy">Edit the local app configuration here, then save or discard the draft below.</p>
+          </header>
+
+          <form id="config-form" class="config-form">
+            <div id="config-fields" class="config-grid"></div>
+
+            <p id="config-feedback" class="form-feedback" aria-live="polite"></p>
+
+            <div class="form-actions">
+              <button id="discard" class="button button--secondary" type="button">Discard</button>
+              <button id="save-config" class="button" type="submit">Save</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
     <script src="./renderer.js"></script>
   </body>
 </html>

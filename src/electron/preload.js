@@ -12,5 +12,5 @@ contextBridge.exposeInMainWorld("agentAPI", {
 
 contextBridge.exposeInMainWorld("configAPI", {
   get: () => ipcRenderer.invoke("config:get"),
-  update: (key, value) => ipcRenderer.invoke("config:update", key, value),
+  save: (config) => ipcRenderer.invoke("config:save", config),
 });

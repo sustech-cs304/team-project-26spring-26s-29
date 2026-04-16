@@ -9,12 +9,12 @@ async function ping(api) {
   }
 }
 
-function registerAgentIpc({ api }) {
-  const websocketApi = api.replace(/^http/, "ws");
-
-  ipcMain.handle("agent:health", async () => ({ ok: await ping(api) }));
+function registerAgentIpc({ getApi }) {
+  ipcMain.handle("agent:health", async () => ({ ok: await ping(getApi()) }));
 
   ipcMain.handle("agent:run", async (event, payload) => {
+    const api = getApi();
+    const websocketApi = api.replace(/^http/, "ws");
     const message = typeof payload === "string" ? payload : payload?.message;
     const requestId = payload?.requestId || randomUUID();
 

@@ -10,7 +10,7 @@ const defaults = {
   openaiChatModel: null,
   openaiEndpoint: null,
 };
-const runtimeConfigKeys = ["openaiApiKey", "openaiChatModel", "openaiEndpoint"];
+const configKeys = Object.keys(defaults);
 
 function parseConfigFile() {
   try {
@@ -46,6 +46,19 @@ function persistConfig(config) {
   return config;
 }
 
+function validateConfigPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Config payload must be an object.");
+  }
+
+  const unsupportedKeys = Object.keys(payload).filter((key) => !configKeys.includes(key));
+  if (unsupportedKeys.length) {
+    throw new Error(`Unsupported config keys: ${unsupportedKeys.join(", ")}`);
+  }
+
+  return payload;
+}
+
 function getRuntimeConfig(config) {
   return {
     openaiApiKey: config.openaiApiKey,
@@ -67,15 +80,6 @@ async function syncRuntimeConfig(config) {
   }
 }
 
-async function writeConfig(nextConfig) {
-  const current = fs.existsSync(configPath) ? parseConfigFile() : defaults;
-  const config = normalizeConfig({ ...current, ...nextConfig });
-
-  persistConfig(config);
-  await syncRuntimeConfig(config);
-  return config;
-}
-
 function readConfig() {
   if (!fs.existsSync(configPath)) {
     return persistConfig(normalizeConfig(defaults));
@@ -90,24 +94,20 @@ function readConfig() {
   return config;
 }
 
-function registerConfigIpc() {
+function registerConfigIpc({ onSave }) {
   ipcMain.handle("config:get", async () => readConfig());
 
-  ipcMain.handle("config:update", async (_event, key, value) => {
-    if (!runtimeConfigKeys.includes(key)) {
-      throw new Error(`Unsupported config key: ${key}`);
-    }
-
-    const config = await writeConfig({ [key]: value });
-    return { key, value: config[key] };
-  });
+  ipcMain.handle("config:save", async (_event, payload) => onSave(validateConfigPayload(payload)));
 }
 
 module.exports = {
+  configKeys,
   configPath,
+  defaults,
   getRuntimeConfig,
+  normalizeConfig,
+  persistConfig,
   readConfig,
   registerConfigIpc,
   syncRuntimeConfig,
-  writeConfig,
 };
