@@ -49,6 +49,7 @@ Endpoints:
 
 - `GET http://127.0.0.1:8765/health`
 - `POST http://127.0.0.1:8765/api/agent/run`
+- `WS  ws://127.0.0.1:8765/api/agent/run`
 
 ## Notes
 
