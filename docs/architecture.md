@@ -18,8 +18,12 @@ Renderer UI
 ### Layer responsibilities
 
 - `src/renderer/` owns the desktop UI for Chat, Todo, and Config.
+  The renderer is now split by feature under `chat/`, `todo/`, `config/`, plus reusable helpers in `shared/`.
 - `src/electron/preload.js` exposes a narrow bridge into the renderer.
-- `src/electron/main.js` owns the browser window, backend process lifecycle, and config sync.
+- `src/electron/main.js` now mostly wires modules together.
+- `src/electron/backend-process.js` owns the Python backend process lifecycle.
+- `src/electron/config-store.js` owns `config.json` normalization, validation, persistence, and runtime sync.
+- `src/electron/ipc/` owns domain-specific IPC handlers such as `agent`, `todo`, and `config`.
 - `backend/` owns HTTP routes, the agent runtime, local business logic, and persistence.
 
 This split keeps the UI simple, keeps Node and process control out of the renderer, and gives the Python backend a clean local API boundary.
@@ -34,6 +38,16 @@ The renderer is a plain HTML/CSS/JavaScript app with three pages:
 - `Todo`: local task management UI
 - `Config`: edits `config.json` through Electron IPC
 
+Instead of one large renderer controller, the browser code is organized like this:
+
+```text
+renderer.js       bootstrap and page-level orchestration
+chat/             chat controller and streaming UI behavior
+todo/             todo state, rendering, and mutations
+config/           config form state and save/discard flow
+shared/           DOM lookup, markdown, date helpers, page manager
+```
+
 The renderer never talks to Python directly. It only calls the APIs exposed by the preload script:
 
 - `window.agentAPI`
@@ -46,7 +60,14 @@ The renderer never talks to Python directly. It only calls the APIs exposed by t
 
 ### Electron Main Process
 
-`src/electron/main.js` is the orchestration layer. It:
+The Electron layer is now split into smaller modules:
+
+- `main.js` wires the app together and creates the browser window
+- `backend-process.js` starts, stops, and health-checks the Python backend
+- `config-store.js` reads and writes `config.json` and pushes runtime config to Python
+- `ipc/agent.js`, `ipc/todo.js`, and `ipc/config.js` register per-domain IPC handlers
+
+Together they:
 
 - reads and normalizes `config.json`
 - starts `python -m uvicorn backend.app:app`
@@ -103,7 +124,7 @@ The WebSocket path is used so the UI can render streaming output instead of wait
 ```text
 Renderer
   -> window.todoAPI.*
-  -> IPC handlers in src/electron/ipc.js
+  -> IPC handlers in src/electron/ipc/todo.js
   -> HTTP calls to /api/todos...
   -> todo_service
   -> TinyDbTodoRepository
