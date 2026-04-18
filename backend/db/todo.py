@@ -11,6 +11,8 @@ from typing import Iterator
 from tinydb import TinyDB
 from tinydb.table import Table
 
+from ..config import get_config
+
 
 _DEFAULT_DB_PATH = Path(__file__).resolve().parent / "todo.json"
 _TABLE_NAME = "todo_list"
@@ -32,9 +34,14 @@ def _utcnow_iso() -> str:
 
 
 def get_database_path(db_path: str | Path | None = None) -> Path:
-    if db_path is None:
+    resolved = db_path
+    if resolved is None:
+        resolved = get_config().get("dbPath")
+
+    if resolved is None:
         return _DEFAULT_DB_PATH
-    return Path(db_path).expanduser().resolve()
+
+    return Path(resolved).expanduser().resolve()
 
 
 def initialize_database(db_path: str | Path | None = None) -> Path:
