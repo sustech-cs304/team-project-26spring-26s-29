@@ -1,4 +1,5 @@
 _CONFIG = {
+    "dbPath": None,
     "openaiApiKey": None,
     "openaiChatModel": None,
     "openaiEndpoint": None,

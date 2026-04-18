@@ -6,6 +6,7 @@ const configPath = path.resolve(__dirname, "..", "..", "config.json");
 const defaults = {
   backendHost: "127.0.0.1",
   backendPort: 8765,
+  dbPath: null,
   openaiApiKey: null,
   openaiChatModel: null,
   openaiEndpoint: null,
@@ -35,6 +36,7 @@ function normalizeConfig(raw = {}) {
   return {
     backendHost: normalizeOptionalString(raw.backendHost) || defaults.backendHost,
     backendPort: Number.isInteger(port) ? port : defaults.backendPort,
+    dbPath: normalizeOptionalString(raw.dbPath),
     openaiApiKey: normalizeOptionalString(raw.openaiApiKey),
     openaiChatModel: normalizeOptionalString(raw.openaiChatModel),
     openaiEndpoint: normalizeOptionalString(raw.openaiEndpoint),
@@ -61,6 +63,7 @@ function validateConfigPayload(payload) {
 
 function getRuntimeConfig(config) {
   return {
+    dbPath: config.dbPath,
     openaiApiKey: config.openaiApiKey,
     openaiChatModel: config.openaiChatModel,
     openaiEndpoint: config.openaiEndpoint,
