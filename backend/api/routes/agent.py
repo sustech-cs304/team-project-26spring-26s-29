@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
-from ...agent_service import run_prompt, stream_prompt
+from ...agent import run_prompt, stream_prompt
 from ..schemas.agent import RunRequest, format_validation_error
 from ..websocket import close_websocket, send_websocket_json
 
