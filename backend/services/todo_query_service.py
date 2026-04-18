@@ -81,7 +81,7 @@ class TodoQueryService:
         if not todos["available"]:
             lines.append(f"- Todos: unavailable ({todos['error']})")
             lines.append(
-                "- If the user asks about todos, you may still use manage_todo_list to read them directly."
+                "- If the user asks about todos, you may still use list_todos to read them directly."
             )
             return "\n".join(lines)
 
@@ -102,7 +102,7 @@ class TodoQueryService:
             lines.append("- Next todo items: none")
 
         lines.append(
-            "- Use this context as a quick summary; call manage_todo_list when the user needs exact todo details or updates."
+            "- Use this context as a quick summary; call list_todos for exact todo details and the write tools for changes."
         )
         return "\n".join(lines)
 
