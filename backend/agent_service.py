@@ -1,18 +1,28 @@
 from collections.abc import Awaitable, Callable
 from inspect import isawaitable
 
+from agent_framework import AgentSession, InMemoryHistoryProvider
 from agent_framework.openai import OpenAIChatCompletionClient
 
 from .config import get_config
+from .context import CurrentInfoProvider
+from .tools import TODO_TOOLS
 
 
 _agent = None
 _agent_config = None
+_session = None
 TOOL_CONTENT_TYPES = {"function_call", "function_result", "function_approval_request"}
+AGENT_INSTRUCTIONS = """
+You are a student productivity assistant.
+Use the manage_todo_list tool whenever the user asks to read, add, update, complete, reopen, or delete todos.
+If the user wants to update or delete a todo but the id is unclear, list the todos first so you can act on the correct item.
+When a todo changes, mention the todo id in your reply.
+""".strip()
 
 
 def get_agent():
-    global _agent, _agent_config
+    global _agent, _agent_config, _session
 
     config = get_config()
     api_key = config["openaiApiKey"]
@@ -25,10 +35,25 @@ def get_agent():
             model=model,
             api_key=api_key or "unused",
             base_url=endpoint or None,
-        ).as_agent()
+        ).as_agent(
+            instructions=AGENT_INSTRUCTIONS,
+            tools=TODO_TOOLS,
+            context_providers=[
+                InMemoryHistoryProvider("memory", load_messages=True),
+                CurrentInfoProvider(),
+            ],
+        )
         _agent_config = next_config
+        _session = _agent.create_session()
 
     return _agent
+
+
+def get_session() -> AgentSession:
+    get_agent()
+    if _session is None:
+        raise RuntimeError("Agent session is not initialized.")
+    return _session
 
 
 async def run_prompt(message: str) -> str:
@@ -40,10 +65,12 @@ async def stream_prompt(
     on_chunk: Callable[[str], Awaitable[None] | None],
 ) -> str:
     agent = get_agent()
-    stream = agent.run(message, stream=True)
+    stream = agent.run(message, stream=True, session=get_session())
 
     async for update in stream:
-        tool_contents = [content for content in update.contents if content.type in TOOL_CONTENT_TYPES]
+        tool_contents = [
+            content for content in update.contents if content.type in TOOL_CONTENT_TYPES
+        ]
         if tool_contents:
             # TODO: Replace this placeholder tool streaming with structured tool-event handling.
             tool_lines = []
@@ -57,7 +84,7 @@ async def stream_prompt(
                 else:
                     tool_lines.append(f"[tool] {content.type}")
 
-            maybe_awaitable = on_chunk("\n".join(tool_lines))
+            maybe_awaitable = on_chunk("\n" + "\n".join(tool_lines) + "\n")
             if isawaitable(maybe_awaitable):
                 await maybe_awaitable
             continue
