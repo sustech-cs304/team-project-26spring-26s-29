@@ -34,7 +34,7 @@ This split keeps the UI simple, keeps Node and process control out of the render
 
 The renderer is a plain HTML/CSS/JavaScript app with three pages:
 
-- `Chat`: sends prompts and renders streamed agent output
+- `Chat`: sends structured prompts and attachments, then renders rich streamed agent output
 - `Todo`: local task management UI
 - `Config`: edits `config.json` through Electron IPC
 
@@ -111,13 +111,13 @@ Renderer
   -> window.agentAPI.runPrompt(...)
   -> IPC: agent:run
   -> Electron opens WebSocket /api/agent/run
-  -> FastAPI validates RunRequest
-  -> AgentRuntime streams chunks
-  -> Electron forwards chunks back to renderer
-  -> Renderer updates the response panel live
+  -> FastAPI validates structured run contents
+  -> AgentRuntime streams structured message snapshots
+  -> Electron forwards update / done / error events back to renderer
+  -> Renderer updates the conversation live and can answer approval requests
 ```
 
-The WebSocket path is used so the UI can render streaming output instead of waiting for one final payload.
+The WebSocket path is used so the UI can render streaming output, surface tool approvals inline, and resume the same run after the user approves or rejects an action.
 
 ### Todo Flow
 
@@ -166,13 +166,13 @@ The Python agent runtime lives in `backend/agent/`.
 
 - `runtime.py` builds or rebuilds the chat client from runtime config
 - `instructions.py` defines the base behavior prompt
-- `tools/todo_tool.py` exposes `manage_todo_list`
+- `tools/todo_tool.py` exposes `list_todos`, `create_todo`, `update_todo`, and `delete_todo`
 - `context/current_info.py` injects time and todo summary context before each run
 
 The current agent is therefore stateful enough to:
 
 - chat with the configured model
-- inspect or change local todos through a tool
+- inspect local todos without approval and request approval before changing them
 - receive a short summary of current time and todo state on each run
 
 ## Extension Guidance

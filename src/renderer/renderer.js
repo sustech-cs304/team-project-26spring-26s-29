@@ -7,6 +7,8 @@ import { createTodoController } from "./todo/controller.js";
 const FOREGROUND_REFRESH_COOLDOWN_MS = 300;
 
 const chatController = createChatController({
+  attachmentButton: elements.attachmentButton,
+  attachments: elements.attachments,
   prompt: elements.prompt,
   send: elements.send,
   status: elements.status,

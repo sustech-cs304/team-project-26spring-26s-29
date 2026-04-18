@@ -87,10 +87,10 @@ Key validation rules:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/agent/run` | One-shot agent response |
-| `WS` | `/api/agent/run` | Streamed agent response used by Electron |
+| `POST` | `/api/agent/run` | One-shot agent response with structured message contents |
+| `WS` | `/api/agent/run` | Bidirectional streamed agent session used by Electron |
 
-The desktop app uses the WebSocket path so chat output can arrive incrementally.
+The desktop app uses the WebSocket path so chat output, approval requests, and resumed tool runs can all flow through one session.
 
 ## Todo Data Model
 
@@ -148,16 +148,19 @@ Important behaviors:
 - reads runtime config from `backend/config.py`
 - rebuilds the OpenAI-compatible client when model settings change
 - reuses a session while the backend process stays alive
-- streams both normal text chunks and formatted tool activity
+- streams structured assistant message snapshots
+- pauses and resumes the same run when a tool approval is required
 
 ### Current tool surface
 
-The only registered tool today is `manage_todo_list`, which supports:
+The current registered todo tools are:
 
-- `list`
-- `create`
-- `update`
-- `delete`
+- `list_todos`
+- `create_todo`
+- `update_todo`
+- `delete_todo`
+
+`list_todos` runs without approval. The write tools require explicit approval before execution.
 
 ### Current context providers
 

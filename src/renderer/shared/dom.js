@@ -1,6 +1,8 @@
 const $ = (id) => document.getElementById(id);
 
 const elements = {
+  attachmentButton: $("attach-file"),
+  attachments: $("attachments"),
   configFeedback: $("config-feedback"),
   configFields: $("config-fields"),
   configForm: $("config-form"),

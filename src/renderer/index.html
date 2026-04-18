@@ -48,10 +48,14 @@
               <span class="field__label">Message</span>
             </label>
             <textarea id="prompt" rows="4" placeholder="Type a message"></textarea>
+            <div id="attachments" class="composer-attachments" hidden></div>
 
             <div class="chat-toolbar">
+              <div class="chat-toolbar__actions">
+                <button id="attach-file" class="button button--secondary button--icon" type="button" aria-label="Add attachment">+</button>
+                <p class="chat-toolbar__hint">Attach images or text files. Use Ctrl/Cmd + Enter to send quickly.</p>
+              </div>
               <button id="send" type="button">Send</button>
-              <p class="chat-toolbar__hint">Use Ctrl/Cmd + Enter to send quickly.</p>
             </div>
           </section>
         </div>

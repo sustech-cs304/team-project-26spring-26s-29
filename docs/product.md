@@ -8,10 +8,10 @@ The app already provides three working desktop surfaces.
 
 ## Chat Workspace
 
-- The renderer sends prompts through Electron IPC.
+- The renderer sends structured chat inputs through Electron IPC.
 - Electron forwards chat requests to the local Python backend.
-- The backend streams replies over WebSocket.
-- The UI renders streamed chunks in real time.
+- The backend streams structured message snapshots over WebSocket.
+- The UI renders text, tool calls, approvals, images, and files in real time.
 
 This is the main proof that the desktop shell, local backend, and agent runtime can work together.
 
@@ -53,7 +53,7 @@ The current agent integration is intentionally narrow:
 
 - answer chat prompts through the configured model
 - inspect local todo items
-- create, update, and delete local todo items through `manage_todo_list`
+- create, update, and delete local todo items through approval-gated todo write tools
 - receive a small runtime summary containing current time and todo counts
 
 This is enough to validate tool calling and context injection without pretending the full product already exists.

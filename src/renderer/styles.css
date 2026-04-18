@@ -230,6 +230,12 @@ button {
   margin-top: 18px;
 }
 
+.chat-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .chat-toolbar__hint {
   margin: 0;
   color: var(--muted);
@@ -491,11 +497,186 @@ button {
 }
 
 .message__card {
+  display: grid;
+  gap: 10px;
   margin: 0;
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(36, 49, 39, 0.04);
+}
+
+.message__card-label,
+.composer-attachment__label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.message__filename,
+.composer-attachment__name,
+.message__toolname {
+  margin: 0;
+  font-weight: 700;
+}
+
+.message__filemeta,
+.composer-attachment__meta,
+.message__download-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.message__filepreview {
+  margin: 0;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.message__toolargs {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(31, 36, 31, 0.92);
+  color: #f8f2e7;
+  overflow: auto;
+}
+
+.message__toolresult > :last-child {
+  margin-bottom: 0;
+}
+
+.message__nested {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.message__approval-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.message__approval-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.message__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.message__badge--pending {
+  background: rgba(204, 106, 47, 0.14);
+  color: var(--accent-strong);
+}
+
+.message__badge--approved {
+  background: rgba(46, 107, 46, 0.14);
+  color: #2e6b2e;
+}
+
+.message__badge--rejected {
+  background: rgba(179, 61, 46, 0.14);
+  color: var(--danger);
+}
+
+.message__card--download {
+  width: 100%;
+  border: 1px solid var(--line);
+  text-align: left;
+  cursor: pointer;
+}
+
+.message__card--download:hover,
+.message__card--download:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(72, 47, 28, 0.1);
+}
+
+.message__card--error {
+  border-color: rgba(179, 61, 46, 0.32);
+  background: rgba(179, 61, 46, 0.08);
+}
+
+.message__image {
+  display: block;
+  width: min(100%, 420px);
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 14px;
+  background: rgba(36, 49, 39, 0.06);
+}
+
+.message__fileicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: rgba(36, 49, 39, 0.08);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.composer-attachments {
+  display: grid;
+  gap: 10px;
+}
+
+.composer-attachment {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(36, 49, 39, 0.04);
+}
+
+.composer-attachment__main {
+  display: grid;
+  gap: 4px;
+}
+
+.composer-attachment__remove,
+.button--icon {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.composer-attachment__remove {
+  border: 0;
+  background: rgba(36, 49, 39, 0.08);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.composer-attachment__remove:hover,
+.composer-attachment__remove:focus-visible {
+  outline: none;
+  background: rgba(36, 49, 39, 0.12);
 }
 
 .chat-composer {
@@ -542,6 +723,12 @@ button {
 .button--secondary:focus-visible {
   background: rgba(36, 49, 39, 0.12);
   box-shadow: none;
+}
+
+.button--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .button:disabled,
@@ -976,6 +1163,18 @@ button {
 
   .chat-toolbar__hint {
     text-align: center;
+  }
+
+  .chat-toolbar__actions {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .message__approval-header,
+  .composer-attachment {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .messages {
