@@ -1,5 +1,7 @@
 """Utilities for backend WebSocket responses."""
 
+from typing import Any
+
 from fastapi import WebSocket, WebSocketDisconnect
 
 
@@ -10,7 +12,7 @@ async def close_websocket(websocket: WebSocket) -> None:
         return
 
 
-async def send_websocket_json(websocket: WebSocket, payload: dict[str, str]) -> None:
+async def send_websocket_json(websocket: WebSocket, payload: dict[str, Any]) -> None:
     try:
         await websocket.send_json(payload)
     except RuntimeError as exc:
