@@ -244,8 +244,9 @@ function renderTodoList() {
 
     item.innerHTML = `
       <div class="todo-item__main">
-        <label class="todo-check" aria-label="Mark todo done">
+        <label class="todo-check ${todo.isDone ? "is-done" : ""}" aria-label="Mark todo done">
           <input data-todo-action="toggle" data-todo-id="${todo.id}" type="checkbox" ${todo.isDone ? "checked" : ""} />
+          <span class="todo-check__text">Done</span>
         </label>
         <div class="todo-item__content">
           <p class="todo-item__title">${escapeHtml(todo.title)}</p>
@@ -253,7 +254,7 @@ function renderTodoList() {
           <p class="todo-item__meta">Due: ${escapeHtml(formatDateTime(todo.dueAt))} | Updated: ${escapeHtml(formatDateTime(todo.updatedAt))}</p>
         </div>
       </div>
-      <div class="todo-item__actions">
+      <div class="todo-item__actions todo-item__actions--stacked">
         <button class="button button--secondary" data-todo-action="edit" data-todo-id="${todo.id}" type="button">Edit</button>
         <button class="button button--secondary" data-todo-action="delete" data-todo-id="${todo.id}" type="button">Delete</button>
       </div>

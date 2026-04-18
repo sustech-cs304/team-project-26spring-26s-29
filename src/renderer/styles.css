@@ -393,6 +393,37 @@ button {
 
 .todo-check {
   margin-top: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.todo-check input {
+  margin: 0;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.todo-check.is-done {
+  color: var(--accent-strong);
+  border-color: rgba(204, 106, 47, 0.45);
+  background: var(--accent-soft);
+}
+
+.todo-check__text {
+  white-space: nowrap;
 }
 
 .todo-item__content {
@@ -425,10 +456,20 @@ button {
   flex-wrap: nowrap;
 }
 
+.todo-item__actions--stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .todo-item__actions .button,
 .todo-item__actions .button--secondary {
   padding: 8px 12px;
   white-space: nowrap;
+}
+
+.todo-item__actions--stacked .button,
+.todo-item__actions--stacked .button--secondary {
+  width: 88px;
 }
 
 .todo-edit-grid {
