@@ -94,6 +94,10 @@ let activeRequestId = null;
 let savedConfig = null;
 let configInputs = {};
 let isConfigSaving = false;
+let activePage = "chat";
+let foregroundRefreshInFlight = null;
+let lastForegroundRefreshAt = 0;
+const FOREGROUND_REFRESH_COOLDOWN_MS = 300;
 let todoState = {
   items: [],
   filter: initialTodoViewState.filter,
@@ -474,6 +478,78 @@ async function loadTodosOnStartup() {
   } finally {
     setTodoBusy(false);
   }
+}
+
+async function refreshTodosOnForeground() {
+  if (activePage !== "todo" || document.hidden) {
+    return;
+  }
+
+  if (todoState.isBusy || todoState.editingId !== null) {
+    return;
+  }
+
+  setTodoBusy(true);
+  try {
+    await reloadTodos();
+  } catch (error) {
+    setTodoFeedback(getTodoErrorMessage(error), "error");
+  } finally {
+    setTodoBusy(false);
+  }
+}
+
+async function refreshConfigOnForeground() {
+  if (activePage !== "config" || document.hidden) {
+    return;
+  }
+
+  if (isConfigSaving || hasConfigChanges()) {
+    return;
+  }
+
+  try {
+    await loadConfig();
+  } catch (error) {
+    setConfigFeedback(error?.message || String(error), "error");
+  }
+}
+
+async function refreshActivePageOnForeground() {
+  if (document.hidden) {
+    return;
+  }
+
+  await refreshStatus();
+
+  if (activePage === "todo") {
+    await refreshTodosOnForeground();
+    return;
+  }
+
+  if (activePage === "config") {
+    await refreshConfigOnForeground();
+  }
+}
+
+function queueForegroundRefresh() {
+  if (document.hidden) {
+    return;
+  }
+
+  const now = Date.now();
+  if (foregroundRefreshInFlight || now - lastForegroundRefreshAt < FOREGROUND_REFRESH_COOLDOWN_MS) {
+    return;
+  }
+
+  foregroundRefreshInFlight = (async () => {
+    try {
+      await refreshActivePageOnForeground();
+    } finally {
+      lastForegroundRefreshAt = Date.now();
+      foregroundRefreshInFlight = null;
+    }
+  })();
 }
 
 function getVisibleTodos() {
@@ -876,6 +952,8 @@ function buildConfigFields() {
 }
 
 function setActivePage(pageName) {
+  activePage = pageName;
+
   navButtons.forEach((button) => {
     const isActive = button.dataset.pageTarget === pageName;
     button.classList.toggle("is-active", isActive);
@@ -892,6 +970,20 @@ function setActivePage(pageName) {
     page.classList.toggle("is-active", isActive);
     page.hidden = !isActive;
   });
+
+  queueForegroundRefresh();
+}
+
+function handleWindowFocus() {
+  queueForegroundRefresh();
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    return;
+  }
+
+  queueForegroundRefresh();
 }
 
 function toComparableValue(value) {
@@ -1049,6 +1141,8 @@ navButtons.forEach((button) => {
 });
 
 send.addEventListener("click", run);
+window.addEventListener("focus", handleWindowFocus);
+document.addEventListener("visibilitychange", handleVisibilityChange);
 prompt.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
     run();
