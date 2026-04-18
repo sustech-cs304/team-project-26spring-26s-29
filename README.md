@@ -10,7 +10,7 @@ What changed is the stack, not the purpose.
 The current repo is a minimal foundation for that product. Right now it proves the critical desktop boundary first:
 
 - Electron owns the app window, preload bridge, IPC, and Python process lifecycle.
-- Python owns the backend API and the Microsoft Agent Framework agent.
+- Python owns the backend API, agent runtime, and local data access.
 - The renderer is intentionally small and only talks through the Electron bridge.
 
 ## Current scope
@@ -31,7 +31,10 @@ backend/
 docs/
 src/electron/
 src/renderer/
+tests/
 ```
+
+Backend internals are documented in [docs/backend.md](./docs/backend.md).
 
 ## Run
 
@@ -50,6 +53,12 @@ Endpoints:
 - `GET http://127.0.0.1:8765/health`
 - `POST http://127.0.0.1:8765/api/agent/run`
 - `WS  ws://127.0.0.1:8765/api/agent/run`
+
+## Tests
+
+```powershell
+python -m unittest discover -s tests -v
+```
 
 ## Notes
 

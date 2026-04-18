@@ -26,7 +26,26 @@ They do different jobs and should stay separate.
 - Renderer owns the UI only.
 - Preload exposes a tiny safe bridge.
 - Electron main owns the window, IPC, backend process, and local HTTP calls.
-- Python owns the API, the agent call, and model credentials.
+- Python owns the API, the agent runtime, and local data access.
+
+## Backend split
+
+The backend is now internally layered:
+
+1. `backend/api`: FastAPI app assembly, routes, schemas
+2. `backend/agent`: runtime, tools, and context providers
+3. `backend/services`: business logic and read models
+4. `backend/repositories`: persistence contracts and TinyDB adapters
+
+Preferred dependency direction:
+
+```text
+api routes -> services -> repositories
+agent tools -> services -> repositories
+agent context -> services -> repositories
+```
+
+`backend/db` still exists as a compatibility facade, but new code should use `backend/repositories` directly.
 
 ## Validation policy
 
@@ -48,7 +67,7 @@ That means:
 - renderer checks user prompt input before invoking IPC
 - Electron config code normalizes file values and runtime config updates before syncing Python
 - FastAPI validates request shapes with Pydantic
-- backend helpers like `agent_service.py` and `backend/config.py` assume their callers already passed normalized data
+- backend services and repositories assume their callers already passed normalized data
 
 Future agents should preserve this style. If a new check is needed, add it at the first entry point for that input instead of adding the same guard in deeper layers.
 
@@ -62,6 +81,8 @@ The repo has two config layers:
 `config.json` is the persistent source of truth. Electron reads it on startup, starts Python with the startup config, then syncs the runtime agent config to FastAPI through `/api/config`.
 
 Only the OpenAI runtime keys are hot-updated through IPC. Host and port are startup settings and are read once when Electron boots.
+
+This Electron-owned config flow is intentional. The backend keeps an in-memory runtime config and does not manage the persistent config file itself.
 
 ## Request flow
 
@@ -79,7 +100,7 @@ Health checks use the same idea through `window.agentAPI.health()` and `GET /hea
 
 Runtime config uses a parallel path:
 
-1. Renderer calls `window.configAPI.get()` or `window.configAPI.update(key, value)`.
+1. Renderer calls `window.configAPI.get()` or `window.configAPI.save(config)`.
 2. Preload forwards that call through IPC.
 3. Electron config code reads or writes `config.json`.
 4. Electron syncs the runtime agent config to `POST /api/config`.
@@ -105,5 +126,7 @@ Runtime config uses a parallel path:
 This gives a clean upgrade path:
 
 - add more renderer views for chat, tasks, schedules, and settings
-- add more backend routes and tools
+- add more backend routes, services, repositories, and tools
 - keep the boundary stable while the product grows
+
+For backend-specific details, see `docs/backend.md`.
