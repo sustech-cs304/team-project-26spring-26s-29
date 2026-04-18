@@ -14,3 +14,11 @@ contextBridge.exposeInMainWorld("configAPI", {
   get: () => ipcRenderer.invoke("config:get"),
   save: (config) => ipcRenderer.invoke("config:save", config),
 });
+
+contextBridge.exposeInMainWorld("todoAPI", {
+  list: () => ipcRenderer.invoke("todo:list"),
+  create: (todo) => ipcRenderer.invoke("todo:create", todo),
+  update: (id, updates) => ipcRenderer.invoke("todo:update", { id, ...updates }),
+  remove: (id) => ipcRenderer.invoke("todo:delete", id),
+  clear: (scope) => ipcRenderer.invoke("todo:clear", scope),
+});
