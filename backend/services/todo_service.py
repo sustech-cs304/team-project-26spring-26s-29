@@ -5,20 +5,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from ..db import Todo, add_todo, delete_all_todos, delete_todo, get_todo, list_todos, update_todo
-
-
-UNSET = object()
+from ..repositories import UNSET, Todo, TodoRepository, todo_repository
 
 
 class TodoService:
     """Owns todo mutations and domain-facing CRUD behavior."""
 
+    def __init__(self, repository: TodoRepository) -> None:
+        self._repository = repository
+
     def list_todos(self) -> list[Todo]:
-        return list_todos()
+        return self._repository.list_todos()
 
     def get_todo(self, todo_id: int) -> Todo | None:
-        return get_todo(todo_id)
+        return self._repository.get_todo(todo_id)
 
     def create_todo(
         self,
@@ -27,7 +27,7 @@ class TodoService:
         detail: str,
         due_at: str | datetime | None = None,
     ) -> Todo:
-        return add_todo(title=title, detail=detail, due_at=due_at)
+        return self._repository.add_todo(title=title, detail=detail, due_at=due_at)
 
     def update_todo(
         self,
@@ -49,14 +49,14 @@ class TodoService:
         if is_done is not None:
             updates["is_done"] = is_done
 
-        return update_todo(todo_id, **updates)
+        return self._repository.update_todo(todo_id, **updates)
 
     def delete_todo(self, todo_id: int) -> bool:
-        return delete_todo(todo_id)
+        return self._repository.delete_todo(todo_id)
 
     def clear_todos(self, scope: Literal["all", "completed"]) -> int:
         if scope == "all":
-            return delete_all_todos()
+            return self._repository.delete_all_todos()
         if scope != "completed":
             raise ValueError(f"Unsupported todo clear scope: {scope}.")
 
@@ -68,4 +68,4 @@ class TodoService:
         return deleted_count
 
 
-todo_service = TodoService()
+todo_service = TodoService(todo_repository)

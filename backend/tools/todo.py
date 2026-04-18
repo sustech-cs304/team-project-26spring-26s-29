@@ -11,7 +11,7 @@ from pydantic import Field
 from ..services import UNSET, todo_service
 
 if TYPE_CHECKING:
-    from ..db import Todo
+    from ..repositories import Todo
 
 TodoAction = Literal["list", "create", "update", "delete"]
 

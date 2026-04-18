@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ...db import Todo
+from ...repositories import Todo
 
 
 class TodoResponse(BaseModel):
