@@ -6,7 +6,9 @@ from .todo import (
     delete_all_todos,
     delete_todo,
     get_database_path,
+    get_todo,
     initialize_database,
+    list_todos,
     update_todo,
 )
 
@@ -18,4 +20,6 @@ __all__ = [
     "delete_all_todos",
     "initialize_database",
     "get_database_path",
+    "get_todo",
+    "list_todos",
 ]
