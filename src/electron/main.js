@@ -8,7 +8,7 @@ const {
   registerConfigIpc,
   syncRuntimeConfig,
 } = require("./config");
-const { registerAgentIpc, registerTodoIpc } = require("./ipc");
+const { registerAgentIpc, registerTodoIpc, registerScheduleIpc } = require("./ipc");
 
 let config = readConfig();
 let python;
@@ -168,6 +168,7 @@ app.whenReady().then(async () => {
   registerConfigIpc({ onSave: saveConfig });
   registerAgentIpc({ getApi });
   registerTodoIpc({ getApi });
+  registerScheduleIpc({ getApi });
   createWindow();
 });
 app.on("before-quit", () => python?.kill());

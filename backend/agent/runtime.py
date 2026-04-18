@@ -12,7 +12,7 @@ from agent_framework.openai import OpenAIChatCompletionClient
 from ..config import get_config
 from .context import CurrentInfoProvider
 from .instructions import AGENT_INSTRUCTIONS
-from .tools import TODO_TOOLS
+from .tools import TOOLS
 
 
 TOOL_CONTENT_TYPES = {"function_call", "function_result", "function_approval_request"}
@@ -40,7 +40,7 @@ class AgentRuntime:
                 base_url=endpoint or None,
             ).as_agent(
                 instructions=AGENT_INSTRUCTIONS,
-                tools=TODO_TOOLS,
+                tools=TOOLS,
                 context_providers=[
                     InMemoryHistoryProvider("memory", load_messages=True),
                     CurrentInfoProvider(),

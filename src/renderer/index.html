@@ -20,6 +20,7 @@
       <nav class="sidebar__nav" aria-label="Page navigation">
         <button class="sidebar__link is-active" data-page-target="chat" type="button">Chat</button>
         <button class="sidebar__link" data-page-target="todo" type="button">Todo</button>
+        <button class="sidebar__link" data-page-target="schedule" type="button">Schedule</button>
         <button class="sidebar__link" data-page-target="config" type="button">Config</button>
       </nav>
 
@@ -126,6 +127,76 @@
 
         <div id="todo-list" class="todo-list" aria-live="polite"></div>
         <p id="todo-empty" class="todo-empty" hidden>No tasks in this view.</p>
+      </section>
+
+      <section class="page" data-page="schedule" hidden aria-labelledby="schedule-title">
+        <header class="page__header">
+          <p class="page__eyebrow">Workspace</p>
+          <h2 id="schedule-title">Schedule</h2>
+          <p class="page__copy">Calendar view: switch between month and week, click a day to view events.</p>
+        </header>
+
+        <div class="schedule-toolbar">
+          <div class="schedule-view-toggle">
+            <button id="schedule-prev" class="button button--secondary" type="button">◀</button>
+            <span id="schedule-current-month" class="schedule-month-label"></span>
+            <button id="schedule-next" class="button button--secondary" type="button">▶</button>
+          </div>
+          <div class="schedule-actions">
+            <label class="field" for="schedule-recurrence-filter">
+              <span class="field__label">View</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="calendar-wrapper" aria-hidden="false">
+          <div class="calendar-weekdays" role="row" aria-hidden="true">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+          </div>
+          <div id="schedule-calendar" class="calendar-grid" role="grid" aria-hidden="false"></div>
+        </div>
+
+        <section class="schedule-day" aria-labelledby="schedule-day-title">
+          <h3 id="schedule-day-title">Day events</h3>
+
+          <form id="schedule-create-form" class="todo-create-form">
+            <div class="todo-create-grid">
+              <label class="field" for="schedule-title-input">
+                <span class="field__label">Title</span>
+                <input id="schedule-title-input" class="todo-input" type="text" placeholder="Event title" required />
+              </label>
+
+              <label class="field" for="schedule-start-input">
+                <span class="field__label">Start</span>
+                <input id="schedule-start-input" class="todo-input" type="datetime-local" />
+              </label>
+
+              <label class="field" for="schedule-end-input">
+                <span class="field__label">End</span>
+                <input id="schedule-end-input" class="todo-input" type="datetime-local" />
+              </label>
+            </div>
+
+            <label class="field" for="schedule-detail-input">
+              <span class="field__label">Detail</span>
+              <textarea id="schedule-detail-input" class="todo-input todo-input--textarea" rows="2" placeholder="Optional notes"></textarea>
+            </label>
+
+            <div class="todo-create-actions">
+              <button id="schedule-create-button" class="button" type="submit">Add Event</button>
+            </div>
+          </form>
+
+          <p id="schedule-feedback" class="form-feedback" aria-live="polite"></p>
+
+          <div id="schedule-list" class="todo-list" aria-live="polite"></div>
+        </section>
       </section>
 
       <section class="page" data-page="config" hidden aria-labelledby="config-title">

@@ -4,8 +4,39 @@ const { ipcMain } = require("electron");
 const TODO_ERROR_PREFIX = "TODO_ERROR|";
 
 function createTodoError(category, detail) {
-  const normalizedDetail = String(detail || "Todo request failed.").trim();
+  const defaultMsg = "Todo request failed.";
+  let normalizedDetail;
+  if (detail === undefined || detail === null) {
+    normalizedDetail = defaultMsg;
+  } else if (typeof detail === "string") {
+    normalizedDetail = detail.trim() || defaultMsg;
+  } else {
+    try {
+      normalizedDetail = JSON.stringify(detail);
+    } catch {
+      normalizedDetail = String(detail).trim() || defaultMsg;
+    }
+  }
   return new Error(`${TODO_ERROR_PREFIX}${category}|${normalizedDetail}`);
+}
+
+const SCHEDULE_ERROR_PREFIX = "SCHEDULE_ERROR|";
+
+function createScheduleError(category, detail) {
+  const defaultMsg = "Schedule request failed.";
+  let normalizedDetail;
+  if (detail === undefined || detail === null) {
+    normalizedDetail = defaultMsg;
+  } else if (typeof detail === "string") {
+    normalizedDetail = detail.trim() || defaultMsg;
+  } else {
+    try {
+      normalizedDetail = JSON.stringify(detail);
+    } catch {
+      normalizedDetail = String(detail).trim() || defaultMsg;
+    }
+  }
+  return new Error(`${SCHEDULE_ERROR_PREFIX}${category}|${normalizedDetail}`);
 }
 
 async function ping(api) {
@@ -112,6 +143,150 @@ function registerTodoIpc({ getApi }) {
   });
 }
 
+
+function registerScheduleIpc({ getApi }) {
+  ipcMain.handle("schedule:list", async () => requestJson(getApi(), "/api/schedules"));
+
+  ipcMain.handle("schedule:listRange", async (_event, payload) => {
+    const start = payload?.start;
+    const end = payload?.end;
+    if (!start || !end) {
+      throw new Error("range start and end are required.");
+    }
+
+    const path = `/api/schedules/range?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+    try {
+      return await requestJson(getApi(), path);
+    } catch (error) {
+        const msg = error?.message || String(error);
+        const detail = msg.startsWith(SCHEDULE_ERROR_PREFIX) ? msg.slice(SCHEDULE_ERROR_PREFIX.length) : msg;
+        throw createScheduleError("server", detail);
+    }
+  });
+
+  ipcMain.handle("schedule:get", async (_event, eventIdPayload) => {
+    const id = Number(eventIdPayload);
+    if (!Number.isInteger(id)) {
+      throw new Error("Schedule id is required.");
+    }
+
+    try {
+      return await requestJson(getApi(), `/api/schedules/${id}`);
+    } catch (error) {
+      const msg = error?.message || String(error);
+      const detail = msg.startsWith(SCHEDULE_ERROR_PREFIX) ? msg.slice(SCHEDULE_ERROR_PREFIX.length) : msg;
+      throw createScheduleError("server", detail);
+    }
+  });
+
+  ipcMain.handle("schedule:create", async (_event, payload) => {
+    const body = {
+      title: payload?.title,
+      detail: payload?.detail ?? "",
+      startAt: payload?.startAt,
+      endAt: payload?.endAt,
+      allDay: payload?.allDay ?? false,
+      timezone: payload?.timezone ?? null,
+      location: payload?.location ?? null,
+      reminderOffsets: payload?.reminderOffsets ?? null,
+      recurrence: payload?.recurrence ?? null,
+      recurrenceEnd: payload?.recurrenceEnd ?? null,
+    };
+
+    try {
+      return await requestJson(getApi(), "/api/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      const msg = error?.message || String(error);
+      const detail = msg.startsWith(SCHEDULE_ERROR_PREFIX) ? msg.slice(SCHEDULE_ERROR_PREFIX.length) : msg;
+      throw createScheduleError("server", detail);
+    }
+  });
+
+  ipcMain.handle("schedule:update", async (_event, payload) => {
+    const eventId = Number(payload?.id);
+    if (!Number.isInteger(eventId)) {
+      throw new Error("Schedule id is required.");
+    }
+
+    const updates = {};
+    if (Object.prototype.hasOwnProperty.call(payload, "title")) {
+      updates.title = payload.title;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "detail")) {
+      updates.detail = payload.detail;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "startAt")) {
+      updates.startAt = payload.startAt;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "endAt")) {
+      updates.endAt = payload.endAt;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "allDay")) {
+      updates.allDay = payload.allDay;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "timezone")) {
+      updates.timezone = payload.timezone;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "location")) {
+      updates.location = payload.location;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "reminderOffsets")) {
+      updates.reminderOffsets = payload.reminderOffsets;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "recurrence")) {
+      updates.recurrence = payload.recurrence;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "recurrenceEnd")) {
+      updates.recurrenceEnd = payload.recurrenceEnd;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "isDone")) {
+      updates.isDone = payload.isDone;
+    }
+
+    try {
+      return await requestJson(getApi(), `/api/schedules/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+    } catch (error) {
+      const msg = error?.message || String(error);
+      const detail = msg.startsWith(SCHEDULE_ERROR_PREFIX) ? msg.slice(SCHEDULE_ERROR_PREFIX.length) : msg;
+      throw createScheduleError("server", detail);
+    }
+  });
+
+  ipcMain.handle("schedule:delete", async (_event, idPayload) => {
+    const eventId = Number(idPayload);
+    if (!Number.isInteger(eventId)) {
+      throw new Error("Schedule id is required.");
+    }
+
+    try {
+      return await requestJson(getApi(), `/api/schedules/${eventId}`, { method: "DELETE" });
+    } catch (error) {
+      const msg = error?.message || String(error);
+      const detail = msg.startsWith(SCHEDULE_ERROR_PREFIX) ? msg.slice(SCHEDULE_ERROR_PREFIX.length) : msg;
+      throw createScheduleError("server", detail);
+    }
+  });
+
+  ipcMain.handle("schedule:clear", async (_event, scopePayload) => {
+    const scope = scopePayload === "all" ? "all" : "all";
+    try {
+      return await requestJson(getApi(), `/api/schedules?scope=${encodeURIComponent(scope)}`, { method: "DELETE" });
+    } catch (error) {
+      const msg = error?.message || String(error);
+      const detail = msg.startsWith(SCHEDULE_ERROR_PREFIX) ? msg.slice(SCHEDULE_ERROR_PREFIX.length) : msg;
+      throw createScheduleError("server", detail);
+    }
+  });
+}
+
 function registerAgentIpc({ getApi }) {
   ipcMain.handle("agent:health", async () => ({ ok: await ping(getApi()) }));
 
@@ -184,4 +359,4 @@ function registerAgentIpc({ getApi }) {
   });
 }
 
-module.exports = { registerAgentIpc, registerTodoIpc };
+module.exports = { registerAgentIpc, registerTodoIpc, registerScheduleIpc };

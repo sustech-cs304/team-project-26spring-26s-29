@@ -22,3 +22,13 @@ contextBridge.exposeInMainWorld("todoAPI", {
   remove: (id) => ipcRenderer.invoke("todo:delete", id),
   clear: (scope) => ipcRenderer.invoke("todo:clear", scope),
 });
+
+contextBridge.exposeInMainWorld("scheduleAPI", {
+  list: () => ipcRenderer.invoke("schedule:list"),
+  listRange: (start, end) => ipcRenderer.invoke("schedule:listRange", { start, end }),
+  get: (id) => ipcRenderer.invoke("schedule:get", id),
+  create: (event) => ipcRenderer.invoke("schedule:create", event),
+  update: (id, updates) => ipcRenderer.invoke("schedule:update", { id, ...updates }),
+  remove: (id) => ipcRenderer.invoke("schedule:delete", id),
+  clear: (scope) => ipcRenderer.invoke("schedule:clear", scope),
+});

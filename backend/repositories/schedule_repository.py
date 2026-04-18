@@ -22,7 +22,11 @@ class ScheduleEvent:
     timezone: str
     location: str | None
     is_cancelled: bool
+    is_done: bool
+    completed_at: str | None
     reminder_offsets: list[int]
+    recurrence: str | None
+    recurrence_end: str | None
     created_at: str
     updated_at: str
     start_day: str
@@ -44,8 +48,12 @@ class ScheduleRepository(Protocol):
         all_day: bool = False,
         timezone_name: str | None = None,
         location: str | None = None,
+        is_done: bool = False,
+        completed_at: str | None = None,
         is_cancelled: bool = False,
         reminder_offsets: list[int] | tuple[int, ...] | None = None,
+        recurrence: str | None = None,
+        recurrence_end: str | None = None,
         db_path: str | Path | None = None,
     ) -> ScheduleEvent: ...
 
@@ -82,8 +90,11 @@ class ScheduleRepository(Protocol):
         all_day: bool | None = None,
         timezone_name: str | None = None,
         location: str | None | object = UNSET,
+        is_done: bool | None = None,
         is_cancelled: bool | None = None,
         reminder_offsets: list[int] | tuple[int, ...] | None | object = UNSET,
+        recurrence: str | None | object = UNSET,
+        recurrence_end: str | None | object = UNSET,
         db_path: str | Path | None = None,
     ) -> ScheduleEvent: ...
 

@@ -24,6 +24,8 @@ def add_schedule_event(
     location: str | None = None,
     is_cancelled: bool = False,
     reminder_offsets: list[int] | tuple[int, ...] | None = None,
+    recurrence: str | None = None,
+    recurrence_end: str | None = None,
     db_path: str | Path | None = None,
 ) -> ScheduleEvent:
     return schedule_repository.add_schedule_event(
@@ -36,6 +38,8 @@ def add_schedule_event(
         location=location,
         is_cancelled=is_cancelled,
         reminder_offsets=reminder_offsets,
+        recurrence=recurrence,
+        recurrence_end=recurrence_end,
         db_path=db_path,
     )
 
@@ -79,6 +83,8 @@ def update_schedule_event(
     location: str | None | object = UNSET,
     is_cancelled: bool | None = None,
     reminder_offsets: list[int] | tuple[int, ...] | None | object = UNSET,
+    recurrence: str | None | object = UNSET,
+    recurrence_end: str | None | object = UNSET,
     db_path: str | Path | None = None,
 ) -> ScheduleEvent:
     return schedule_repository.update_schedule_event(
@@ -92,6 +98,8 @@ def update_schedule_event(
         location=location,
         is_cancelled=is_cancelled,
         reminder_offsets=reminder_offsets,
+        recurrence=recurrence,
+        recurrence_end=recurrence_end,
         db_path=db_path,
     )
 
