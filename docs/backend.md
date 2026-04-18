@@ -1,16 +1,8 @@
-# Backend Architecture
+# Backend
 
-## Purpose
+This document focuses on the Python backend: its packages, public API surface, persistence model, and agent integration points.
 
-The backend is the Python process started by Electron. It serves three jobs:
-
-- expose local HTTP and WebSocket endpoints for the desktop app
-- run the agent runtime and tool adapters
-- persist local data through repositories
-
-Electron remains the owner of app startup and persistent config. The backend receives runtime config through `/api/config`, which is the intended design for this repo.
-
-## Directory layout
+## Directory Layout
 
 ```text
 backend/
@@ -20,9 +12,10 @@ backend/
     app.py
     routes/
     schemas/
+    websocket.py
   agent/
-    runtime.py
     instructions.py
+    runtime.py
     context/
     tools/
   services/
@@ -31,85 +24,177 @@ backend/
   db/
 ```
 
-### Responsibilities
+## Responsibilities By Area
 
-- `backend/app.py`: stable ASGI entry point for `uvicorn`
-- `backend/config.py`: in-memory runtime config store updated by Electron
-- `backend/api/`: FastAPI assembly, route handlers, request/response schemas
-- `backend/agent/`: agent runtime, tool registration, context providers
-- `backend/services/`: business logic and read-model assembly
-- `backend/repositories/`: persistence contracts and TinyDB implementations
-- `backend/db/`: compatibility facade over repositories; avoid adding new logic here
+- `backend/app.py`
+  Stable ASGI entry point used by `uvicorn`.
 
-## Dependency direction
+- `backend/config.py`
+  In-memory runtime config store for `dbPath`, `openaiApiKey`, `openaiChatModel`, and `openaiEndpoint`.
 
-New backend code should follow this direction:
+- `backend/api/`
+  FastAPI app factory, routes, request models, response models, and WebSocket helpers.
+
+- `backend/agent/`
+  Agent session lifecycle, prompt instructions, tool definitions, and runtime context providers.
+
+- `backend/services/`
+  Business-layer entry points. Today this mostly centers on Todo operations and Todo summaries.
+
+- `backend/repositories/`
+  Repository contracts plus TinyDB-backed implementations.
+
+- `backend/db/`
+  Legacy-style helper module still present in the repo. Current API and service flows use `repositories` directly.
+
+## Public API Surface
+
+The backend currently exposes three groups of endpoints.
+
+### Health And Runtime Config
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness check used by Electron startup |
+| `GET` | `/api/config` | Read backend runtime config |
+| `POST` | `/api/config` | Replace backend runtime config in memory |
+
+`POST /api/config` does not edit `config.json` directly. Electron remains the owner of the file on disk.
+
+### Todo API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/todos` | List all todo items |
+| `GET` | `/api/todos/{todo_id}` | Read one todo item |
+| `POST` | `/api/todos` | Create a todo |
+| `PATCH` | `/api/todos/{todo_id}` | Update one or more fields |
+| `DELETE` | `/api/todos/{todo_id}` | Delete one todo |
+| `DELETE` | `/api/todos?scope=all` | Clear all todos |
+| `DELETE` | `/api/todos?scope=completed` | Clear completed todos only |
+
+Todo validation lives in `backend/api/schemas/todo.py`.
+
+Key validation rules:
+
+- `title` is required for create
+- blank titles are rejected
+- `dueAt` must be an ISO 8601 datetime string or `null`
+- `PATCH` must provide at least one field
+- explicit `null` is rejected for `title`, `detail`, and `isDone`
+
+### Agent API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/agent/run` | One-shot agent response |
+| `WS` | `/api/agent/run` | Streamed agent response used by Electron |
+
+The desktop app uses the WebSocket path so chat output can arrive incrementally.
+
+## Todo Data Model
+
+The backend exposes Todo items with these fields:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | TinyDB document id |
+| `title` | Required short task title |
+| `detail` | Optional longer notes |
+| `dueAt` | Optional ISO datetime string |
+| `isDone` | Completion state |
+| `completedAt` | Completion timestamp or `null` |
+| `createdAt` | Creation timestamp |
+| `updatedAt` | Last update timestamp |
+
+The repository implementation stores timestamps in UTC ISO format.
+
+## Service Layer
+
+The main service objects are:
+
+- `todo_service`
+  CRUD-style mutations and list/get behavior
+
+- `todo_query_service`
+  Read-oriented summaries for runtime context, including counts such as open, done, overdue, and due today
+
+This separation keeps write operations and agent-facing summaries from drifting into route handlers.
+
+## Repository Layer
+
+`backend/repositories/` defines contracts and default TinyDB adapters:
+
+- `TodoRepository` / `TinyDbTodoRepository`
+- `ScheduleRepository` / `TinyDbScheduleRepository`
+
+Current production path:
 
 ```text
-api routes -> services -> repositories
-agent tools -> services -> repositories
-agent context -> services -> repositories
+FastAPI route
+  -> todo_service
+  -> TinyDbTodoRepository
+  -> TinyDB
 ```
 
-Rules:
+The schedule repository is already implemented and tested, but it is not yet wired into the UI or public API.
 
-- `api` validates and translates transport data, but does not implement storage logic
-- `services` own business rules
-- `repositories` own TinyDB access
-- `agent/runtime.py` owns agent lifecycle only
-- new code should import from `backend.agent`, `backend.services`, and `backend.repositories`
-- new code should not import from `backend.db` unless it is maintaining compatibility
+## Agent Runtime
 
-## Todo flow
+`backend/agent/runtime.py` owns the current chat runtime.
 
-Current todo handling is split like this:
+Important behaviors:
 
-1. FastAPI route in `backend/api/routes/todos.py`
-2. Business operation in `backend/services/todo_service.py`
-3. TinyDB adapter in `backend/repositories/tinydb/todo_repository.py`
+- reads runtime config from `backend/config.py`
+- rebuilds the OpenAI-compatible client when model settings change
+- reuses a session while the backend process stays alive
+- streams both normal text chunks and formatted tool activity
 
-The same service is reused by:
+### Current tool surface
 
-- `backend/agent/tools/todo_tool.py` for tool calls
-- `backend/services/todo_query_service.py` for runtime summaries
-- `backend/agent/context/current_info.py` for prompt context injection
+The only registered tool today is `manage_todo_list`, which supports:
 
-This keeps todo rules in one place and avoids route/tool/context drift.
+- `list`
+- `create`
+- `update`
+- `delete`
 
-## Agent flow
+### Current context providers
 
-`backend/agent/runtime.py` owns:
+`CurrentInfoProvider` injects a short runtime summary before each run, including:
 
-- reading runtime model config from `backend/config.py`
-- rebuilding the agent client when config changes
-- holding the current session
-- formatting streamed tool events and text chunks
+- local time metadata
+- current session id
+- todo counts and upcoming items when available
 
-Tool definitions live in `backend/agent/tools/`, and context providers live in `backend/agent/context/`.
+That gives the model lightweight awareness of the user's current todo state before it decides whether to call a tool.
 
-## Config model
+## Persistence Details
 
-This repo intentionally keeps persistent config in Electron:
+TinyDB path resolution is handled in `backend/repositories/tinydb/storage.py`:
 
-- `config.json` is read and written by Electron
-- Electron starts Python with host/port settings
-- Electron pushes runtime model config to `POST /api/config`
-- the backend stores the synced runtime values in memory through `backend/config.py`
-- when `dbPath` is unset, TinyDB defaults to `db.json` under the backend process cwd
+- use explicit `db_path` when passed
+- otherwise read `dbPath` from runtime config
+- otherwise fall back to `db.json` in the current working directory
 
-This means the backend is runtime-configurable without owning the source file on disk.
+The current tables are:
+
+- `todo_list`
+- `schedule_events`
 
 ## Tests
 
-Backend tests use the standard library `unittest` runner and temporary TinyDB files.
+Backend tests live under `tests/backend_suite/` and cover:
+
+- todo route behavior
+- config route behavior
+- todo service behavior
+- TinyDB repository round trips
+- agent tool behavior
+- agent context provider behavior
+
+Run them with:
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
-
-Coverage currently includes:
-
-- todo service behavior
-- TinyDB repository round trips
-- FastAPI todo/config routes
-- agent tool and context adapters

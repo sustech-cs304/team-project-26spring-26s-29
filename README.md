@@ -1,58 +1,63 @@
 # Student Productivity Agent
 
-This project still serves the product goal described in [PROPOSAL.md](./PROPOSAL.md): a desktop AI agent for SUSTech students that brings planning, reminders, campus information, and task management into one place.
+Student Productivity Agent is a desktop prototype for a student-facing planning assistant. The current implementation combines an Electron shell, a plain JavaScript renderer, and a Python FastAPI backend into one local app.
 
-What changed is the stack, not the purpose.
+This repository already contains a working vertical slice:
 
-- Old proposal stack: Tauri + React + Python
-- Current stack: Electron + plain renderer + Python
+- a streamed chat page backed by a Python agent runtime
+- a local-first Todo workspace with CRUD, filtering, sorting, and undo
+- a config page that edits local settings and syncs runtime model config to Python
+- local persistence through TinyDB
 
-The current repo is a minimal foundation for that product. Right now it proves the critical desktop boundary first:
+`docs/PROPOSAL.md` is the original project proposal and should be treated as historical context. The rest of the documentation describes the codebase as it exists today.
 
-- Electron owns the app window, preload bridge, IPC, and Python process lifecycle.
-- Python owns the backend API, agent runtime, and local data access.
-- The renderer is intentionally small and only talks through the Electron bridge.
+## Current Stack
 
-## Current scope
+- Desktop shell: Electron
+- Renderer: HTML, CSS, vanilla JavaScript
+- Backend API: FastAPI
+- Agent runtime: `agent-framework` with an OpenAI-compatible chat client
+- Local storage: TinyDB
 
-This version is not the full productivity agent yet. It is the first working slice:
+## Quick Start
 
-- a desktop window
-- a renderer -> Electron -> Python call chain
-- a FastAPI backend
-- a real Agent Framework call path
+1. Install Node.js and a recent `python` interpreter.
+2. Install frontend dependencies:
 
-That is the base we can build on for chat, schedules, tasks, campus knowledge, notifications, and safe automation later.
-
-## Structure
-
-```text
-backend/
-docs/
-src/electron/
-src/renderer/
-tests/
+```powershell
+npm install
 ```
 
-Backend internals are documented in [docs/backend.md](./docs/backend.md).
+3. Install backend dependencies:
 
-## Run
+```powershell
+python -m pip install -r backend/requirements.txt
+```
 
-1. Fill in `config.json`.
-2. Make sure `python` can import `agent_framework`, `fastapi`, and `uvicorn`.
-3. Run `npm start`.
+4. Edit `config.json` and set the values your environment needs:
 
-## Backend only
+- `backendHost`
+- `backendPort`
+- `dbPath`
+- `openaiApiKey`
+- `openaiChatModel`
+- `openaiEndpoint`
+
+5. Start the desktop app:
+
+```powershell
+npm start
+```
+
+When the backend is reachable and `openaiChatModel` is configured, the app status changes to `ready`.
+
+## Running Only The Backend
 
 ```powershell
 python -m uvicorn backend.app:app --host 127.0.0.1 --port 8765
 ```
 
-Endpoints:
-
-- `GET http://127.0.0.1:8765/health`
-- `POST http://127.0.0.1:8765/api/agent/run`
-- `WS  ws://127.0.0.1:8765/api/agent/run`
+Electron normally starts the backend for you, but this command is useful when testing the API in isolation.
 
 ## Tests
 
@@ -60,8 +65,30 @@ Endpoints:
 python -m unittest discover -s tests -v
 ```
 
+The current automated tests focus on backend routes, repositories, todo services, and agent-facing adapters.
+
+## Repository Map
+
+```text
+backend/        Python API, agent runtime, services, repositories
+docs/           Implementation-focused project documentation
+src/electron/   Electron main process, preload bridge, IPC, config sync
+src/renderer/   Desktop UI for chat, todo, and config pages
+tests/          Python unittest suites for backend behavior
+```
+
+## Documentation
+
+- [docs/README.md](./docs/README.md): documentation index
+- [docs/product.md](./docs/product.md): current product scope and implemented features
+- [docs/architecture.md](./docs/architecture.md): runtime boundaries and request flows
+- [docs/backend.md](./docs/backend.md): backend modules, API surface, persistence, and agent runtime
+- [docs/development.md](./docs/development.md): setup, config, testing, and contributor guidance
+- [docs/PROPOSAL.md](./docs/PROPOSAL.md): original proposal kept for historical reference
+
 ## Notes
 
-- `PROPOSAL.md` still describes the intended product direction.
-- The technical stack in that proposal is outdated.
-- The repo implementation should follow Electron + Python from now on.
+- `config.json` is the persistent source of truth for local app settings.
+- If `dbPath` is unset, TinyDB defaults to `db.json` in the project root when launched through Electron.
+- The schedule domain already has repository groundwork, but there is no schedule UI or public API yet.
+- Avoid committing real API keys or environment-specific secrets.
