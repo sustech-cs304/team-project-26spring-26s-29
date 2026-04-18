@@ -19,6 +19,7 @@ class RunRequest(BaseModel):
 
 
 class RuntimeConfigRequest(BaseModel):
+    dbPath: str | None = None
     openaiApiKey: str | None = None
     openaiChatModel: str | None = None
     openaiEndpoint: str | None = None
