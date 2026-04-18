@@ -1,3 +1,4 @@
 agent-framework
 fastapi
 uvicorn
+tinydb

@@ -1,16 +1,19 @@
-"""SQLite-backed todo storage."""
+"""TinyDB-backed todo storage."""
 
 from __future__ import annotations
 
-import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
+from tinydb import TinyDB
+from tinydb.table import Table
 
-_DEFAULT_DB_PATH = Path(__file__).resolve().parent / "todo.sqlite3"
+
+_DEFAULT_DB_PATH = Path(__file__).resolve().parent / "todo.json"
+_TABLE_NAME = "todo_list"
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +22,13 @@ class Todo:
     title: str
     detail: str
     due_at: str
+    is_done: bool
+    created_at: str
+    updated_at: str
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def get_database_path(db_path: str | Path | None = None) -> Path:
@@ -29,7 +39,7 @@ def get_database_path(db_path: str | Path | None = None) -> Path:
 
 def initialize_database(db_path: str | Path | None = None) -> Path:
     database_path = get_database_path(db_path)
-    with _connect(database_path):
+    with _table(database_path):
         pass
     return database_path
 
@@ -41,25 +51,25 @@ def add_todo(
     db_path: str | Path | None = None,
 ) -> Todo:
     due_at_value = _serialize_due_at(due_at)
+    timestamp = _utcnow_iso()
 
-    with _connect(get_database_path(db_path)) as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO todo_list (title, detail, due_at)
-            VALUES (?, ?, ?)
-            """,
-            (title, detail, due_at_value),
+    with _table(get_database_path(db_path)) as table:
+        todo_id = int(
+            table.insert(
+                {
+                    "title": title,
+                    "detail": detail,
+                    "due_at": due_at_value,
+                    "is_done": False,
+                    "created_at": timestamp,
+                    "updated_at": timestamp,
+                }
+            )
         )
-        row = connection.execute(
-            """
-            SELECT id, title, detail, due_at
-            FROM todo_list
-            WHERE id = ?
-            """,
-            (cursor.lastrowid,),
-        ).fetchone()
+        table.update({"id": todo_id}, doc_ids=[todo_id])
+        row = table.get(doc_id=todo_id)
 
-    return _row_to_todo(row)
+    return _row_to_todo(todo_id, row)
 
 
 def update_todo(
@@ -68,91 +78,67 @@ def update_todo(
     title: str | None = None,
     detail: str | None = None,
     due_at: str | datetime | None = None,
+    is_done: bool | None = None,
     db_path: str | Path | None = None,
 ) -> Todo:
-    assignments: list[str] = []
-    values: list[str | int] = []
+    updates: dict[str, object] = {}
 
     if title is not None:
-        assignments.append("title = ?")
-        values.append(title)
+        updates["title"] = title
     if detail is not None:
-        assignments.append("detail = ?")
-        values.append(detail)
+        updates["detail"] = detail
     if due_at is not None:
-        assignments.append("due_at = ?")
-        values.append(_serialize_due_at(due_at))
+        updates["due_at"] = _serialize_due_at(due_at)
+    if is_done is not None:
+        updates["is_done"] = is_done
 
-    if not assignments:
+    if not updates:
         raise ValueError("At least one todo field must be provided for update.")
 
-    with _connect(get_database_path(db_path)) as connection:
-        existing = connection.execute(
-            "SELECT id FROM todo_list WHERE id = ?",
-            (todo_id,),
-        ).fetchone()
+    with _table(get_database_path(db_path)) as table:
+        existing = table.get(doc_id=todo_id)
         if existing is None:
             raise KeyError(f"Todo item {todo_id} does not exist.")
 
-        values.append(todo_id)
-        connection.execute(
-            f"UPDATE todo_list SET {', '.join(assignments)} WHERE id = ?",
-            values,
-        )
-        row = connection.execute(
-            """
-            SELECT id, title, detail, due_at
-            FROM todo_list
-            WHERE id = ?
-            """,
-            (todo_id,),
-        ).fetchone()
+        if "id" not in existing:
+            updates["id"] = todo_id
+        if "is_done" not in existing and "is_done" not in updates:
+            updates["is_done"] = False
+        if "created_at" not in existing:
+            updates["created_at"] = _utcnow_iso()
 
-    return _row_to_todo(row)
+        updates["updated_at"] = _utcnow_iso()
+        table.update(updates, doc_ids=[todo_id])
+        row = table.get(doc_id=todo_id)
+
+    return _row_to_todo(todo_id, row)
 
 
 def delete_todo(todo_id: int, db_path: str | Path | None = None) -> bool:
-    with _connect(get_database_path(db_path)) as connection:
-        cursor = connection.execute(
-            "DELETE FROM todo_list WHERE id = ?",
-            (todo_id,),
-        )
+    with _table(get_database_path(db_path)) as table:
+        removed_ids = table.remove(doc_ids=[todo_id])
 
-    return cursor.rowcount > 0
+    return len(removed_ids) > 0
 
 
 def delete_all_todos(db_path: str | Path | None = None) -> int:
-    with _connect(get_database_path(db_path)) as connection:
-        cursor = connection.execute("DELETE FROM todo_list")
+    with _table(get_database_path(db_path)) as table:
+        removed_count = len(table)
+        table.truncate()
 
-    return cursor.rowcount
+    return removed_count
 
 
 @contextmanager
-def _connect(database_path: Path) -> Iterator[sqlite3.Connection]:
+def _table(database_path: Path) -> Iterator[Table]:
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(database_path)
-    connection.row_factory = sqlite3.Row
-    _initialize_schema(connection)
+    database = TinyDB(str(database_path))
+    table = database.table(_TABLE_NAME)
 
     try:
-        yield connection
-        connection.commit()
+        yield table
     finally:
-        connection.close()
-
-
-def _initialize_schema(connection: sqlite3.Connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS todo_list (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            detail TEXT NOT NULL,
-            due_at TEXT NOT NULL
-        )
-        """
-    )
+        database.close()
 
 
 def _serialize_due_at(value: str | datetime) -> str:
@@ -161,13 +147,21 @@ def _serialize_due_at(value: str | datetime) -> str:
     return value
 
 
-def _row_to_todo(row: sqlite3.Row | None) -> Todo:
+def _row_to_todo(todo_id: int, row: dict[str, object] | None) -> Todo:
     if row is None:
         raise RuntimeError("Todo query did not return a row.")
 
+    actual_id = int(row.get("id", todo_id))
+    is_done = bool(row.get("is_done", False))
+    created_at = str(row.get("created_at", ""))
+    updated_at = str(row.get("updated_at", ""))
+
     return Todo(
-        id=row["id"],
-        title=row["title"],
-        detail=row["detail"],
-        due_at=row["due_at"],
+        id=actual_id,
+        title=str(row["title"]),
+        detail=str(row["detail"]),
+        due_at=str(row["due_at"]),
+        is_done=is_done,
+        created_at=created_at,
+        updated_at=updated_at,
     )
