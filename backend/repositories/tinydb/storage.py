@@ -12,7 +12,7 @@ from tinydb.table import Table
 from ...config import get_config
 
 
-_DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "db" / "db.json"
+_DEFAULT_DB_PATH = Path.cwd() / "db.json"
 
 
 def get_database_path(db_path: str | Path | None = None) -> Path:

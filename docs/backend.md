@@ -95,6 +95,7 @@ This repo intentionally keeps persistent config in Electron:
 - Electron starts Python with host/port settings
 - Electron pushes runtime model config to `POST /api/config`
 - the backend stores the synced runtime values in memory through `backend/config.py`
+- when `dbPath` is unset, TinyDB defaults to `db.json` under the backend process cwd
 
 This means the backend is runtime-configurable without owning the source file on disk.
 
