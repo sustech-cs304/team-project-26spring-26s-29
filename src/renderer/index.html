@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agent Console</title>
     <link rel="stylesheet" href="./styles.css" />
@@ -34,22 +37,24 @@
             <p class="page__copy">Send prompts to the Python agent and watch the streamed reply land live.</p>
           </header>
 
-          <label class="field" for="prompt">
-            <span class="field__label">Prompt</span>
-          </label>
-          <textarea id="prompt" rows="7" placeholder="Ask something"></textarea>
+          <div class="chat-layout">
+            <section id="messages" class="messages" aria-label="Conversation"></section>
+            <button id="scroll-to-bottom" class="scroll-to-bottom" type="button" aria-label="Scroll to bottom" hidden>
+              <span class="scroll-to-bottom__icon" aria-hidden="true">&#8595;</span>
+            </button>
 
-          <div class="chat-toolbar">
-            <button id="send" type="button">Send</button>
-            <p class="chat-toolbar__hint">Use Ctrl/Cmd + Enter to send quickly.</p>
+            <section class="chat-composer" aria-label="Message composer">
+              <label class="field" for="prompt">
+                <span class="field__label">Message</span>
+              </label>
+              <textarea id="prompt" rows="4" placeholder="Type a message"></textarea>
+
+              <div class="chat-toolbar">
+                <button id="send" type="button">Send</button>
+                <p class="chat-toolbar__hint">Use Ctrl/Cmd + Enter to send quickly.</p>
+              </div>
+            </section>
           </div>
-
-          <section class="response-card" aria-labelledby="response-title">
-            <div class="response-card__header">
-              <h3 id="response-title">Response</h3>
-            </div>
-            <pre id="response">waiting...</pre>
-          </section>
         </section>
 
         <section class="page" data-page="config" hidden aria-labelledby="config-title">

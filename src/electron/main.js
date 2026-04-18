@@ -154,12 +154,67 @@ async function saveConfig(payload) {
   }
 }
 
+function isZoomInShortcut(input) {
+  if (!input.control && !input.meta) {
+    return false;
+  }
+
+  return (
+    input.code === "Equal" ||
+    input.key === "=" ||
+    input.key === "+" ||
+    input.code === "NumpadAdd"
+  );
+}
+
+function isZoomOutShortcut(input) {
+  if (!input.control && !input.meta) {
+    return false;
+  }
+
+  return input.code === "Minus" || input.key === "-";
+}
+
+function isResetZoomShortcut(input) {
+  if (!input.control && !input.meta) {
+    return false;
+  }
+
+  return input.code === "Digit0" || input.key === "0";
+}
+
+function adjustZoom(webContents, delta) {
+  const nextFactor = Math.min(3, Math.max(0.5, webContents.getZoomFactor() + delta));
+  webContents.setZoomFactor(nextFactor);
+}
+
 function createWindow() {
-  new BrowserWindow({
+  const window = new BrowserWindow({
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
-  }).loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+  });
+
+  window.webContents.on("before-input-event", (event, input) => {
+    if (isZoomInShortcut(input)) {
+      event.preventDefault();
+      adjustZoom(window.webContents, 0.1);
+      return;
+    }
+
+    if (isZoomOutShortcut(input)) {
+      event.preventDefault();
+      adjustZoom(window.webContents, -0.1);
+      return;
+    }
+
+    if (isResetZoomShortcut(input)) {
+      event.preventDefault();
+      window.webContents.setZoomFactor(1);
+    }
+  });
+
+  window.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
 }
 
 app.whenReady().then(async () => {
