@@ -2,11 +2,14 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("agentAPI", {
   health: () => ipcRenderer.invoke("agent:health"),
-  runPrompt: (message, requestId) => ipcRenderer.invoke("agent:run", { message, requestId }),
-  onStreamChunk: (callback) => {
+  pickAttachments: () => ipcRenderer.invoke("agent:pick-attachments"),
+  runPrompt: (payload) => ipcRenderer.invoke("agent:run", payload),
+  respondApproval: (payload) => ipcRenderer.invoke("agent:approval", payload),
+  saveOutputPart: (part) => ipcRenderer.invoke("agent:save-output-part", part),
+  onStreamEvent: (callback) => {
     const listener = (_event, payload) => callback(payload);
-    ipcRenderer.on("agent:stream:chunk", listener);
-    return () => ipcRenderer.removeListener("agent:stream:chunk", listener);
+    ipcRenderer.on("agent:stream:event", listener);
+    return () => ipcRenderer.removeListener("agent:stream:event", listener);
   },
 });
 
