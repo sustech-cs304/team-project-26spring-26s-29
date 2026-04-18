@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 from agent_framework import tool
 from pydantic import Field
 
+from ..services import UNSET, todo_service
+
 if TYPE_CHECKING:
     from ..db import Todo
 
@@ -50,10 +52,8 @@ def manage_todo_list(
     ] = None,
 ) -> dict[str, Any]:
     """Read the todo list or create, update, and delete local todo items."""
-    add_todo, delete_todo, list_todos, update_todo = _get_todo_store()
-
     if action == "list":
-        todos = [_serialize_todo(todo) for todo in list_todos()]
+        todos = [_serialize_todo(todo) for todo in todo_service.list_todos()]
         return {
             "action": "list",
             "count": len(todos),
@@ -61,7 +61,7 @@ def manage_todo_list(
         }
 
     if action == "create":
-        todo = add_todo(
+        todo = todo_service.create_todo(
             title=_normalize_title(title),
             detail=_normalize_detail(detail),
             due_at=_normalize_due_at(due_at),
@@ -86,13 +86,20 @@ def manage_todo_list(
             updates["due_at"] = None
         elif due_at is not None:
             updates["due_at"] = _normalize_due_at(due_at)
+        else:
+            updates["due_at"] = UNSET
         if is_done is not None:
             updates["is_done"] = is_done
 
-        if not updates:
+        if (
+            updates.get("title") is None
+            and updates.get("detail") is None
+            and updates.get("due_at", UNSET) is UNSET
+            and updates.get("is_done") is None
+        ):
             raise ValueError("Update requires at least one field to change.")
 
-        todo = update_todo(todo_id_value, **updates)
+        todo = todo_service.update_todo(todo_id_value, **updates)
         return {
             "action": "update",
             "message": f"Updated todo {todo.id}.",
@@ -101,7 +108,7 @@ def manage_todo_list(
 
     if action == "delete":
         todo_id_value = _require_todo_id(todo_id)
-        deleted = delete_todo(todo_id_value)
+        deleted = todo_service.delete_todo(todo_id_value)
         if not deleted:
             raise KeyError(f"Todo item {todo_id_value} does not exist.")
         return {
@@ -178,9 +185,3 @@ def _serialize_todo(todo: Todo) -> dict[str, Any]:
         "created_at": todo.created_at,
         "updated_at": todo.updated_at,
     }
-
-
-def _get_todo_store() -> tuple[Any, Any, Any, Any]:
-    from ..db import add_todo, delete_todo, list_todos, update_todo
-
-    return add_todo, delete_todo, list_todos, update_todo
