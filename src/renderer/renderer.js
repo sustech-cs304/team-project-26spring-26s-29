@@ -49,6 +49,8 @@ const todoFilterButtons = Array.from(document.querySelectorAll("[data-todo-filte
 const navButtons = Array.from(document.querySelectorAll("[data-page-target]"));
 const pages = Array.from(document.querySelectorAll("[data-page]"));
 
+const TODO_ERROR_PREFIX = "TODO_ERROR|";
+
 let isRunning = false;
 let activeRequestId = null;
 let savedConfig = null;
@@ -58,16 +60,13 @@ let todoState = {
   items: [],
   filter: "all",
   editingId: null,
+  isBusy: false,
 };
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-function nowIso() {
-  return new Date().toISOString();
-}
 
 function escapeHtml(value) {
   return String(value)
@@ -141,42 +140,121 @@ function setTodoFeedback(message = "", state = "") {
   delete todoFeedback.dataset.state;
 }
 
-function seedMockTodos() {
-  const now = new Date();
-  const toIso = (offsetHours) => new Date(now.getTime() + offsetHours * 3600 * 1000).toISOString();
+function parseTodoId(rawId) {
+  const parsed = Number.parseInt(String(rawId), 10);
+  if (!Number.isInteger(parsed)) {
+    return null;
+  }
 
-  todoState.items = [
-    {
-      id: crypto.randomUUID(),
-      title: "Prepare project weekly report",
-      detail: "Summarize progress and blockers for Friday sync.",
-      dueAt: toIso(-6),
-      isDone: false,
-      completedAt: null,
-      createdAt: toIso(-48),
-      updatedAt: toIso(-6),
-    },
-    {
-      id: crypto.randomUUID(),
-      title: "Review database module changes",
-      detail: "Check due_at nullable and completed_at behavior.",
-      dueAt: toIso(18),
-      isDone: false,
-      completedAt: null,
-      createdAt: toIso(-24),
-      updatedAt: toIso(-3),
-    },
-    {
-      id: crypto.randomUUID(),
-      title: "Clean up legacy notes",
-      detail: "Archive obsolete design notes from phase A.",
-      dueAt: toIso(-30),
-      isDone: true,
-      completedAt: toIso(-4),
-      createdAt: toIso(-72),
-      updatedAt: toIso(-4),
-    },
-  ];
+  return parsed;
+}
+
+function normalizeTodoItem(rawTodo) {
+  const parsedId = parseTodoId(rawTodo?.id);
+  if (parsedId === null) {
+    throw new Error("Invalid todo id returned from backend.");
+  }
+
+  return {
+    id: parsedId,
+    title: String(rawTodo?.title ?? ""),
+    detail: String(rawTodo?.detail ?? ""),
+    dueAt: rawTodo?.dueAt ?? null,
+    isDone: Boolean(rawTodo?.isDone),
+    completedAt: rawTodo?.completedAt ?? null,
+    createdAt: String(rawTodo?.createdAt ?? ""),
+    updatedAt: String(rawTodo?.updatedAt ?? ""),
+  };
+}
+
+function getTodoErrorMessage(error) {
+  const rawMessage = error?.message || String(error) || "Todo request failed.";
+
+  if (rawMessage.startsWith(TODO_ERROR_PREFIX)) {
+    const encoded = rawMessage.slice(TODO_ERROR_PREFIX.length);
+    const separatorIndex = encoded.indexOf("|");
+    const category = separatorIndex < 0 ? encoded : encoded.slice(0, separatorIndex);
+    const detail = separatorIndex < 0 ? "" : encoded.slice(separatorIndex + 1);
+
+    if (category === "network") {
+      return "Network error: cannot connect to backend service. Check backend host and port settings.";
+    }
+    if (category === "not-found") {
+      return "Task not found. It may have been deleted in another operation. Please refresh and retry.";
+    }
+    if (category === "validation") {
+      return detail ? `Invalid input: ${detail}` : "Invalid input. Please check required fields and try again.";
+    }
+    if (category === "server") {
+      return detail ? `Server error: ${detail}` : "Server error. Please retry in a moment.";
+    }
+  }
+
+  if (rawMessage.includes("Cannot reach backend service") || rawMessage.includes("Failed to fetch")) {
+    return "Network error: cannot connect to backend service. Check backend host and port settings.";
+  }
+
+  if (rawMessage.includes("does not exist")) {
+    return "Task not found. It may have been deleted in another operation. Please refresh and retry.";
+  }
+
+  return rawMessage;
+}
+
+async function reloadTodos() {
+  const payload = await window.todoAPI.list();
+  if (!Array.isArray(payload)) {
+    throw new Error("Invalid todo list response from backend.");
+  }
+
+  todoState.items = payload.map(normalizeTodoItem);
+}
+
+function setTodoBusy(nextBusy) {
+  todoState.isBusy = nextBusy;
+  renderTodoList();
+}
+
+async function runTodoMutation(action, pendingMessage, onSuccess) {
+  if (todoState.isBusy) {
+    return false;
+  }
+
+  setTodoBusy(true);
+  setTodoFeedback(pendingMessage, "pending");
+
+  try {
+    const result = await action();
+    await reloadTodos();
+    todoState.editingId = null;
+
+    if (typeof onSuccess === "function") {
+      onSuccess(result);
+    } else {
+      setTodoFeedback("", "");
+    }
+
+    return true;
+  } catch (error) {
+    setTodoFeedback(getTodoErrorMessage(error), "error");
+    return false;
+  } finally {
+    setTodoBusy(false);
+  }
+}
+
+async function loadTodosOnStartup() {
+  setTodoBusy(true);
+  setTodoFeedback("Loading tasks...", "pending");
+
+  try {
+    await reloadTodos();
+    setTodoFeedback("", "");
+  } catch (error) {
+    setTodoFeedback(getTodoErrorMessage(error), "error");
+  } finally {
+    setTodoBusy(false);
+  }
 }
 
 function getVisibleTodos() {
@@ -196,6 +274,7 @@ function renderTodoFilters() {
   todoFilterButtons.forEach((button) => {
     const isActive = button.dataset.todoFilter === todoState.filter;
     button.classList.toggle("is-active", isActive);
+    button.disabled = todoState.isBusy;
     if (isActive) {
       button.setAttribute("aria-current", "true");
       return;
@@ -209,17 +288,18 @@ function renderTodoBulkActions() {
   const hasItems = todoState.items.length > 0;
   const hasDoneItems = todoState.items.some((item) => item.isDone);
 
-  todoClearAll.disabled = !hasItems;
-  todoClearCompleted.disabled = !hasDoneItems;
+  todoClearAll.disabled = todoState.isBusy || !hasItems;
+  todoClearCompleted.disabled = todoState.isBusy || !hasDoneItems;
 }
 
 function renderTodoList() {
   const visibleTodos = getVisibleTodos();
+  const disabledAttr = todoState.isBusy ? "disabled" : "";
 
   const nodes = visibleTodos.map((todo) => {
     const item = document.createElement("li");
     item.className = "todo-item";
-    item.dataset.todoId = todo.id;
+    item.dataset.todoId = String(todo.id);
     if (todo.isDone) {
       item.classList.add("is-done");
     }
@@ -230,12 +310,12 @@ function renderTodoList() {
     if (todoState.editingId === todo.id) {
       item.innerHTML = `
         <div class="todo-edit-grid">
-          <input class="todo-input" data-todo-edit="title" type="text" value="${escapeHtml(todo.title)}" />
-          <input class="todo-input" data-todo-edit="dueAt" type="datetime-local" value="${toDateTimeLocalValue(todo.dueAt)}" />
-          <textarea class="todo-input todo-input--textarea" data-todo-edit="detail" rows="2">${escapeHtml(todo.detail || "")}</textarea>
+          <input class="todo-input" data-todo-edit="title" type="text" value="${escapeHtml(todo.title)}" ${disabledAttr} />
+          <input class="todo-input" data-todo-edit="dueAt" type="datetime-local" value="${toDateTimeLocalValue(todo.dueAt)}" ${disabledAttr} />
+          <textarea class="todo-input todo-input--textarea" data-todo-edit="detail" rows="2" ${disabledAttr}>${escapeHtml(todo.detail || "")}</textarea>
           <div class="todo-item__actions">
-            <button class="button" data-todo-action="save-edit" data-todo-id="${todo.id}" type="button">Save</button>
-            <button class="button button--secondary" data-todo-action="cancel-edit" data-todo-id="${todo.id}" type="button">Cancel</button>
+            <button class="button" data-todo-action="save-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Save</button>
+            <button class="button button--secondary" data-todo-action="cancel-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Cancel</button>
           </div>
         </div>
       `;
@@ -245,7 +325,7 @@ function renderTodoList() {
     item.innerHTML = `
       <div class="todo-item__main">
         <label class="todo-check ${todo.isDone ? "is-done" : ""}" aria-label="Mark todo done">
-          <input data-todo-action="toggle" data-todo-id="${todo.id}" type="checkbox" ${todo.isDone ? "checked" : ""} />
+          <input data-todo-action="toggle" data-todo-id="${todo.id}" type="checkbox" ${todo.isDone ? "checked" : ""} ${disabledAttr} />
           <span class="todo-check__text">Done</span>
         </label>
         <div class="todo-item__content">
@@ -255,8 +335,8 @@ function renderTodoList() {
         </div>
       </div>
       <div class="todo-item__actions todo-item__actions--stacked">
-        <button class="button button--secondary" data-todo-action="edit" data-todo-id="${todo.id}" type="button">Edit</button>
-        <button class="button button--secondary" data-todo-action="delete" data-todo-id="${todo.id}" type="button">Delete</button>
+        <button class="button button--secondary" data-todo-action="edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Edit</button>
+        <button class="button button--secondary" data-todo-action="delete" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Delete</button>
       </div>
     `;
 
@@ -269,12 +349,11 @@ function renderTodoList() {
   renderTodoBulkActions();
 }
 
-function updateTodoById(todoId, updater) {
-  todoState.items = todoState.items.map((item) => (item.id === todoId ? updater(item) : item));
-}
-
-function handleTodoCreate(event) {
+async function handleTodoCreate(event) {
   event.preventDefault();
+  if (todoState.isBusy) {
+    return;
+  }
 
   const title = todoTitleInput.value.trim();
   if (!title) {
@@ -282,64 +361,76 @@ function handleTodoCreate(event) {
     return;
   }
 
-  const now = nowIso();
-  const created = {
-    id: crypto.randomUUID(),
-    title,
-    detail: todoDetailInput.value.trim(),
-    dueAt: fromDateTimeLocalValue(todoDueInput.value),
-    isDone: false,
-    completedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const created = await runTodoMutation(
+    () =>
+      window.todoAPI.create({
+        title,
+        detail: todoDetailInput.value.trim(),
+        dueAt: fromDateTimeLocalValue(todoDueInput.value),
+      }),
+    "Adding task...",
+    () => setTodoFeedback("Task added.", "success"),
+  );
 
-  todoState.items = [created, ...todoState.items];
-  todoCreateForm.reset();
-  todoState.editingId = null;
-  setTodoFeedback("Task added.", "success");
-  renderTodoList();
+  if (created) {
+    todoCreateForm.reset();
+  }
 }
 
-function handleTodoListChange(event) {
+async function handleTodoListChange(event) {
   const toggle = event.target.closest('[data-todo-action="toggle"]');
-  if (!toggle) {
+  if (!toggle || todoState.isBusy) {
     return;
   }
 
-  const todoId = toggle.dataset.todoId;
+  const todoId = parseTodoId(toggle.dataset.todoId);
+  if (todoId === null) {
+    setTodoFeedback("Invalid todo id.", "error");
+    return;
+  }
+
   const checked = Boolean(toggle.checked);
 
-  updateTodoById(todoId, (item) => ({
-    ...item,
-    isDone: checked,
-    completedAt: checked ? nowIso() : null,
-    updatedAt: nowIso(),
-  }));
-
-  renderTodoList();
+  await runTodoMutation(
+    () => window.todoAPI.update(todoId, { isDone: checked }),
+    checked ? "Marking task done..." : "Marking task active...",
+    () => setTodoFeedback(checked ? "Task marked done." : "Task marked active.", "success"),
+  );
 }
 
-function handleTodoListClick(event) {
+async function handleTodoListClick(event) {
   const actionTarget = event.target.closest("[data-todo-action]");
   if (!actionTarget) {
     return;
   }
 
   const action = actionTarget.dataset.todoAction;
-  const todoId = actionTarget.dataset.todoId;
+  const todoId = parseTodoId(actionTarget.dataset.todoId);
 
   if (action === "delete") {
-    todoState.items = todoState.items.filter((item) => item.id !== todoId);
-    if (todoState.editingId === todoId) {
-      todoState.editingId = null;
+    if (todoId === null) {
+      setTodoFeedback("Invalid todo id.", "error");
+      return;
     }
-    setTodoFeedback("Task deleted.", "success");
-    renderTodoList();
+
+    await runTodoMutation(
+      () => window.todoAPI.remove(todoId),
+      "Deleting task...",
+      () => setTodoFeedback("Task deleted.", "success"),
+    );
+    return;
+  }
+
+  if (todoState.isBusy) {
     return;
   }
 
   if (action === "edit") {
+    if (todoId === null) {
+      setTodoFeedback("Invalid todo id.", "error");
+      return;
+    }
+
     todoState.editingId = todoId;
     setTodoFeedback("Editing task...", "pending");
     renderTodoList();
@@ -354,6 +445,11 @@ function handleTodoListClick(event) {
   }
 
   if (action === "save-edit") {
+    if (todoId === null) {
+      setTodoFeedback("Invalid todo id.", "error");
+      return;
+    }
+
     const todoItem = actionTarget.closest(".todo-item");
     if (!todoItem) {
       return;
@@ -372,21 +468,24 @@ function handleTodoListClick(event) {
     const nextDetail = detailInput?.value.trim() || "";
     const nextDueAt = fromDateTimeLocalValue(dueInput?.value || "");
 
-    updateTodoById(todoId, (item) => ({
-      ...item,
-      title: nextTitle,
-      detail: nextDetail,
-      dueAt: nextDueAt,
-      updatedAt: nowIso(),
-    }));
-
-    todoState.editingId = null;
-    setTodoFeedback("Task updated.", "success");
-    renderTodoList();
+    await runTodoMutation(
+      () =>
+        window.todoAPI.update(todoId, {
+          title: nextTitle,
+          detail: nextDetail,
+          dueAt: nextDueAt,
+        }),
+      "Updating task...",
+      () => setTodoFeedback("Task updated.", "success"),
+    );
   }
 }
 
 function handleTodoFilterClick(event) {
+  if (todoState.isBusy) {
+    return;
+  }
+
   const target = event.currentTarget;
   const nextFilter = target.dataset.todoFilter;
   if (!nextFilter || nextFilter === todoState.filter) {
@@ -398,21 +497,26 @@ function handleTodoFilterClick(event) {
   renderTodoList();
 }
 
-function clearCompletedTodos() {
-  const before = todoState.items.length;
-  todoState.items = todoState.items.filter((item) => !item.isDone);
-  todoState.editingId = null;
-  const deletedCount = before - todoState.items.length;
-  setTodoFeedback(deletedCount ? `Cleared ${deletedCount} completed task(s).` : "No completed tasks.", "success");
-  renderTodoList();
+async function clearCompletedTodos() {
+  await runTodoMutation(
+    () => window.todoAPI.clear("completed"),
+    "Clearing completed tasks...",
+    (result) => {
+      const deletedCount = Number(result?.deletedCount ?? 0);
+      setTodoFeedback(deletedCount ? `Cleared ${deletedCount} completed task(s).` : "No completed tasks.", "success");
+    },
+  );
 }
 
-function clearAllTodos() {
-  const before = todoState.items.length;
-  todoState.items = [];
-  todoState.editingId = null;
-  setTodoFeedback(before ? "Cleared all tasks." : "Task list is already empty.", "success");
-  renderTodoList();
+async function clearAllTodos() {
+  await runTodoMutation(
+    () => window.todoAPI.clear("all"),
+    "Clearing all tasks...",
+    (result) => {
+      const deletedCount = Number(result?.deletedCount ?? 0);
+      setTodoFeedback(deletedCount ? "Cleared all tasks." : "Task list is already empty.", "success");
+    },
+  );
 }
 
 function buildConfigFields() {
@@ -609,7 +713,6 @@ window.agentAPI.onStreamChunk(({ requestId, chunk }) => {
 });
 
 buildConfigFields();
-seedMockTodos();
 renderTodoList();
 
 navButtons.forEach((button) => {
@@ -639,6 +742,7 @@ todoFilterButtons.forEach((button) => {
 (async function initialize() {
   await loadConfig();
   await refreshStatus();
+  await loadTodosOnStartup();
   setActivePage("chat");
 })();
 
