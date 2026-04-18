@@ -87,6 +87,23 @@
         </form>
 
         <div class="todo-toolbar">
+          <div class="todo-querybar">
+            <label class="todo-search" for="todo-search-input">
+              <span class="todo-search__label">Search</span>
+              <input id="todo-search-input" class="todo-input" type="search" placeholder="Search title or detail" />
+            </label>
+
+            <label class="todo-sort" for="todo-sort-select">
+              <span class="todo-sort__label">Sort</span>
+              <select id="todo-sort-select" class="todo-select">
+                <option value="due-asc">Due Soonest</option>
+                <option value="due-desc">Due Latest</option>
+                <option value="updated-desc">Recently Updated</option>
+                <option value="title-asc">Title A-Z</option>
+              </select>
+            </label>
+          </div>
+
           <div class="todo-filters" role="tablist" aria-label="Todo filters">
             <button class="todo-filter is-active" data-todo-filter="all" type="button">All</button>
             <button class="todo-filter" data-todo-filter="active" type="button">Active</button>
@@ -102,7 +119,12 @@
 
         <p id="todo-feedback" class="form-feedback" aria-live="polite"></p>
 
-        <ul id="todo-list" class="todo-list" aria-live="polite"></ul>
+        <div id="todo-undo-bar" class="todo-undo" hidden>
+          <p id="todo-undo-text" class="todo-undo__text">Task deleted.</p>
+          <button id="todo-undo-button" class="button button--secondary" type="button">Undo</button>
+        </div>
+
+        <div id="todo-list" class="todo-list" aria-live="polite"></div>
         <p id="todo-empty" class="todo-empty" hidden>No tasks in this view.</p>
       </section>
 

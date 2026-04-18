@@ -328,8 +328,55 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 12px;
+}
+
+.todo-querybar {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex: 1 1 360px;
+}
+
+.todo-search,
+.todo-sort {
+  display: grid;
+  gap: 6px;
+}
+
+.todo-search {
+  flex: 1 1 260px;
+}
+
+.todo-sort {
+  flex: 0 0 190px;
+}
+
+.todo-search__label,
+.todo-sort__label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.todo-select {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  color: var(--text);
+}
+
+.todo-select:focus {
+  outline: none;
+  border-color: rgba(204, 106, 47, 0.45);
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
 .todo-filters {
@@ -357,6 +404,45 @@ button {
 }
 
 .todo-list {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.todo-group {
+  display: grid;
+  gap: 8px;
+}
+
+.todo-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.todo-group__title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.todo-group__count {
+  min-width: 30px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.todo-group__items {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -483,6 +569,28 @@ button {
   color: var(--muted);
 }
 
+.todo-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px dashed rgba(36, 49, 39, 0.22);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.86);
+}
+
+.todo-undo__text {
+  margin: 0;
+  color: var(--muted);
+}
+
+.todo-undo .button,
+.todo-undo .button--secondary {
+  padding: 8px 12px;
+}
+
 .config-grid {
   display: grid;
   gap: 18px;
@@ -568,6 +676,16 @@ button {
 
   .todo-create-grid {
     grid-template-columns: 1fr;
+  }
+
+  .todo-querybar {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .todo-sort {
+    flex: 1 1 auto;
   }
 
   .chat-toolbar__hint {

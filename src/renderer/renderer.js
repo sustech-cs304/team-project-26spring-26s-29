@@ -45,11 +45,49 @@ const todoEmpty = $("todo-empty");
 const todoFeedback = $("todo-feedback");
 const todoClearCompleted = $("todo-clear-completed");
 const todoClearAll = $("todo-clear-all");
+const todoSearchInput = $("todo-search-input");
+const todoSortSelect = $("todo-sort-select");
+const todoUndoBar = $("todo-undo-bar");
+const todoUndoText = $("todo-undo-text");
+const todoUndoButton = $("todo-undo-button");
 const todoFilterButtons = Array.from(document.querySelectorAll("[data-todo-filter]"));
 const navButtons = Array.from(document.querySelectorAll("[data-page-target]"));
 const pages = Array.from(document.querySelectorAll("[data-page]"));
 
 const TODO_ERROR_PREFIX = "TODO_ERROR|";
+const TODO_VIEW_STATE_KEY = "todo:view-state:v1";
+const TODO_FILTERS = new Set(["all", "active", "done", "overdue"]);
+const TODO_SORTS = new Set(["due-asc", "due-desc", "updated-desc", "title-asc"]);
+
+function readTodoViewState() {
+  const defaults = {
+    filter: "all",
+    searchQuery: "",
+    sortMode: "due-asc",
+  };
+
+  try {
+    const raw = localStorage.getItem(TODO_VIEW_STATE_KEY);
+    if (!raw) {
+      return defaults;
+    }
+
+    const parsed = JSON.parse(raw);
+    const nextFilter = TODO_FILTERS.has(parsed?.filter) ? parsed.filter : defaults.filter;
+    const nextSortMode = TODO_SORTS.has(parsed?.sortMode) ? parsed.sortMode : defaults.sortMode;
+    const nextSearchQuery = String(parsed?.searchQuery ?? "");
+
+    return {
+      filter: nextFilter,
+      searchQuery: nextSearchQuery,
+      sortMode: nextSortMode,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+const initialTodoViewState = readTodoViewState();
 
 let isRunning = false;
 let activeRequestId = null;
@@ -58,9 +96,12 @@ let configInputs = {};
 let isConfigSaving = false;
 let todoState = {
   items: [],
-  filter: "all",
+  filter: initialTodoViewState.filter,
+  searchQuery: initialTodoViewState.searchQuery,
+  sortMode: initialTodoViewState.sortMode,
   editingId: null,
   isBusy: false,
+  undoTodo: null,
 };
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -140,6 +181,178 @@ function setTodoFeedback(message = "", state = "") {
   delete todoFeedback.dataset.state;
 }
 
+function persistTodoViewState() {
+  try {
+    localStorage.setItem(
+      TODO_VIEW_STATE_KEY,
+      JSON.stringify({
+        filter: todoState.filter,
+        searchQuery: todoState.searchQuery,
+        sortMode: todoState.sortMode,
+      }),
+    );
+  } catch {
+    // Ignore persistence failures (e.g. storage disabled).
+  }
+}
+
+function renderTodoUndoBar() {
+  const hasUndo = Boolean(todoState.undoTodo);
+  todoUndoBar.hidden = !hasUndo;
+  todoUndoButton.disabled = todoState.isBusy || !hasUndo;
+
+  if (!hasUndo) {
+    todoUndoText.textContent = "Task deleted.";
+    return;
+  }
+
+  todoUndoText.textContent = `Deleted \"${todoState.undoTodo.title}\". You can undo before your next action.`;
+}
+
+function clearTodoUndo() {
+  todoState.undoTodo = null;
+  renderTodoUndoBar();
+}
+
+function armTodoUndo(todo) {
+  clearTodoUndo();
+  todoState.undoTodo = {
+    title: todo.title,
+    detail: todo.detail,
+    dueAt: todo.dueAt,
+    isDone: todo.isDone,
+  };
+  renderTodoUndoBar();
+}
+
+function getComparableDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.getTime();
+}
+
+function compareNullableDate(leftValue, rightValue, mode = "asc") {
+  const left = getComparableDate(leftValue);
+  const right = getComparableDate(rightValue);
+  const leftMissing = left == null;
+  const rightMissing = right == null;
+
+  if (leftMissing && rightMissing) {
+    return 0;
+  }
+  if (leftMissing) {
+    return 1;
+  }
+  if (rightMissing) {
+    return -1;
+  }
+
+  return mode === "asc" ? left - right : right - left;
+}
+
+function compareTodos(left, right) {
+  switch (todoState.sortMode) {
+    case "due-desc": {
+      const dueCompare = compareNullableDate(left.dueAt, right.dueAt, "desc");
+      if (dueCompare !== 0) {
+        return dueCompare;
+      }
+      return compareNullableDate(left.updatedAt, right.updatedAt, "desc");
+    }
+    case "updated-desc": {
+      const updatedCompare = compareNullableDate(left.updatedAt, right.updatedAt, "desc");
+      if (updatedCompare !== 0) {
+        return updatedCompare;
+      }
+      return compareNullableDate(left.dueAt, right.dueAt, "asc");
+    }
+    case "title-asc":
+      return left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+    case "due-asc":
+    default: {
+      const dueCompare = compareNullableDate(left.dueAt, right.dueAt, "asc");
+      if (dueCompare !== 0) {
+        return dueCompare;
+      }
+      return compareNullableDate(left.updatedAt, right.updatedAt, "desc");
+    }
+  }
+}
+
+function matchesTodoSearch(todo, normalizedQuery) {
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const haystack = `${todo.title}\n${todo.detail}`.toLowerCase();
+  return haystack.includes(normalizedQuery);
+}
+
+function getTodoGroupKey(todo) {
+  if (todo.isDone) {
+    return "done";
+  }
+
+  if (isOverdue(todo)) {
+    return "overdue";
+  }
+
+  if (!todo.dueAt) {
+    return "no-due";
+  }
+
+  const dueDate = new Date(todo.dueAt);
+  if (Number.isNaN(dueDate.getTime())) {
+    return "no-due";
+  }
+
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
+
+  if (dueDate.getTime() >= todayStart && dueDate.getTime() < tomorrowStart) {
+    return "today";
+  }
+
+  return "upcoming";
+}
+
+function groupTodos(todos) {
+  const groupsMap = new Map();
+
+  todos.forEach((todo) => {
+    const key = getTodoGroupKey(todo);
+    if (!groupsMap.has(key)) {
+      groupsMap.set(key, []);
+    }
+    groupsMap.get(key).push(todo);
+  });
+
+  const ordered = ["overdue", "today", "upcoming", "no-due", "done"];
+  const labels = {
+    overdue: "Overdue",
+    today: "Today",
+    upcoming: "Upcoming",
+    "no-due": "No Due Date",
+    done: "Done",
+  };
+
+  return ordered
+    .filter((key) => groupsMap.has(key))
+    .map((key) => ({
+      key,
+      label: labels[key] || key,
+      items: groupsMap.get(key),
+    }));
+}
+
 function parseTodoId(rawId) {
   const parsed = Number.parseInt(String(rawId), 10);
   if (!Number.isInteger(parsed)) {
@@ -215,9 +428,15 @@ function setTodoBusy(nextBusy) {
   renderTodoList();
 }
 
-async function runTodoMutation(action, pendingMessage, onSuccess) {
+async function runTodoMutation(action, pendingMessage, onSuccess, options = {}) {
+  const { consumeUndo = true } = options;
+
   if (todoState.isBusy) {
     return false;
+  }
+
+  if (consumeUndo) {
+    clearTodoUndo();
   }
 
   setTodoBusy(true);
@@ -258,16 +477,26 @@ async function loadTodosOnStartup() {
 }
 
 function getVisibleTodos() {
+  let filteredTodos;
+
   switch (todoState.filter) {
     case "active":
-      return todoState.items.filter((todo) => !todo.isDone);
+      filteredTodos = todoState.items.filter((todo) => !todo.isDone);
+      break;
     case "done":
-      return todoState.items.filter((todo) => todo.isDone);
+      filteredTodos = todoState.items.filter((todo) => todo.isDone);
+      break;
     case "overdue":
-      return todoState.items.filter((todo) => isOverdue(todo));
+      filteredTodos = todoState.items.filter((todo) => isOverdue(todo));
+      break;
     default:
-      return todoState.items;
+      filteredTodos = todoState.items;
+      break;
   }
+
+  const normalizedQuery = todoState.searchQuery.trim().toLowerCase();
+  const searchedTodos = filteredTodos.filter((todo) => matchesTodoSearch(todo, normalizedQuery));
+  return [...searchedTodos].sort(compareTodos);
 }
 
 function renderTodoFilters() {
@@ -292,61 +521,93 @@ function renderTodoBulkActions() {
   todoClearCompleted.disabled = todoState.isBusy || !hasDoneItems;
 }
 
+function createTodoListItem(todo, disabledAttr) {
+  const item = document.createElement("li");
+  item.className = "todo-item";
+  item.dataset.todoId = String(todo.id);
+  if (todo.isDone) {
+    item.classList.add("is-done");
+  }
+  if (isOverdue(todo)) {
+    item.classList.add("is-overdue");
+  }
+
+  if (todoState.editingId === todo.id) {
+    item.innerHTML = `
+      <div class="todo-edit-grid">
+        <input class="todo-input" data-todo-edit="title" type="text" value="${escapeHtml(todo.title)}" ${disabledAttr} />
+        <input class="todo-input" data-todo-edit="dueAt" type="datetime-local" value="${toDateTimeLocalValue(todo.dueAt)}" ${disabledAttr} />
+        <textarea class="todo-input todo-input--textarea" data-todo-edit="detail" rows="2" ${disabledAttr}>${escapeHtml(todo.detail || "")}</textarea>
+        <div class="todo-item__actions">
+          <button class="button" data-todo-action="save-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Save</button>
+          <button class="button button--secondary" data-todo-action="cancel-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Cancel</button>
+        </div>
+      </div>
+    `;
+    return item;
+  }
+
+  item.innerHTML = `
+    <div class="todo-item__main">
+      <label class="todo-check ${todo.isDone ? "is-done" : ""}" aria-label="Mark todo done">
+        <input data-todo-action="toggle" data-todo-id="${todo.id}" type="checkbox" ${todo.isDone ? "checked" : ""} ${disabledAttr} />
+        <span class="todo-check__text">Done</span>
+      </label>
+      <div class="todo-item__content">
+        <p class="todo-item__title">${escapeHtml(todo.title)}</p>
+        <p class="todo-item__detail">${escapeHtml(todo.detail || "No detail")}</p>
+        <p class="todo-item__meta">Due: ${escapeHtml(formatDateTime(todo.dueAt))} | Updated: ${escapeHtml(formatDateTime(todo.updatedAt))}</p>
+      </div>
+    </div>
+    <div class="todo-item__actions todo-item__actions--stacked">
+      <button class="button button--secondary" data-todo-action="edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Edit</button>
+      <button class="button button--secondary" data-todo-action="delete" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Delete</button>
+    </div>
+  `;
+
+  return item;
+}
+
 function renderTodoList() {
   const visibleTodos = getVisibleTodos();
   const disabledAttr = todoState.isBusy ? "disabled" : "";
+  const groups = groupTodos(visibleTodos);
 
-  const nodes = visibleTodos.map((todo) => {
-    const item = document.createElement("li");
-    item.className = "todo-item";
-    item.dataset.todoId = String(todo.id);
-    if (todo.isDone) {
-      item.classList.add("is-done");
-    }
-    if (isOverdue(todo)) {
-      item.classList.add("is-overdue");
-    }
+  const groupNodes = groups.map((group) => {
+    const section = document.createElement("section");
+    section.className = "todo-group";
 
-    if (todoState.editingId === todo.id) {
-      item.innerHTML = `
-        <div class="todo-edit-grid">
-          <input class="todo-input" data-todo-edit="title" type="text" value="${escapeHtml(todo.title)}" ${disabledAttr} />
-          <input class="todo-input" data-todo-edit="dueAt" type="datetime-local" value="${toDateTimeLocalValue(todo.dueAt)}" ${disabledAttr} />
-          <textarea class="todo-input todo-input--textarea" data-todo-edit="detail" rows="2" ${disabledAttr}>${escapeHtml(todo.detail || "")}</textarea>
-          <div class="todo-item__actions">
-            <button class="button" data-todo-action="save-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Save</button>
-            <button class="button button--secondary" data-todo-action="cancel-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Cancel</button>
-          </div>
-        </div>
-      `;
-      return item;
-    }
-
-    item.innerHTML = `
-      <div class="todo-item__main">
-        <label class="todo-check ${todo.isDone ? "is-done" : ""}" aria-label="Mark todo done">
-          <input data-todo-action="toggle" data-todo-id="${todo.id}" type="checkbox" ${todo.isDone ? "checked" : ""} ${disabledAttr} />
-          <span class="todo-check__text">Done</span>
-        </label>
-        <div class="todo-item__content">
-          <p class="todo-item__title">${escapeHtml(todo.title)}</p>
-          <p class="todo-item__detail">${escapeHtml(todo.detail || "No detail")}</p>
-          <p class="todo-item__meta">Due: ${escapeHtml(formatDateTime(todo.dueAt))} | Updated: ${escapeHtml(formatDateTime(todo.updatedAt))}</p>
-        </div>
-      </div>
-      <div class="todo-item__actions todo-item__actions--stacked">
-        <button class="button button--secondary" data-todo-action="edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Edit</button>
-        <button class="button button--secondary" data-todo-action="delete" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Delete</button>
-      </div>
+    const header = document.createElement("header");
+    header.className = "todo-group__header";
+    header.innerHTML = `
+      <h3 class="todo-group__title">${escapeHtml(group.label)}</h3>
+      <span class="todo-group__count">${group.items.length}</span>
     `;
 
-    return item;
+    const itemsList = document.createElement("ul");
+    itemsList.className = "todo-group__items";
+    const itemNodes = group.items.map((todo) => createTodoListItem(todo, disabledAttr));
+    itemsList.replaceChildren(...itemNodes);
+
+    section.append(header, itemsList);
+    return section;
   });
 
-  todoList.replaceChildren(...nodes);
+  todoList.replaceChildren(...groupNodes);
   todoEmpty.hidden = visibleTodos.length !== 0;
+
+  if (todoSearchInput.value !== todoState.searchQuery) {
+    todoSearchInput.value = todoState.searchQuery;
+  }
+  if (todoSortSelect.value !== todoState.sortMode) {
+    todoSortSelect.value = todoState.sortMode;
+  }
+  todoSearchInput.disabled = todoState.isBusy;
+  todoSortSelect.disabled = todoState.isBusy;
+
   renderTodoFilters();
   renderTodoBulkActions();
+  renderTodoUndoBar();
 }
 
 async function handleTodoCreate(event) {
@@ -413,10 +674,17 @@ async function handleTodoListClick(event) {
       return;
     }
 
+    const deletedTodo = todoState.items.find((item) => item.id === todoId);
+
     await runTodoMutation(
       () => window.todoAPI.remove(todoId),
       "Deleting task...",
-      () => setTodoFeedback("Task deleted.", "success"),
+      () => {
+        if (deletedTodo) {
+          armTodoUndo(deletedTodo);
+        }
+        setTodoFeedback("Task deleted. Undo is available until your next action.", "success");
+      },
     );
     return;
   }
@@ -494,7 +762,66 @@ function handleTodoFilterClick(event) {
 
   todoState.filter = nextFilter;
   todoState.editingId = null;
+  persistTodoViewState();
   renderTodoList();
+}
+
+function handleTodoSearchInput(event) {
+  if (todoState.isBusy) {
+    return;
+  }
+
+  todoState.searchQuery = String(event.target.value ?? "");
+  persistTodoViewState();
+  renderTodoList();
+}
+
+function handleTodoSortChange(event) {
+  if (todoState.isBusy) {
+    return;
+  }
+
+  const nextSort = String(event.target.value ?? "");
+  if (!TODO_SORTS.has(nextSort) || nextSort === todoState.sortMode) {
+    return;
+  }
+
+  todoState.sortMode = nextSort;
+  persistTodoViewState();
+  renderTodoList();
+}
+
+async function handleTodoUndo() {
+  if (todoState.isBusy || !todoState.undoTodo) {
+    return;
+  }
+
+  const snapshot = { ...todoState.undoTodo };
+  clearTodoUndo();
+
+  const restored = await runTodoMutation(
+    async () => {
+      const created = await window.todoAPI.create({
+        title: snapshot.title,
+        detail: snapshot.detail,
+        dueAt: snapshot.dueAt,
+      });
+
+      const createdId = parseTodoId(created?.id);
+      if (snapshot.isDone && createdId !== null) {
+        await window.todoAPI.update(createdId, { isDone: true });
+      }
+    },
+    "Restoring task...",
+    () => {
+      setTodoFeedback("Task restored.", "success");
+    },
+    { consumeUndo: false },
+  );
+
+  if (!restored) {
+    armTodoUndo(snapshot);
+  }
 }
 
 async function clearCompletedTodos() {
@@ -735,6 +1062,9 @@ todoList.addEventListener("change", handleTodoListChange);
 todoList.addEventListener("click", handleTodoListClick);
 todoClearCompleted.addEventListener("click", clearCompletedTodos);
 todoClearAll.addEventListener("click", clearAllTodos);
+todoSearchInput.addEventListener("input", handleTodoSearchInput);
+todoSortSelect.addEventListener("change", handleTodoSortChange);
+todoUndoButton.addEventListener("click", handleTodoUndo);
 todoFilterButtons.forEach((button) => {
   button.addEventListener("click", handleTodoFilterClick);
 });
