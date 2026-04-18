@@ -1,19 +1,30 @@
 """Todo repository contracts and entities."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Protocol
-
-
-UNSET = object()
+from typing import Protocol, TypedDict
 
 
 @dataclass(frozen=True, slots=True)
 class Todo:
     id: int
+    title: str
+    detail: str
+    due_at: str | None
+    is_done: bool
+    completed_at: str | None
+    created_at: str
+    updated_at: str
+
+
+class TodoUpdate(TypedDict, total=False):
+    title: str
+    detail: str
+    due_at: str | None
+    is_done: bool
+
+
+class TodoRecord(TypedDict):
     title: str
     detail: str
     due_at: str | None
@@ -30,7 +41,7 @@ class TodoRepository(Protocol):
         self,
         title: str,
         detail: str,
-        due_at: str | datetime | None = None,
+        due_at: str | None = None,
         db_path: str | Path | None = None,
     ) -> Todo: ...
 
@@ -38,16 +49,7 @@ class TodoRepository(Protocol):
 
     def list_todos(self, db_path: str | Path | None = None) -> list[Todo]: ...
 
-    def update_todo(
-        self,
-        todo_id: int,
-        *,
-        title: str | None = None,
-        detail: str | None = None,
-        due_at: str | datetime | None | object = UNSET,
-        is_done: bool | None = None,
-        db_path: str | Path | None = None,
-    ) -> Todo: ...
+    def update_todo(self, todo_id: int, updates: TodoUpdate, db_path: str | Path | None = None) -> Todo: ...
 
     def delete_todo(self, todo_id: int, db_path: str | Path | None = None) -> bool: ...
 

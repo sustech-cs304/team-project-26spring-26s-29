@@ -1,11 +1,10 @@
 """TinyDB-backed todo repository."""
 
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 
-from ..todo_repository import UNSET, Todo
+from ..todo_repository import Todo, TodoRecord, TodoUpdate
 from .storage import get_database_path, open_table
 
 
@@ -23,29 +22,25 @@ class TinyDbTodoRepository:
         self,
         title: str,
         detail: str,
-        due_at: str | datetime | None = None,
+        due_at: str | None = None,
         db_path: str | Path | None = None,
     ) -> Todo:
-        due_at_value = self._serialize_due_at(due_at)
         timestamp = self._utcnow_iso()
+        row: TodoRecord = {
+            "title": title,
+            "detail": detail,
+            "due_at": due_at,
+            "is_done": False,
+            "completed_at": None,
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        }
 
         with open_table(_TABLE_NAME, db_path) as table:
-            todo_id = int(
-                table.insert(
-                    {
-                        "title": title,
-                        "detail": detail,
-                        "due_at": due_at_value,
-                        "is_done": False,
-                        "completed_at": None,
-                        "created_at": timestamp,
-                        "updated_at": timestamp,
-                    }
-                )
-            )
-            row = table.get(doc_id=todo_id)
+            todo_id = int(table.insert(row))
+            stored_row = cast(TodoRecord, table.get(doc_id=todo_id))
 
-        return self._row_to_todo(todo_id, row)
+        return self._row_to_todo(todo_id, stored_row)
 
     def get_todo(self, todo_id: int, db_path: str | Path | None = None) -> Todo | None:
         with open_table(_TABLE_NAME, db_path) as table:
@@ -53,56 +48,25 @@ class TinyDbTodoRepository:
 
         if row is None:
             return None
-        return self._row_to_todo(todo_id, row)
+        return self._row_to_todo(todo_id, cast(TodoRecord, row))
 
     def list_todos(self, db_path: str | Path | None = None) -> list[Todo]:
         with open_table(_TABLE_NAME, db_path) as table:
             documents = sorted(table.all(), key=lambda item: item.doc_id)
 
-        return [self._row_to_todo(int(document.doc_id), document) for document in documents]
+        return [self._row_to_todo(int(document.doc_id), cast(TodoRecord, document)) for document in documents]
 
-    def update_todo(
-        self,
-        todo_id: int,
-        *,
-        title: str | None = None,
-        detail: str | None = None,
-        due_at: str | datetime | None | object = UNSET,
-        is_done: bool | None = None,
-        db_path: str | Path | None = None,
-    ) -> Todo:
-        updates: dict[str, object] = {}
+    def update_todo(self, todo_id: int, updates: TodoUpdate, db_path: str | Path | None = None) -> Todo:
+        timestamp = self._utcnow_iso()
+        persisted_updates: dict[str, object] = dict(updates)
 
-        if title is not None:
-            updates["title"] = title
-        if detail is not None:
-            updates["detail"] = detail
-        if due_at is not UNSET:
-            updates["due_at"] = self._serialize_due_at(due_at)
-        if is_done is not None:
-            updates["is_done"] = is_done
-            updates["completed_at"] = self._utcnow_iso() if is_done else None
-
-        if not updates:
-            raise ValueError("At least one todo field must be provided for update.")
+        if "is_done" in updates:
+            persisted_updates["completed_at"] = timestamp if updates["is_done"] else None
 
         with open_table(_TABLE_NAME, db_path) as table:
-            existing = table.get(doc_id=todo_id)
-            if existing is None:
-                raise KeyError(f"Todo item {todo_id} does not exist.")
-
-            if "is_done" not in existing and "is_done" not in updates:
-                updates["is_done"] = False
-            if "due_at" not in existing and "due_at" not in updates:
-                updates["due_at"] = None
-            if "completed_at" not in existing and "completed_at" not in updates:
-                updates["completed_at"] = None
-            if "created_at" not in existing:
-                updates["created_at"] = self._utcnow_iso()
-
-            updates["updated_at"] = self._utcnow_iso()
-            table.update(updates, doc_ids=[todo_id])
-            row = table.get(doc_id=todo_id)
+            persisted_updates["updated_at"] = timestamp
+            table.update(persisted_updates, doc_ids=[todo_id])
+            row = cast(TodoRecord, table.get(doc_id=todo_id))
 
         return self._row_to_todo(todo_id, row)
 
@@ -122,32 +86,14 @@ class TinyDbTodoRepository:
     def _utcnow_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
 
-    def _serialize_due_at(self, value: str | datetime | None | object) -> str | None:
-        if value is UNSET:
-            return None
-        if value is None:
-            return None
-        if isinstance(value, datetime):
-            return value.isoformat()
-        return str(value)
-
-    def _row_to_todo(self, todo_id: int, row: dict[str, object] | None) -> Todo:
-        if row is None:
-            raise RuntimeError("Todo query did not return a row.")
-
-        is_done = bool(row.get("is_done", False))
-        due_at_raw = row.get("due_at")
-        completed_at_raw = row.get("completed_at")
-        created_at_raw = row.get("created_at")
-        updated_at_raw = row.get("updated_at")
-
+    def _row_to_todo(self, todo_id: int, row: TodoRecord) -> Todo:
         return Todo(
             id=todo_id,
-            title=str(row["title"]),
-            detail=str(row["detail"]),
-            due_at=None if due_at_raw is None else str(due_at_raw),
-            is_done=is_done,
-            completed_at=None if completed_at_raw is None else str(completed_at_raw),
-            created_at="" if created_at_raw is None else str(created_at_raw),
-            updated_at="" if updated_at_raw is None else str(updated_at_raw),
+            title=row["title"],
+            detail=row["detail"],
+            due_at=row["due_at"],
+            is_done=row["is_done"],
+            completed_at=row["completed_at"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )

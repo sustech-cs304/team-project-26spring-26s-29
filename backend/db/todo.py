@@ -1,12 +1,13 @@
 """Compatibility wrappers for todo storage helpers."""
 
-from __future__ import annotations
-
-from datetime import datetime
 from pathlib import Path
+from typing import cast
 
-from ..repositories import UNSET, Todo, todo_repository
+from ..repositories import Todo, TodoUpdate, todo_repository
 from ..repositories.tinydb.storage import get_database_path
+
+
+_UNSET = object()
 
 
 def initialize_database(db_path: str | Path | None = None) -> Path:
@@ -16,7 +17,7 @@ def initialize_database(db_path: str | Path | None = None) -> Path:
 def add_todo(
     title: str,
     detail: str,
-    due_at: str | datetime | None = None,
+    due_at: str | None = None,
     db_path: str | Path | None = None,
 ) -> Todo:
     return todo_repository.add_todo(title, detail, due_at, db_path)
@@ -35,18 +36,21 @@ def update_todo(
     *,
     title: str | None = None,
     detail: str | None = None,
-    due_at: str | datetime | None | object = UNSET,
+    due_at: str | None | object = _UNSET,
     is_done: bool | None = None,
     db_path: str | Path | None = None,
 ) -> Todo:
-    return todo_repository.update_todo(
-        todo_id,
-        title=title,
-        detail=detail,
-        due_at=due_at,
-        is_done=is_done,
-        db_path=db_path,
-    )
+    updates: TodoUpdate = {}
+    if title is not None:
+        updates["title"] = title
+    if detail is not None:
+        updates["detail"] = detail
+    if due_at is not _UNSET:
+        updates["due_at"] = cast(str | None, due_at)
+    if is_done is not None:
+        updates["is_done"] = is_done
+
+    return todo_repository.update_todo(todo_id, updates, db_path=db_path)
 
 
 def delete_todo(todo_id: int, db_path: str | Path | None = None) -> bool:

@@ -37,6 +37,23 @@ class ApiTests(BackendTestCase):
         self.assertEqual(cleared.status_code, 200)
         self.assertEqual(cleared.json()["deletedCount"], 1)
 
+    def test_todo_patch_rejects_explicit_null_fields(self) -> None:
+        created = self.client.post(
+            "/api/todos",
+            json={"title": "Ship report", "detail": "backend refactor", "dueAt": None},
+        )
+        todo_id = created.json()["id"]
+
+        patched = self.client.patch(f"/api/todos/{todo_id}", json={"title": None})
+        self.assertEqual(patched.status_code, 422)
+
+    def test_todo_patch_and_delete_missing_item_return_404(self) -> None:
+        patched = self.client.patch("/api/todos/9999", json={"isDone": True})
+        deleted = self.client.delete("/api/todos/9999")
+
+        self.assertEqual(patched.status_code, 404)
+        self.assertEqual(deleted.status_code, 404)
+
     def test_runtime_config_routes(self) -> None:
         current = self.client.get("/api/config")
         self.assertEqual(current.status_code, 200)

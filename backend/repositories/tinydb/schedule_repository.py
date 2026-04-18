@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 
 from ..schedule_repository import UNSET, ScheduleEvent
 from .storage import get_database_path, open_table
@@ -34,23 +35,17 @@ class TinyDbScheduleRepository:
         reminder_offsets: list[int] | tuple[int, ...] | None = None,
         db_path: str | Path | None = None,
     ) -> ScheduleEvent:
-        title_value = str(title).strip()
-        if not title_value:
-            raise ValueError("title is required.")
-
-        detail_value = str(detail)
-        start_dt = self._parse_datetime(start_at, "start_at")
-        end_dt = self._parse_datetime(end_at, "end_at")
-        self._validate_time_window(start_dt, end_dt)
+        start_dt = self._parse_datetime(start_at)
+        end_dt = self._parse_datetime(end_at)
 
         payload: dict[str, object] = {
-            "title": title_value,
-            "detail": detail_value,
-            "all_day": bool(all_day),
-            "timezone": self._normalize_timezone(timezone_name),
-            "location": self._normalize_optional_text(location),
-            "is_cancelled": bool(is_cancelled),
-            "reminder_offsets": self._normalize_reminder_offsets(reminder_offsets),
+            "title": str(title),
+            "detail": str(detail),
+            "all_day": all_day,
+            "timezone": timezone_name or _DEFAULT_TIMEZONE,
+            "location": None if location is None else str(location),
+            "is_cancelled": is_cancelled,
+            "reminder_offsets": [] if reminder_offsets is None else list(reminder_offsets),
         }
         payload.update(self._build_time_cache(start_dt, end_dt))
 
@@ -60,7 +55,7 @@ class TinyDbScheduleRepository:
 
         with open_table(_TABLE_NAME, db_path) as table:
             event_id = int(table.insert(payload))
-            row = table.get(doc_id=event_id)
+            row = cast(dict[str, object], table.get(doc_id=event_id))
 
         return self._row_to_schedule_event(event_id, row)
 
@@ -75,7 +70,7 @@ class TinyDbScheduleRepository:
         if row is None:
             return None
 
-        return self._row_to_schedule_event(event_id, row)
+        return self._row_to_schedule_event(event_id, cast(dict[str, object], row))
 
     def list_schedule_events(
         self,
@@ -86,7 +81,7 @@ class TinyDbScheduleRepository:
         with open_table(_TABLE_NAME, db_path) as table:
             documents = table.all()
 
-        events = [self._row_to_schedule_event(int(document.doc_id), document) for document in documents]
+        events = [self._row_to_schedule_event(int(document.doc_id), cast(dict[str, object], document)) for document in documents]
         if not include_cancelled:
             events = [event for event in events if not event.is_cancelled]
 
@@ -100,9 +95,8 @@ class TinyDbScheduleRepository:
         *,
         include_cancelled: bool = True,
     ) -> list[ScheduleEvent]:
-        start_dt = self._parse_datetime(range_start, "range_start")
-        end_dt = self._parse_datetime(range_end, "range_end")
-        self._validate_time_window(start_dt, end_dt)
+        start_dt = self._parse_datetime(range_start)
+        end_dt = self._parse_datetime(range_end)
 
         start_ts = int(start_dt.timestamp() * 1000)
         end_ts = int(end_dt.timestamp() * 1000)
@@ -128,58 +122,47 @@ class TinyDbScheduleRepository:
         updates: dict[str, object] = {}
 
         if title is not None:
-            title_value = str(title).strip()
-            if not title_value:
-                raise ValueError("title is required.")
-            updates["title"] = title_value
+            updates["title"] = str(title)
 
         if detail is not None:
             updates["detail"] = str(detail)
 
         if all_day is not None:
-            updates["all_day"] = bool(all_day)
+            updates["all_day"] = all_day
 
         if timezone_name is not None:
-            updates["timezone"] = self._normalize_timezone(timezone_name)
+            updates["timezone"] = timezone_name
 
         if location is not UNSET:
-            updates["location"] = self._normalize_optional_text(location)
+            updates["location"] = cast(str | None, location)
 
         if is_cancelled is not None:
-            updates["is_cancelled"] = bool(is_cancelled)
+            updates["is_cancelled"] = is_cancelled
 
         if reminder_offsets is not UNSET:
-            updates["reminder_offsets"] = self._normalize_reminder_offsets(reminder_offsets)
+            updates["reminder_offsets"] = [] if reminder_offsets is None else list(cast(list[int] | tuple[int, ...], reminder_offsets))
 
         with open_table(_TABLE_NAME, db_path) as table:
-            existing = table.get(doc_id=event_id)
-            if existing is None:
-                raise KeyError(f"Schedule event {event_id} does not exist.")
+            existing = cast(dict[str, object], table.get(doc_id=event_id))
 
-            existing_start = self._parse_datetime(str(existing.get("start_at", "")), "start_at")
-            existing_end = self._parse_datetime(str(existing.get("end_at", "")), "end_at")
+            existing_start = self._parse_datetime(cast(str | datetime, existing["start_at"]))
+            existing_end = self._parse_datetime(cast(str | datetime, existing["end_at"]))
 
             next_start = existing_start
             next_end = existing_end
 
             if start_at is not UNSET:
-                next_start = self._parse_datetime(start_at, "start_at")
+                next_start = self._parse_datetime(cast(str | datetime, start_at))
             if end_at is not UNSET:
-                next_end = self._parse_datetime(end_at, "end_at")
+                next_end = self._parse_datetime(cast(str | datetime, end_at))
 
             if start_at is not UNSET or end_at is not UNSET:
-                self._validate_time_window(next_start, next_end)
                 updates.update(self._build_time_cache(next_start, next_end))
 
-            if not updates:
-                raise ValueError("At least one schedule field must be provided for update.")
-
-            if "created_at" not in existing:
-                updates["created_at"] = self._utcnow_iso()
             updates["updated_at"] = self._utcnow_iso()
 
             table.update(updates, doc_ids=[event_id])
-            row = table.get(doc_id=event_id)
+            row = cast(dict[str, object], table.get(doc_id=event_id))
 
         return self._row_to_schedule_event(event_id, row)
 
@@ -199,61 +182,16 @@ class TinyDbScheduleRepository:
     def _utcnow_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
 
-    def _normalize_optional_text(self, value: str | None) -> str | None:
-        if value is None:
-            return None
-
-        text = str(value).strip()
-        if not text:
-            return None
-
-        return text
-
-    def _normalize_timezone(self, value: str | None) -> str:
-        if value is None:
-            return _DEFAULT_TIMEZONE
-
-        timezone_name = str(value).strip()
-        if not timezone_name:
-            return _DEFAULT_TIMEZONE
-
-        return timezone_name
-
-    def _parse_datetime(self, value: str | datetime, field_name: str) -> datetime:
+    def _parse_datetime(self, value: str | datetime) -> datetime:
         if isinstance(value, datetime):
             parsed = value
         else:
-            text = str(value).strip()
-            if not text:
-                raise ValueError(f"{field_name} is required.")
-
-            try:
-                parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            except ValueError as exc:
-                raise ValueError(f"{field_name} must be an ISO datetime string.") from exc
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
 
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
 
         return parsed.astimezone(timezone.utc)
-
-    def _normalize_reminder_offsets(self, value: list[int] | tuple[int, ...] | None) -> list[int]:
-        if value is None:
-            return []
-
-        normalized: list[int] = []
-        for item in value:
-            try:
-                offset = int(item)
-            except (TypeError, ValueError) as exc:
-                raise ValueError("reminder_offsets must contain integers.") from exc
-
-            if offset < 0:
-                raise ValueError("reminder_offsets values must be non-negative.")
-
-            normalized.append(offset)
-
-        return sorted(set(normalized))
 
     def _build_time_cache(self, start_dt: datetime, end_dt: datetime) -> dict[str, str | int]:
         return {
@@ -265,50 +203,26 @@ class TinyDbScheduleRepository:
             "end_ts": int(end_dt.timestamp() * 1000),
         }
 
-    def _validate_time_window(self, start_dt: datetime, end_dt: datetime) -> None:
-        if end_dt <= start_dt:
-            raise ValueError("end_at must be after start_at.")
-
-    def _row_to_schedule_event(self, event_id: int, row: dict[str, object] | None) -> ScheduleEvent:
-        if row is None:
-            raise RuntimeError("Schedule query did not return a row.")
-
-        start_dt = self._parse_datetime(str(row.get("start_at", "")), "start_at")
-        end_dt = self._parse_datetime(str(row.get("end_at", "")), "end_at")
-
-        start_ts_raw = row.get("start_ts")
-        end_ts_raw = row.get("end_ts")
-
-        try:
-            start_ts = int(start_ts_raw) if start_ts_raw is not None else int(start_dt.timestamp() * 1000)
-        except (TypeError, ValueError):
-            start_ts = int(start_dt.timestamp() * 1000)
-
-        try:
-            end_ts = int(end_ts_raw) if end_ts_raw is not None else int(end_dt.timestamp() * 1000)
-        except (TypeError, ValueError):
-            end_ts = int(end_dt.timestamp() * 1000)
-
-        reminder_offsets_raw = row.get("reminder_offsets")
-        reminder_offsets = self._normalize_reminder_offsets(
-            reminder_offsets_raw if isinstance(reminder_offsets_raw, (list, tuple)) else None,
-        )
+    def _row_to_schedule_event(self, event_id: int, row: dict[str, object]) -> ScheduleEvent:
+        start_dt = self._parse_datetime(cast(str | datetime, row["start_at"]))
+        end_dt = self._parse_datetime(cast(str | datetime, row["end_at"]))
+        reminder_offsets_raw = cast(list[int] | tuple[int, ...], row["reminder_offsets"])
 
         return ScheduleEvent(
             id=event_id,
-            title=str(row["title"]),
-            detail=str(row["detail"]),
+            title=cast(str, row["title"]),
+            detail=cast(str, row["detail"]),
             start_at=start_dt.isoformat(),
             end_at=end_dt.isoformat(),
-            all_day=bool(row.get("all_day", False)),
-            timezone=self._normalize_timezone(self._normalize_optional_text(row.get("timezone"))),
-            location=self._normalize_optional_text(row.get("location")),
-            is_cancelled=bool(row.get("is_cancelled", False)),
-            reminder_offsets=reminder_offsets,
-            created_at=str(row.get("created_at", "")),
-            updated_at=str(row.get("updated_at", "")),
-            start_day=str(row.get("start_day", start_dt.date().isoformat())),
-            end_day=str(row.get("end_day", end_dt.date().isoformat())),
-            start_ts=start_ts,
-            end_ts=end_ts,
+            all_day=cast(bool, row["all_day"]),
+            timezone=cast(str, row["timezone"]),
+            location=cast(str | None, row["location"]),
+            is_cancelled=cast(bool, row["is_cancelled"]),
+            reminder_offsets=list(reminder_offsets_raw),
+            created_at=cast(str, row["created_at"]),
+            updated_at=cast(str, row["updated_at"]),
+            start_day=cast(str, row["start_day"]),
+            end_day=cast(str, row["end_day"]),
+            start_ts=cast(int, row["start_ts"]),
+            end_ts=cast(int, row["end_ts"]),
         )

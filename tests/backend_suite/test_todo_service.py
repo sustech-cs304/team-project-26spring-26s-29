@@ -14,7 +14,7 @@ class TodoServiceTests(BackendTestCase):
             due_at="2026-04-20T09:00:00+08:00",
         )
 
-        todo_service.update_todo(first.id, is_done=True)
+        todo_service.update_todo(first.id, {"is_done": True})
         snapshot = todo_query_service.build_runtime_snapshot("service-test")
 
         self.assertEqual(snapshot["todos"]["total"], 2)

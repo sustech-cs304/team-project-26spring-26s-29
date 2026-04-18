@@ -1,10 +1,11 @@
 """Schemas for todo endpoints."""
 
 from datetime import datetime
+from typing import cast
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ...repositories import Todo
+from ...repositories import Todo, TodoUpdate
 
 
 class TodoResponse(BaseModel):
@@ -60,10 +61,28 @@ class TodoUpdateRequest(BaseModel):
         return normalize_due_at(value)
 
     @model_validator(mode="after")
-    def ensure_any_field_provided(self) -> "TodoUpdateRequest":
+    def ensure_valid_update(self) -> "TodoUpdateRequest":
         if not self.model_fields_set:
             raise ValueError("At least one field must be provided for update.")
+        if "title" in self.model_fields_set and self.title is None:
+            raise ValueError("title cannot be null.")
+        if "detail" in self.model_fields_set and self.detail is None:
+            raise ValueError("detail cannot be null.")
+        if "isDone" in self.model_fields_set and self.isDone is None:
+            raise ValueError("isDone cannot be null.")
         return self
+
+    def to_updates(self) -> TodoUpdate:
+        updates: TodoUpdate = {}
+        if "title" in self.model_fields_set:
+            updates["title"] = cast(str, self.title)
+        if "detail" in self.model_fields_set:
+            updates["detail"] = cast(str, self.detail)
+        if "dueAt" in self.model_fields_set:
+            updates["due_at"] = self.dueAt
+        if "isDone" in self.model_fields_set:
+            updates["is_done"] = cast(bool, self.isDone)
+        return updates
 
 
 def normalize_due_at(value: str | None) -> str | None:

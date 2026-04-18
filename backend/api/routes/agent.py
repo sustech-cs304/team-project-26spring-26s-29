@@ -1,6 +1,7 @@
 """Agent HTTP and WebSocket routes."""
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
 
 from ...agent import run_prompt, stream_prompt
 from ..schemas.agent import RunRequest, format_validation_error
@@ -31,20 +32,17 @@ async def run_agent_stream(websocket: WebSocket) -> None:
             lambda chunk: send_websocket_json(websocket, {"type": "chunk", "chunk": chunk}),
         )
         await send_websocket_json(websocket, {"type": "done", "reply": reply, "agent": "openai-chat"})
-    except Exception as exc:
-        from pydantic import ValidationError
-
-        if isinstance(exc, ValidationError):
-            try:
-                await send_websocket_json(websocket, {"type": "error", "error": format_validation_error(exc)})
-            except WebSocketDisconnect:
-                return
-        elif isinstance(exc, WebSocketDisconnect):
+    except ValidationError as exc:
+        try:
+            await send_websocket_json(websocket, {"type": "error", "error": format_validation_error(exc)})
+        except WebSocketDisconnect:
             return
-        else:
-            try:
-                await send_websocket_json(websocket, {"type": "error", "error": f"Agent request failed: {exc}"})
-            except WebSocketDisconnect:
-                return
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        try:
+            await send_websocket_json(websocket, {"type": "error", "error": f"Agent request failed: {exc}"})
+        except WebSocketDisconnect:
+            return
     finally:
         await close_websocket(websocket)

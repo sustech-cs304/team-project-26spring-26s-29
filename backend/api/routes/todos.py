@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from ...services import UNSET, todo_service
+from ...services import todo_service
 from ..schemas.todo import TodoCreateRequest, TodoResponse, TodoUpdateRequest, serialize_todo
 
 
@@ -32,27 +32,19 @@ async def create_todo(payload: TodoCreateRequest) -> TodoResponse:
 
 @router.patch("/api/todos/{todo_id}", response_model=TodoResponse)
 async def patch_todo(todo_id: int, payload: TodoUpdateRequest) -> TodoResponse:
-    try:
-        todo = todo_service.update_todo(
-            todo_id,
-            title=payload.title,
-            detail=payload.detail,
-            due_at=payload.dueAt if "dueAt" in payload.model_fields_set else UNSET,
-            is_done=payload.isDone,
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=f"Todo item {todo_id} does not exist.") from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if todo_service.get_todo(todo_id) is None:
+        raise HTTPException(status_code=404, detail=f"Todo item {todo_id} does not exist.")
 
+    todo = todo_service.update_todo(todo_id, payload.to_updates())
     return serialize_todo(todo)
 
 
 @router.delete("/api/todos/{todo_id}")
 async def remove_todo(todo_id: int) -> dict[str, bool]:
-    deleted = todo_service.delete_todo(todo_id)
-    if not deleted:
+    if todo_service.get_todo(todo_id) is None:
         raise HTTPException(status_code=404, detail=f"Todo item {todo_id} does not exist.")
+
+    todo_service.delete_todo(todo_id)
     return {"deleted": True}
 
 

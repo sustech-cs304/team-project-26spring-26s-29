@@ -19,12 +19,7 @@ class TinyDbRepositoryTests(BackendTestCase):
             due_at=None,
             db_path=self.db_path,
         )
-        updated = self.todo_repository.update_todo(
-            created.id,
-            detail="bring laptop and notes",
-            is_done=True,
-            db_path=self.db_path,
-        )
+        updated = self.todo_repository.update_todo(created.id, {"detail": "bring laptop and notes", "is_done": True}, self.db_path)
         listed = self.todo_repository.list_todos(db_path=self.db_path)
 
         self.assertTrue(updated.is_done)

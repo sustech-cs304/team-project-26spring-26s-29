@@ -21,6 +21,12 @@ class AgentToolTests(BackendTestCase):
         self.assertTrue(updated["todo"]["is_done"])
         self.assertTrue(deleted["deleted"])
 
+    def test_manage_todo_list_update_allows_noop(self) -> None:
+        created = manage_todo_list(action="create", title="Call teammate", detail="sync on PR")
+        updated = manage_todo_list(action="update", todo_id=created["todo"]["id"])
+        self.assertEqual(updated["action"], "update")
+        self.assertEqual(updated["todo"]["id"], created["todo"]["id"])
+
 
 class AgentContextTests(AsyncBackendTestCase):
     async def test_current_info_provider_injects_snapshot(self) -> None:
