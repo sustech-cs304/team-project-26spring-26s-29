@@ -8,7 +8,7 @@ const {
   registerConfigIpc,
   syncRuntimeConfig,
 } = require("./config");
-const { registerAgentIpc } = require("./ipc");
+const { registerAgentIpc, registerTodoIpc } = require("./ipc");
 
 let config = readConfig();
 let python;
@@ -55,7 +55,7 @@ async function waitForBackend(targetConfig, child) {
       if ((await fetch(`${api}/health`)).ok) {
         return;
       }
-    } catch {}
+    } catch { }
 
     if (child.exitCode !== null) {
       break;
@@ -74,7 +74,7 @@ function startBackend() {
 
   python = spawnBackend(config);
   ready = waitForBackend(config, python);
-  ready.catch(() => {});
+  ready.catch(() => { });
   return ready;
 }
 
@@ -148,7 +148,7 @@ async function saveConfig(payload) {
 
     try {
       await applyConfig(previousConfig, nextConfig);
-    } catch {}
+    } catch { }
 
     throw error;
   }
@@ -222,6 +222,7 @@ app.whenReady().then(async () => {
   await syncRuntimeConfig(config);
   registerConfigIpc({ onSave: saveConfig });
   registerAgentIpc({ getApi });
+  registerTodoIpc({ getApi });
   createWindow();
 });
 app.on("before-quit", () => python?.kill());

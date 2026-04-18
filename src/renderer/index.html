@@ -1,82 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'"
-    />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agent Console</title>
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <div class="sidebar__brand">
-          <p class="sidebar__eyebrow">Electron -> Python</p>
-          <h1>Agent Console</h1>
-        </div>
 
-        <nav class="sidebar__nav" aria-label="Page navigation">
-          <button class="sidebar__link is-active" data-page-target="chat" type="button">Chat</button>
-          <button class="sidebar__link" data-page-target="config" type="button">Config</button>
-        </nav>
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Console</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
 
-        <div class="sidebar__status-card">
-          <p class="sidebar__status-label">Backend status</p>
-          <p id="status" aria-live="polite">starting</p>
-        </div>
-      </aside>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <p class="sidebar__eyebrow">Electron -> Python</p>
+        <h1>Agent Console</h1>
+      </div>
 
-      <main class="content">
-        <section class="page is-active" data-page="chat" aria-labelledby="chat-title">
-          <header class="page__header">
-            <p class="page__eyebrow">Workspace</p>
-            <h2 id="chat-title">Chat</h2>
-            <p class="page__copy">Send prompts to the Python agent and watch the streamed reply land live.</p>
-          </header>
+      <nav class="sidebar__nav" aria-label="Page navigation">
+        <button class="sidebar__link is-active" data-page-target="chat" type="button">Chat</button>
+        <button class="sidebar__link" data-page-target="todo" type="button">Todo</button>
+        <button class="sidebar__link" data-page-target="config" type="button">Config</button>
+      </nav>
 
-          <div class="chat-layout">
-            <section id="messages" class="messages" aria-label="Conversation"></section>
-            <button id="scroll-to-bottom" class="scroll-to-bottom" type="button" aria-label="Scroll to bottom" hidden>
-              <span class="scroll-to-bottom__icon" aria-hidden="true">&#8595;</span>
-            </button>
+      <div class="sidebar__status-card">
+        <p class="sidebar__status-label">Backend status</p>
+        <p id="status" aria-live="polite">starting</p>
+      </div>
+    </aside>
 
-            <section class="chat-composer" aria-label="Message composer">
-              <label class="field" for="prompt">
-                <span class="field__label">Message</span>
-              </label>
-              <textarea id="prompt" rows="4" placeholder="Type a message"></textarea>
+    <main class="content">
+      <section class="page is-active" data-page="chat" aria-labelledby="chat-title">
+        <header class="page__header">
+          <p class="page__eyebrow">Workspace</p>
+          <h2 id="chat-title">Chat</h2>
+          <p class="page__copy">Send prompts to the Python agent and watch the streamed reply land live.</p>
+        </header>
 
-              <div class="chat-toolbar">
-                <button id="send" type="button">Send</button>
-                <p class="chat-toolbar__hint">Use Ctrl/Cmd + Enter to send quickly.</p>
-              </div>
-            </section>
-          </div>
-        </section>
+        <div class="chat-layout">
+          <section id="messages" class="messages" aria-label="Conversation"></section>
+          <button id="scroll-to-bottom" class="scroll-to-bottom" type="button" aria-label="Scroll to bottom" hidden>
+            <span class="scroll-to-bottom__icon" aria-hidden="true">&#8595;</span>
+          </button>
 
-        <section class="page" data-page="config" hidden aria-labelledby="config-title">
-          <header class="page__header">
-            <p class="page__eyebrow">Settings</p>
-            <h2 id="config-title">Config</h2>
-            <p class="page__copy">Edit the local app configuration here, then save or discard the draft below.</p>
-          </header>
+          <section class="chat-composer" aria-label="Message composer">
+            <label class="field" for="prompt">
+              <span class="field__label">Message</span>
+            </label>
+            <textarea id="prompt" rows="4" placeholder="Type a message"></textarea>
 
-          <form id="config-form" class="config-form">
-            <div id="config-fields" class="config-grid"></div>
-
-            <p id="config-feedback" class="form-feedback" aria-live="polite"></p>
-
-            <div class="form-actions">
-              <button id="discard" class="button button--secondary" type="button">Discard</button>
-              <button id="save-config" class="button" type="submit">Save</button>
+            <div class="chat-toolbar">
+              <button id="send" type="button">Send</button>
+              <p class="chat-toolbar__hint">Use Ctrl/Cmd + Enter to send quickly.</p>
             </div>
-          </form>
-        </section>
-      </main>
-    </div>
-    <script src="./renderer.js"></script>
-  </body>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" data-page="todo" hidden aria-labelledby="todo-title">
+        <header class="page__header">
+          <p class="page__eyebrow">Workspace</p>
+          <h2 id="todo-title">Todo</h2>
+          <p class="page__copy">A local-first task panel for quick planning before agent integration.</p>
+        </header>
+
+        <form id="todo-create-form" class="todo-create-form">
+          <div class="todo-create-grid">
+            <label class="field" for="todo-title-input">
+              <span class="field__label">Title</span>
+              <input id="todo-title-input" class="todo-input" type="text" placeholder="Write a task" required />
+            </label>
+
+            <label class="field" for="todo-due-input">
+              <span class="field__label">Due At</span>
+              <input id="todo-due-input" class="todo-input" type="datetime-local" />
+            </label>
+          </div>
+
+          <label class="field" for="todo-detail-input">
+            <span class="field__label">Detail</span>
+            <textarea id="todo-detail-input" class="todo-input todo-input--textarea" rows="3"
+              placeholder="Optional notes"></textarea>
+          </label>
+
+          <div class="todo-create-actions">
+            <button id="todo-create-button" class="button" type="submit">Add Task</button>
+          </div>
+        </form>
+
+        <div class="todo-toolbar">
+          <div class="todo-querybar">
+            <label class="todo-search" for="todo-search-input">
+              <span class="todo-search__label">Search</span>
+              <input id="todo-search-input" class="todo-input" type="search" placeholder="Search title or detail" />
+            </label>
+
+            <label class="todo-sort" for="todo-sort-select">
+              <span class="todo-sort__label">Sort</span>
+              <select id="todo-sort-select" class="todo-select">
+                <option value="due-asc">Due Soonest</option>
+                <option value="due-desc">Due Latest</option>
+                <option value="updated-desc">Recently Updated</option>
+                <option value="title-asc">Title A-Z</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="todo-filters" role="tablist" aria-label="Todo filters">
+            <button class="todo-filter is-active" data-todo-filter="all" type="button">All</button>
+            <button class="todo-filter" data-todo-filter="active" type="button">Active</button>
+            <button class="todo-filter" data-todo-filter="done" type="button">Done</button>
+            <button class="todo-filter" data-todo-filter="overdue" type="button">Overdue</button>
+          </div>
+
+          <div class="todo-bulk-actions">
+            <button id="todo-clear-completed" class="button button--secondary" type="button">Clear Completed</button>
+            <button id="todo-clear-all" class="button button--secondary" type="button">Clear All</button>
+          </div>
+        </div>
+
+        <p id="todo-feedback" class="form-feedback" aria-live="polite"></p>
+
+        <div id="todo-undo-bar" class="todo-undo" hidden>
+          <p id="todo-undo-text" class="todo-undo__text">Task deleted.</p>
+          <button id="todo-undo-button" class="button button--secondary" type="button">Undo</button>
+        </div>
+
+        <div id="todo-list" class="todo-list" aria-live="polite"></div>
+        <p id="todo-empty" class="todo-empty" hidden>No tasks in this view.</p>
+      </section>
+
+      <section class="page" data-page="config" hidden aria-labelledby="config-title">
+        <header class="page__header">
+          <p class="page__eyebrow">Settings</p>
+          <h2 id="config-title">Config</h2>
+          <p class="page__copy">Edit the local app configuration here, then save or discard the draft below.</p>
+        </header>
+
+        <form id="config-form" class="config-form">
+          <div id="config-fields" class="config-grid"></div>
+
+          <p id="config-feedback" class="form-feedback" aria-live="polite"></p>
+
+          <div class="form-actions">
+            <button id="discard" class="button button--secondary" type="button">Discard</button>
+            <button id="save-config" class="button" type="submit">Save</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script src="./renderer.js"></script>
+</body>
+
 </html>

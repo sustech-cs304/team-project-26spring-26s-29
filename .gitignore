@@ -210,9 +210,6 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Local TinyDB todo data
-backend/db/todo.json
-
 # Flask stuff:
 instance/
 .webassets-cache
@@ -369,3 +366,4 @@ __marimo__/
 
 # PROJECT CUSTOMIZATION
 config.json
+db.json
