@@ -14,7 +14,7 @@ from tinydb.table import Table
 from ..config import get_config
 
 
-_DEFAULT_DB_PATH = Path(__file__).resolve().parent / "todo.json"
+_DEFAULT_DB_PATH = Path(__file__).resolve().parent / "db.json"
 _TABLE_NAME = "todo_list"
 _UNSET = object()
 
