@@ -51,6 +51,7 @@ const elements = {
   scheduleEndInput: $("schedule-end-input"),
   scheduleDetailInput: $("schedule-detail-input"),
   scheduleCreateButton: $("schedule-create-button"),
+  scheduleToggleCreateButton: $("schedule-toggle-create"),
   scheduleFeedback: $("schedule-feedback"),
   scheduleList: $("schedule-list"),
 };

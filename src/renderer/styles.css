@@ -406,11 +406,11 @@ button {
   transform: rotate(180deg);
 }
 
-.message__content > :first-child {
+.message__content> :first-child {
   margin-top: 0;
 }
 
-.message__content > :last-child {
+.message__content> :last-child {
   margin-bottom: 0;
 }
 
@@ -527,7 +527,7 @@ button {
   font-size: 0.88rem;
 }
 
-.message__toolresult > :last-child {
+.message__toolresult> :last-child {
   margin-bottom: 0;
 }
 
@@ -1038,10 +1038,13 @@ button {
   margin-top: 2px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 4px 7px;
+  min-width: 82px;
+  min-height: 30px;
+  padding: 5px 10px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 10px;
   background: rgba(255, 253, 248, 0.9);
   color: var(--muted);
   font-size: 0.74rem;
@@ -1382,6 +1385,7 @@ button {
   align-items: center;
   margin: 12px 0 18px;
 }
+
 .calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -1392,15 +1396,18 @@ button {
   font-size: 0.78rem;
   letter-spacing: 0.08em;
 }
+
 .calendar-weekday {
   text-align: center;
   padding: 8px 0;
 }
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
 }
+
 .calendar-day-btn {
   position: relative;
   padding: 10px;
@@ -1416,12 +1423,14 @@ button {
   cursor: pointer;
   font-weight: 600;
 }
+
 .calendar-day-btn.is-disabled,
 .calendar-day-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background: transparent;
 }
+
 .calendar-badge {
   position: absolute;
   right: 8px;
@@ -1438,6 +1447,7 @@ button {
   align-items: center;
   justify-content: center;
 }
+
 .calendar-day-btn.is-selected {
   border-color: rgba(204, 106, 47, 0.45);
   box-shadow: 0 6px 14px rgba(167, 79, 26, 0.12);
@@ -1445,16 +1455,23 @@ button {
 }
 
 /* Schedule layout adjustments to enable right-column scrolling */
+.page[data-page="schedule"] {
+  display: block;
+  overflow: hidden;
+}
+
 .schedule-grid {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 36%);
   gap: 12px;
   align-items: start;
   min-height: 0;
 }
+
 .calendar {
   min-width: 0;
 }
+
 .calendar-header {
   display: flex;
   align-items: center;
@@ -1462,30 +1479,87 @@ button {
   gap: 8px;
   margin-bottom: 8px;
 }
+
 .schedule-right {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-height: calc(100vh - 160px);
+  gap: 10px;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
 }
+
+.schedule-right__toggle {
+  width: 100%;
+}
+
+.schedule-create-form {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.72);
+}
+
+.schedule-create-form .form-actions {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(36, 49, 39, 0.12);
+}
+
+#schedule-feedback {
+  margin-top: 2px;
+}
+
 #schedule-list {
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-height: 0;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+#schedule-list .todo-item {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1400px) {
+  .schedule-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
+  }
 }
 
 /* Responsive schedule adjustments */
-@media (max-width: 640px) {
+@media (max-width: 1200px) {
+  .page[data-page="schedule"] {
+    overflow: auto;
+  }
+
   .schedule-grid {
     grid-template-columns: 1fr;
     gap: 12px;
   }
+
   .schedule-right {
     max-height: none;
-  }
-  #schedule-list {
     overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
   }
+
+  #schedule-list {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
   .calendar-grid,
   .calendar-weekdays {
     gap: 6px;
@@ -1493,6 +1567,7 @@ button {
 }
 
 @media (max-width: 520px) {
+
   .schedule-grid,
   .schedule-right,
   #schedule-list {
@@ -1500,13 +1575,11 @@ button {
     min-width: 0;
     box-sizing: border-box;
   }
-  .schedule-right {
-    overflow: auto;
-  }
+
   #schedule-list {
-    overflow-x: auto;
     word-break: break-word;
   }
+
   .calendar-day-btn {
     min-height: 48px;
     padding: 8px;

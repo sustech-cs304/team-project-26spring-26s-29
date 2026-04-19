@@ -67,6 +67,7 @@ const scheduleController = createScheduleController({
   scheduleEndInput: elements.scheduleEndInput,
   scheduleDetailInput: elements.scheduleDetailInput,
   scheduleCreateButton: elements.scheduleCreateButton,
+  scheduleToggleCreateButton: elements.scheduleToggleCreateButton,
   scheduleFeedback: elements.scheduleFeedback,
   scheduleList: elements.scheduleList,
 });

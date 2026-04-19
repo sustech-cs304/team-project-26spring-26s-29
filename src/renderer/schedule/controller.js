@@ -16,6 +16,7 @@ function createScheduleController({
   scheduleEndInput,
   scheduleDetailInput,
   scheduleCreateButton,
+  scheduleToggleCreateButton,
   scheduleFeedback,
   scheduleList,
 }) {
@@ -25,7 +26,32 @@ function createScheduleController({
     selectedDate: null,
     editingId: null,
     isBusy: false,
+    isCreatePanelOpen: false,
   };
+
+  function syncCreatePanelToggleButton() {
+    if (!scheduleToggleCreateButton) {
+      return;
+    }
+
+    scheduleToggleCreateButton.hidden = false;
+    scheduleToggleCreateButton.textContent = scheduleState.isCreatePanelOpen
+      ? "Hide Add Event"
+      : "Add Event";
+    scheduleToggleCreateButton.setAttribute(
+      "aria-expanded",
+      String(scheduleState.isCreatePanelOpen)
+    );
+  }
+
+  function syncCreatePanelVisibility() {
+    if (!scheduleCreateForm) {
+      return;
+    }
+
+    scheduleCreateForm.hidden = !scheduleState.isCreatePanelOpen;
+    syncCreatePanelToggleButton();
+  }
 
   function parseScheduleId(rawId) {
     const parsed = Number.parseInt(String(rawId), 10);
@@ -349,6 +375,8 @@ function createScheduleController({
   }
 
   function init() {
+    syncCreatePanelVisibility();
+
     schedulePrev?.addEventListener("click", async () => {
       if (scheduleState.isBusy) return;
       const nextMonth = new Date(scheduleState.currentMonth.getFullYear(), scheduleState.currentMonth.getMonth() - 1, 1);
@@ -362,12 +390,16 @@ function createScheduleController({
     });
 
     scheduleCreateForm?.addEventListener("submit", handleScheduleCreate);
+    scheduleToggleCreateButton?.addEventListener("click", () => {
+      scheduleState.isCreatePanelOpen = !scheduleState.isCreatePanelOpen;
+      syncCreatePanelVisibility();
+    });
     scheduleList?.addEventListener("click", handleScheduleListClick);
     scheduleList?.addEventListener("change", handleScheduleListChange);
   }
 
   async function loadOnStartup() {
-    await loadSchedulesForMonth(scheduleState.currentMonth).catch(() => {});
+    await loadSchedulesForMonth(scheduleState.currentMonth).catch(() => { });
   }
 
   async function refreshOnForeground() {
