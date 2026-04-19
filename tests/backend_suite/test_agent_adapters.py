@@ -1,6 +1,7 @@
 """Tests for agent-facing tool and context adapters."""
 
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from backend.agent.context import CurrentInfoProvider
 from backend.agent.tools import (
@@ -47,7 +48,6 @@ class AgentToolTests(BackendTestCase):
 
 class AgentContextTests(AsyncBackendTestCase):
     async def test_current_info_provider_injects_snapshot(self) -> None:
-        create_todo(title="Review commit", detail="")
         provider = CurrentInfoProvider()
         session = SimpleNamespace(session_id="ctx-7", state={})
 
@@ -62,15 +62,34 @@ class AgentContextTests(AsyncBackendTestCase):
         context = DummyContext()
         state: dict[str, object] = {}
 
-        await provider.before_run(
-            agent=object(),
-            session=session,
-            context=context,
-            state=state,
-        )
+        with patch(
+            "backend.agent.context.current_info._fetch_public_ip_info",
+            return_value={
+                "provider": "ipinfo.io",
+                "available": True,
+                "ip": "203.0.113.24",
+                "city": "Hong Kong",
+                "region": "Hong Kong",
+                "country": "HK",
+                "loc": "22.3193,114.1694",
+                "org": "Example ISP",
+                "postal": "",
+                "timezone": "Asia/Hong_Kong",
+            },
+        ):
+            await provider.before_run(
+                agent=object(),
+                session=session,
+                context=context,
+                state=state,
+            )
 
         snapshot = state["snapshot"]
         self.assertEqual(snapshot["session"]["session_id"], "ctx-7")
-        self.assertEqual(snapshot["todos"]["total"], 1)
+        self.assertEqual(snapshot["network"]["ip"], "203.0.113.24")
+        self.assertEqual(snapshot["network"]["provider"], "ipinfo.io")
+        self.assertIn("python", snapshot["system"])
         self.assertEqual(context.metadata["current_info"], snapshot)
         self.assertIn("Current runtime context:", context.instructions[0][1])
+        self.assertIn("Runtime:", context.instructions[0][1])
+        self.assertIn("Public IP: 203.0.113.24", context.instructions[0][1])

@@ -1,6 +1,6 @@
 """Tests for the todo service layer."""
 
-from backend.services import todo_query_service, todo_service
+from backend.services import todo_service
 
 from .support import BackendTestCase
 
@@ -15,22 +15,17 @@ class TodoServiceTests(BackendTestCase):
         )
 
         todo_service.update_todo(first.id, {"is_done": True})
-        snapshot = todo_query_service.build_runtime_snapshot("service-test")
-
-        self.assertEqual(snapshot["todos"]["total"], 2)
-        self.assertEqual(snapshot["todos"]["done"], 1)
-        self.assertEqual(snapshot["todos"]["open"], 1)
-
         deleted_count = todo_service.clear_todos("completed")
         remaining = todo_service.list_todos()
 
         self.assertEqual(deleted_count, 1)
         self.assertEqual([todo.id for todo in remaining], [second.id])
 
-    def test_snapshot_formatter_mentions_session_and_counts(self) -> None:
+    def test_clear_all_deletes_everything(self) -> None:
         todo_service.create_todo(title="Check email", detail="", due_at=None)
-        snapshot = todo_query_service.build_runtime_snapshot("session-42")
-        formatted = todo_query_service.format_runtime_snapshot(snapshot)
+        todo_service.create_todo(title="Review slides", detail="final review", due_at=None)
 
-        self.assertIn("Session: session-42", formatted)
-        self.assertIn("Todos:", formatted)
+        deleted_count = todo_service.clear_todos("all")
+
+        self.assertEqual(deleted_count, 2)
+        self.assertEqual(todo_service.list_todos(), [])

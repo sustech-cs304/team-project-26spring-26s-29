@@ -1,6 +1,5 @@
 """Service layer entry points for backend business logic."""
 
-from .todo_query_service import TodoQueryService, todo_query_service
 from .todo_service import TodoService, todo_service
 from .workspace_command_service import run_workspace_python, run_workspace_shell
 from .workspace_service import (
@@ -27,7 +26,6 @@ from .workspace_service import (
 from .schedule_service import ScheduleService, schedule_service
 
 __all__ = [
-    "TodoQueryService",
     "TodoService",
     "append_workspace_file",
     "build_workspace_preview",
@@ -48,7 +46,6 @@ __all__ = [
     "run_workspace_shell",
     "search_workspace_text",
     "summarize_text",
-    "todo_query_service",
     "todo_service",
     "ScheduleService",
     "schedule_service",
