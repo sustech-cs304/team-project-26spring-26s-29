@@ -19,6 +19,16 @@ const configFieldDefinitions = [
     label: "OpenAI Endpoint",
     hint: "Optional custom base URL for the chat provider.",
   },
+  {
+    key: "motdLanguage",
+    label: "MOTD Language",
+    hint: "Language used for the startup message in Chat.",
+    control: "select",
+    options: [
+      { value: "zh-CN", label: "简体中文" },
+      { value: "en", label: "English" },
+    ],
+  },
 ];
 
 function createConfigController({
@@ -54,6 +64,24 @@ function createConfigController({
                 type="checkbox"
               />
             </div>
+          `
+          : control === "select"
+            ? `
+            <span class="config-field__label">${label}</span>
+            <span class="config-field__hint">${hint}</span>
+            <select
+              id="${inputId}"
+              class="config-field__input config-field__select"
+              data-config-key="${key}"
+            >
+              ${configFieldDefinitions
+                .find((field) => field.key === key)
+                .options.map(
+                  ({ value, label: optionLabel }) =>
+                    `<option value="${value}">${optionLabel}</option>`
+                )
+                .join("")}
+            </select>
           `
           : `
             <span class="config-field__label">${label}</span>
@@ -198,6 +226,7 @@ function createConfigController({
     buildConfigFields();
     configForm.addEventListener("submit", handleConfigSave);
     configForm.addEventListener("input", handleConfigInput);
+    configForm.addEventListener("change", handleConfigInput);
     discard.addEventListener("click", handleConfigDiscard);
   }
 

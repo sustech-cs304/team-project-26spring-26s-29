@@ -28,6 +28,7 @@ test("config store strips removed config fields and keeps supported values", asy
   });
 
   assert.equal(normalized.backendPort, 9000);
+  assert.equal(normalized.motdLanguage, "zh-CN");
   assert.equal("backendHost" in normalized, false);
   assert.equal("dbPath" in normalized, false);
   assert.equal("legacySearchToggle" in normalized, false);
@@ -46,6 +47,7 @@ test("config store derives runtime db and workspace paths beside config.json", a
   const runtimeConfig = configStore.getRuntimeConfig(normalized);
 
   assert.equal(runtimeConfig.dbPath, path.join(tempRoot, "db.json"));
+  assert.equal(runtimeConfig.motdLanguage, "zh-CN");
   assert.equal(runtimeConfig.workspacePath, path.join(tempRoot, "workspace"));
 });
 
@@ -75,6 +77,7 @@ test("config store read rewrites legacy config.json keys", async () => {
     openaiApiKey: "demo-key",
     openaiChatModel: null,
     openaiEndpoint: null,
+    motdLanguage: "zh-CN",
   });
   assert.deepEqual(saved, config);
 });

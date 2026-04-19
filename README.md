@@ -43,6 +43,7 @@ python -m pip install -r backend/requirements.txt
 - `openaiApiKey`
 - `openaiChatModel`
 - `openaiEndpoint`
+- `motdLanguage` (`zh-CN` or `en`)
 
 5. Start the desktop app:
 

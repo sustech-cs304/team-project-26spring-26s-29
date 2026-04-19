@@ -8,6 +8,7 @@ const PROMPT_MAX_HEIGHT = 220;
 const TOOL_DETAIL_MAX_LENGTH = 160;
 const FILE_TILE_TEXT_MAX_LENGTH = 76;
 const ALWAYS_APPROVE_STORAGE_KEY = "chat.alwaysApproveTools";
+const READY_MOTD_TRIGGER_PROMPT = "[[APP_MOTD_ON_READY]]";
 
 function createChatController({
   prompt,
@@ -38,6 +39,8 @@ function createChatController({
   let draftRequestId = crypto.randomUUID();
   let previewState = null;
   let alwaysApproveTools = readAlwaysApproveToolsPreference();
+  let lastReadyState = false;
+  let readyMotdInFlight = false;
   const approvalRequestsInFlight = new Set();
 
   function readAlwaysApproveToolsPreference() {
@@ -710,9 +713,15 @@ function createChatController({
       window.configAPI.get().catch(() => null),
     ]);
     const ready = ok && Boolean(config?.openaiChatModel);
+    const becameReady = ready && !lastReadyState;
+    lastReadyState = ready;
 
     status.textContent = isRunning ? "running" : !ok ? "starting" : ready ? "ready" : "config needed";
     updateComposerAvailability(ready);
+
+    if (becameReady) {
+      void runReadyMotd();
+    }
   }
 
   function buildRunContents() {
@@ -758,32 +767,43 @@ function createChatController({
     renderAttachmentList();
   }
 
-  async function run() {
-    const contents = buildRunContents();
-    if (!contents.length || send.disabled) {
+  async function runAgent(
+    contents,
+    {
+      showUserMessage = true,
+      clearComposerOnStart = true,
+      requestId = null,
+    } = {}
+  ) {
+    if (!Array.isArray(contents) || !contents.length || isRunning) {
       return;
     }
 
-    const requestId = stagedAttachments.length ? ensureDraftRequestId() : crypto.randomUUID();
+    const nextRequestId = requestId
+      || (showUserMessage && stagedAttachments.length ? ensureDraftRequestId() : crypto.randomUUID());
     approvalRequestsInFlight.clear();
     isRunning = true;
-    activeRequestId = requestId;
+    activeRequestId = nextRequestId;
     activeAssistantMessage = null;
     shouldAutoScroll = true;
     status.textContent = "running";
     updateComposerAvailability(true);
 
-    appendMessage({
-      role: "user",
-      status: "completed",
-      contents: cloneData(contents),
-    });
+    if (showUserMessage) {
+      appendMessage({
+        role: "user",
+        status: "completed",
+        contents: cloneData(contents),
+      });
+    }
     createAssistantPlaceholder();
-    clearComposer();
+    if (clearComposerOnStart) {
+      clearComposer();
+    }
 
     try {
-      const result = await window.agentAPI.runPrompt({ requestId, contents });
-      if (activeRequestId === requestId && result?.message) {
+      const result = await window.agentAPI.runPrompt({ requestId: nextRequestId, contents });
+      if (activeRequestId === nextRequestId && result?.message) {
         updateAssistantMessage(result.message);
       }
       status.textContent = "ready";
@@ -807,6 +827,38 @@ function createChatController({
     }
 
     await refreshStatus();
+  }
+
+  async function run() {
+    const contents = buildRunContents();
+    if (!contents.length || send.disabled) {
+      return;
+    }
+
+    await runAgent(contents, {
+      showUserMessage: true,
+      clearComposerOnStart: true,
+    });
+  }
+
+  async function runReadyMotd() {
+    if (readyMotdInFlight || isRunning) {
+      return;
+    }
+
+    readyMotdInFlight = true;
+    try {
+      await runAgent(
+        [{ type: "text", text: READY_MOTD_TRIGGER_PROMPT }],
+        {
+          showUserMessage: false,
+          clearComposerOnStart: false,
+          requestId: crypto.randomUUID(),
+        }
+      );
+    } finally {
+      readyMotdInFlight = false;
+    }
   }
 
   async function interruptRun() {
