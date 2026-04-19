@@ -5,7 +5,8 @@ const MESSAGE_PREVIEW_MAX_LENGTH = 180;
 const MESSAGE_COLLAPSE_THRESHOLD = 140;
 const BOTTOM_SCROLL_THRESHOLD = 80;
 const PROMPT_MAX_HEIGHT = 220;
-const FILE_PREVIEW_MAX_LENGTH = 220;
+const TOOL_DETAIL_MAX_LENGTH = 160;
+const FILE_TILE_TEXT_MAX_LENGTH = 76;
 
 function createChatController({
   prompt,
@@ -18,6 +19,7 @@ function createChatController({
   previewModal,
   previewModalBody,
   previewModalClose,
+  previewModalCopy,
   previewModalLabel,
   previewModalMeta,
   previewModalSave,
@@ -98,69 +100,6 @@ function createChatController({
     return `${normalized.slice(0, maxLength).trimEnd()}...`;
   }
 
-  function isTextLikeMediaType(mediaType) {
-    const normalized = String(mediaType || "").toLowerCase();
-    return (
-      normalized.startsWith("text/") ||
-      normalized.includes("json") ||
-      normalized.includes("xml") ||
-      normalized.includes("yaml") ||
-      normalized.includes("javascript") ||
-      normalized.includes("typescript")
-    );
-  }
-
-  function buildUserPreview(contents) {
-    return contents
-      .filter((part) => part.type === "text")
-      .map((part) => String(part.text || ""))
-      .join("\n");
-  }
-
-  function messageHasAttachmentPreview(contents) {
-    return contents.some((part) => part.type === "image" || part.type === "file");
-  }
-
-  function attachUserMessageToggle(article, contentNode, previewText, contents) {
-    if (messageHasAttachmentPreview(contents)) {
-      return;
-    }
-
-    const text = String(previewText ?? "");
-    const normalized = text.trim();
-    const shouldCollapse =
-      normalized.length > MESSAGE_COLLAPSE_THRESHOLD || normalized.includes("\n");
-
-    if (!shouldCollapse) {
-      return;
-    }
-
-    article.classList.add("message--collapsible", "is-collapsed");
-
-    const bubble = contentNode.parentElement;
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "message__toggle";
-    toggle.setAttribute("aria-expanded", "false");
-    toggle.setAttribute("aria-label", "Expand message");
-    toggle.innerHTML = '<span class="message__toggle-icon" aria-hidden="true">▾</span>';
-
-    const preview = document.createElement("div");
-    preview.className = "message__preview";
-    preview.textContent = truncateText(text);
-
-    bubble.insertBefore(toggle, contentNode);
-    bubble.insertBefore(preview, contentNode);
-
-    toggle.addEventListener("click", () => {
-      const nextExpanded = article.classList.contains("is-collapsed");
-      article.classList.toggle("is-collapsed", !nextExpanded);
-      article.classList.toggle("is-expanded", nextExpanded);
-      toggle.setAttribute("aria-expanded", String(nextExpanded));
-      toggle.setAttribute("aria-label", nextExpanded ? "Collapse message" : "Expand message");
-    });
-  }
-
   function normalizeMessage(message, fallbackRole = "assistant") {
     return {
       role: message?.role || fallbackRole,
@@ -190,8 +129,24 @@ function createChatController({
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  function getPartMetaText(part) {
+  function compactMeta(part) {
+    return [formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
+  }
+
+  function fullMeta(part) {
     return [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
+  }
+
+  function isTextLikeMediaType(mediaType) {
+    const normalized = String(mediaType || "").toLowerCase();
+    return (
+      normalized.startsWith("text/") ||
+      normalized.includes("json") ||
+      normalized.includes("xml") ||
+      normalized.includes("yaml") ||
+      normalized.includes("javascript") ||
+      normalized.includes("typescript")
+    );
   }
 
   function getPreviewKind(part) {
@@ -233,24 +188,19 @@ function createChatController({
     }
   }
 
-  function renderInlinePreview(part, { compact = false } = {}) {
+  function renderInlinePreview(part) {
     const kind = getPreviewKind(part);
     const src = buildDataUri(part);
-    const imageClass = compact ? "message__image message__image--thumb" : "message__image";
 
     if (kind === "image" && src) {
-      return `<img class="${imageClass}" src="${escapeHtml(src)}" alt="${escapeHtml(part.name || "Attached image")}" />`;
+      return `<img class="message__image message__image--thumb" src="${escapeHtml(src)}" alt="${escapeHtml(part.name || "image")}" />`;
     }
 
     if (kind === "text") {
-      const previewText = truncateText(
-        String(part.summaryText || "Open preview to inspect the file contents."),
-        compact ? 80 : FILE_PREVIEW_MAX_LENGTH
-      );
       return `
         <div class="message__filethumb message__filethumb--text">
           <span class="message__filethumb-badge">${escapeHtml(getPreviewBadge(kind))}</span>
-          <p class="message__filethumb-copy">${escapeHtml(previewText)}</p>
+          <p class="message__filethumb-copy">${escapeHtml(truncateText(part.summaryText || "Open preview", FILE_TILE_TEXT_MAX_LENGTH))}</p>
         </div>
       `;
     }
@@ -262,53 +212,74 @@ function createChatController({
     `;
   }
 
-  function renderAttachmentCard(part, context, ref, { label, saveable = false } = {}) {
-    const previewKind = getPreviewKind(part);
-    const metaBits = getPartMetaText(part);
-    const actions = [
-      `
-        <button
-          class="button button--secondary message__action-button"
-          type="button"
-          data-preview-ref="${escapeHtml(ref)}"
-          data-message-id="${escapeHtml(context.messageId)}"
-        >
-          Preview
-        </button>
-      `,
-    ];
+  function buildUserPreview(contents) {
+    return contents
+      .filter((part) => part.type === "text")
+      .map((part) => String(part.text || ""))
+      .join("\n");
+  }
 
-    if (saveable) {
-      actions.push(
-        `
-          <button
-            class="button button--secondary message__action-button"
-            type="button"
-            data-save-ref="${escapeHtml(ref)}"
-            data-message-id="${escapeHtml(context.messageId)}"
-          >
-            Save
-          </button>
-        `
-      );
+  function messageHasAttachmentPreview(contents) {
+    return contents.some((part) => part.type === "image" || part.type === "file");
+  }
+
+  function attachUserMessageToggle(article, contentNode, previewText, contents) {
+    if (messageHasAttachmentPreview(contents)) {
+      return;
     }
 
+    const normalized = String(previewText ?? "").trim();
+    const shouldCollapse =
+      normalized.length > MESSAGE_COLLAPSE_THRESHOLD || normalized.includes("\n");
+
+    if (!shouldCollapse) {
+      return;
+    }
+
+    article.classList.add("message--collapsible", "is-collapsed");
+
+    const bubble = contentNode.parentElement;
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "message__toggle";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-label", "Expand message");
+    toggle.innerHTML = '<span class="message__toggle-icon" aria-hidden="true">▾</span>';
+
+    const preview = document.createElement("div");
+    preview.className = "message__preview";
+    preview.textContent = truncateText(normalized);
+
+    bubble.insertBefore(toggle, contentNode);
+    bubble.insertBefore(preview, contentNode);
+
+    toggle.addEventListener("click", () => {
+      const nextExpanded = article.classList.contains("is-collapsed");
+      article.classList.toggle("is-collapsed", !nextExpanded);
+      article.classList.toggle("is-expanded", nextExpanded);
+      toggle.setAttribute("aria-expanded", String(nextExpanded));
+      toggle.setAttribute("aria-label", nextExpanded ? "Collapse message" : "Expand message");
+    });
+  }
+
+  function renderMediaTile(part, context, ref, label = null) {
+    const meta = compactMeta(part);
     return `
-      <div class="message__card message__card--preview message__card--${escapeHtml(previewKind)}">
-        <div class="message__card-shell">
-          <div class="message__card-art">
-            ${renderInlinePreview(part, { compact: true })}
-          </div>
-          <div class="message__card-copy">
-            <p class="message__card-label">${escapeHtml(label)}</p>
-            <p class="message__filename">${escapeHtml(part.name || label.toLowerCase())}</p>
-            ${metaBits ? `<p class="message__filemeta">${escapeHtml(metaBits)}</p>` : ""}
-          </div>
+      <button
+        class="message__media-tile"
+        type="button"
+        data-preview-ref="${escapeHtml(ref)}"
+        data-message-id="${escapeHtml(context.messageId)}"
+      >
+        <div class="message__media-art">
+          ${renderInlinePreview(part)}
         </div>
-        <div class="message__card-actions">
-          ${actions.join("")}
+        <div class="message__media-copy">
+          ${label ? `<p class="message__card-label">${escapeHtml(label)}</p>` : ""}
+          <p class="message__filename">${escapeHtml(part.name || "attachment")}</p>
+          ${meta ? `<p class="message__filemeta">${escapeHtml(meta)}</p>` : ""}
         </div>
-      </div>
+      </button>
     `;
   }
 
@@ -319,54 +290,97 @@ function createChatController({
         blocks.push(renderPlainText(part.text || ""));
         continue;
       }
-      if (part.type === "image") {
-        blocks.push(renderAttachmentCard(part, context, String(index), { label: "Image" }));
-        continue;
-      }
-      if (part.type === "file") {
-        blocks.push(renderAttachmentCard(part, context, String(index), { label: "File" }));
+      if (part.type === "image" || part.type === "file") {
+        blocks.push(renderMediaTile(part, context, String(index), part.type === "image" ? "Image" : "File"));
       }
     }
     return blocks.join("") || "<p></p>";
   }
 
-  function renderToolCall(part) {
-    return `
-      <div class="message__card message__card--tool">
-        <p class="message__card-label">Tool Request</p>
-        <p class="message__toolname">${escapeHtml(part.name || "Unnamed tool")}</p>
-        <pre class="message__toolargs">${escapeHtml(part.argumentsText || "No arguments")}</pre>
-      </div>
-    `;
+  function stringifyArgumentValue(value) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (typeof value === "string") {
+      return truncateText(value, 64);
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      return truncateText(value.join(", "), 64);
+    }
+    return truncateText(JSON.stringify(value), 64);
   }
 
-  function renderStructuredText(text) {
-    return text ? renderMarkdown(text) : "";
+  function summarizeToolArguments(part) {
+    if (part?.arguments && typeof part.arguments === "object" && !Array.isArray(part.arguments)) {
+      const summary = Object.entries(part.arguments)
+        .slice(0, 2)
+        .map(([key, value]) => {
+          const rendered = stringifyArgumentValue(value);
+          return rendered ? `${key}=${rendered}` : null;
+        })
+        .filter(Boolean)
+        .join(" · ");
+      if (summary) {
+        return summary;
+      }
+    }
+
+    return truncateText(part?.argumentsText || "No arguments", TOOL_DETAIL_MAX_LENGTH);
   }
 
-  function renderNestedResultItems(items, context, parentRef) {
-    if (!Array.isArray(items) || !items.length) {
-      return "";
+  function collectToolResultText(part) {
+    const textItems = Array.isArray(part?.items)
+      ? part.items.filter((item) => item.type === "text" && String(item.text || "").trim())
+      : [];
+
+    if (textItems.length) {
+      return truncateText(textItems[0].text, TOOL_DETAIL_MAX_LENGTH);
     }
 
-    const richItems = items.filter((item) => item.type !== "text");
-    if (!richItems.length) {
-      return "";
+    if (typeof part?.result === "string" && part.result.trim()) {
+      return truncateText(part.result, TOOL_DETAIL_MAX_LENGTH);
     }
 
+    return "Completed";
+  }
+
+  function renderToolLine({ label, tone = "neutral", title, detail }) {
     return `
-      <div class="message__nested">
-        ${richItems.map((item, index) => renderAssistantPart(item, context, `${parentRef}.items.${index}`)).join("")}
+      <div class="message__tool-line message__tool-line--${escapeHtml(tone)}">
+        <span class="message__tool-line-label">${escapeHtml(label)}</span>
+        <span class="message__tool-line-title">${escapeHtml(title)}</span>
+        ${detail ? `<span class="message__tool-line-detail">${escapeHtml(detail)}</span>` : ""}
       </div>
     `;
   }
 
   function renderToolResult(part, context, ref) {
+    const toolName = context.toolNames.get(part.callId) || "tool";
+    const detail = collectToolResultText(part);
+    const richItems = Array.isArray(part.items)
+      ? part.items.filter((item) => item.type !== "text")
+      : [];
+
+    const line = renderToolLine({
+      label: "Tool",
+      tone: part.exception ? "error" : "neutral",
+      title: toolName,
+      detail: part.exception ? truncateText(part.exception, TOOL_DETAIL_MAX_LENGTH) : detail,
+    });
+
+    if (!richItems.length) {
+      return line;
+    }
+
     return `
-      <div class="message__card message__card--tool">
-        <p class="message__card-label">Tool Result</p>
-        ${part.result ? `<div class="message__toolresult">${renderStructuredText(part.result)}</div>` : ""}
-        ${renderNestedResultItems(part.items, context, ref)}
+      <div class="message__tool-stack">
+        ${line}
+        <div class="message__tool-rich">
+          ${richItems.map((item, index) => renderAssistantPart(item, context, `${ref}.items.${index}`)).join("")}
+        </div>
       </div>
     `;
   }
@@ -374,24 +388,25 @@ function createChatController({
   function renderApprovalCard(part, context) {
     const functionCall = part.functionCall || {};
     const decision = part.decision || "pending";
-    const isPending = decision === "pending";
-    const isActionable = isPending && context.isActive;
-    const decisionLabel =
-      decision === "approved"
-        ? "Approved"
-        : decision === "rejected"
-          ? "Rejected"
-          : "Awaiting your decision";
+    const pending = decision === "pending";
+
+    if (!pending) {
+      return renderToolLine({
+        label: decision === "approved" ? "Approved" : "Rejected",
+        tone: decision === "approved" ? "approved" : "rejected",
+        title: functionCall.name || "Tool action",
+        detail: summarizeToolArguments(functionCall),
+      });
+    }
 
     return `
-      <div class="message__card message__card--approval">
-        <div class="message__approval-header">
-          <p class="message__card-label">Approval Needed</p>
-          <span class="message__badge message__badge--${escapeHtml(decision)}">${escapeHtml(decisionLabel)}</span>
+      <div class="message__approval-card">
+        <div class="message__approval-row">
+          <span class="message__badge message__badge--pending">Approval needed</span>
+          <span class="message__approval-name">${escapeHtml(functionCall.name || "Tool action")}</span>
         </div>
-        <p class="message__toolname">${escapeHtml(functionCall.name || "Tool action")}</p>
-        <pre class="message__toolargs">${escapeHtml(functionCall.argumentsText || "No arguments")}</pre>
-        ${isActionable ? `
+        <p class="message__approval-summary">${escapeHtml(summarizeToolArguments(functionCall))}</p>
+        ${context.isActive ? `
           <div class="message__approval-actions">
             <button
               class="button"
@@ -430,7 +445,7 @@ function createChatController({
           <div class="message__toolresult">
             <p><strong>${escapeHtml(item.title || item.site_name || item.url || "Source")}</strong></p>
             ${item.url ? `<p>${escapeHtml(item.url)}</p>` : ""}
-            ${item.summary ? `<p>${escapeHtml(truncateText(item.summary, 260))}</p>` : ""}
+            ${item.summary ? `<p>${escapeHtml(truncateText(item.summary, 220))}</p>` : ""}
           </div>
         `).join("")}
       </div>
@@ -450,7 +465,12 @@ function createChatController({
       `;
     }
     if (part.type === "function_call") {
-      return renderToolCall(part);
+      return renderToolLine({
+        label: "Tool",
+        tone: "neutral",
+        title: part.name || "tool",
+        detail: summarizeToolArguments(part),
+      });
     }
     if (part.type === "function_result") {
       return renderToolResult(part, context, ref);
@@ -458,11 +478,8 @@ function createChatController({
     if (part.type === "function_approval_request") {
       return renderApprovalCard(part, context);
     }
-    if (part.type === "image") {
-      return renderAttachmentCard(part, context, ref, { label: "Image Output", saveable: true });
-    }
-    if (part.type === "file") {
-      return renderAttachmentCard(part, context, ref, { label: "File Output", saveable: true });
+    if (part.type === "image" || part.type === "file") {
+      return renderMediaTile(part, context, ref, null);
     }
     if (part.type === "citations") {
       return renderCitationsCard(part);
@@ -475,8 +492,39 @@ function createChatController({
       return '<p class="message__placeholder">Thinking...</p>';
     }
 
+    const toolNames = new Map();
+    const approvalCallIds = new Set();
+    const resultCallIds = new Set();
+
+    for (const part of message.contents) {
+      if (part.type === "function_call" && part.callId) {
+        toolNames.set(part.callId, part.name || "tool");
+      }
+      if (part.type === "function_result" && part.callId) {
+        resultCallIds.add(part.callId);
+      }
+      if (part.type === "function_approval_request" && part.functionCall?.callId) {
+        approvalCallIds.add(part.functionCall.callId);
+        toolNames.set(part.functionCall.callId, part.functionCall.name || "tool");
+      }
+    }
+
+    const nextContext = {
+      ...context,
+      toolNames,
+    };
+
     return message.contents
-      .map((part, index) => renderAssistantPart(part, context, `${index}`))
+      .map((part, index) => {
+        if (
+          part.type === "function_call" &&
+          part.callId &&
+          (approvalCallIds.has(part.callId) || resultCallIds.has(part.callId))
+        ) {
+          return "";
+        }
+        return renderAssistantPart(part, nextContext, `${index}`);
+      })
       .join("");
   }
 
@@ -558,11 +606,7 @@ function createChatController({
 
   function renderComposerAttachmentCard(attachment, index) {
     const label = attachment.type === "image" ? "Image" : "File";
-    const metaBits = [
-      attachment.mediaType,
-      formatBytes(attachment.sizeBytes),
-      attachment.relativePath,
-    ].filter(Boolean).join(" · ");
+    const meta = compactMeta(attachment);
 
     return `
       <div class="composer-attachment">
@@ -572,12 +616,12 @@ function createChatController({
           data-composer-preview-index="${index}"
         >
           <div class="composer-attachment__art">
-            ${renderInlinePreview(attachment, { compact: true })}
+            ${renderInlinePreview(attachment)}
           </div>
           <div class="composer-attachment__main">
             <p class="composer-attachment__label">${escapeHtml(label)}</p>
             <p class="composer-attachment__name">${escapeHtml(attachment.name || label.toLowerCase())}</p>
-            ${metaBits ? `<p class="composer-attachment__meta">${escapeHtml(metaBits)}</p>` : ""}
+            ${meta ? `<p class="composer-attachment__meta">${escapeHtml(meta)}</p>` : ""}
           </div>
         </button>
         <button
@@ -767,6 +811,7 @@ function createChatController({
     if (kind === "text" && part?.summaryText) {
       return {
         kind: "text",
+        name: part.name,
         mediaType: part.mediaType,
         relativePath: part.relativePath,
         text: part.summaryText,
@@ -777,8 +822,10 @@ function createChatController({
     if (src && ["image", "pdf", "audio", "video"].includes(kind)) {
       return {
         kind,
+        name: part.name,
         mediaType: part.mediaType,
         relativePath: part.relativePath,
+        dataBase64: part.dataBase64 || null,
         src,
         sizeBytes: part.sizeBytes,
       };
@@ -818,6 +865,7 @@ function createChatController({
 
     const fallback = {
       kind: "file",
+      name: part?.name || "attachment",
       mediaType: part?.mediaType,
       relativePath: part?.relativePath,
       message: "Preview unavailable for this attachment.",
@@ -835,9 +883,9 @@ function createChatController({
 
     switch (payload?.kind) {
       case "image":
-        return `<img class="preview-modal__image" src="${escapeHtml(src)}" alt="${escapeHtml(part?.name || "Preview image")}" />`;
+        return `<img class="preview-modal__image" src="${escapeHtml(src)}" alt="${escapeHtml(payload?.name || part?.name || "Preview image")}" />`;
       case "pdf":
-        return `<iframe class="preview-modal__frame" src="${escapeHtml(src)}" title="${escapeHtml(part?.name || "PDF preview")}"></iframe>`;
+        return `<iframe class="preview-modal__frame" src="${escapeHtml(src)}" title="${escapeHtml(payload?.name || part?.name || "PDF preview")}"></iframe>`;
       case "audio":
         return `<audio class="preview-modal__media" controls src="${escapeHtml(src)}"></audio>`;
       case "video":
@@ -858,36 +906,118 @@ function createChatController({
     }
   }
 
+  function normalizeSavePart(sourcePart, payload) {
+    const name = payload?.name || sourcePart?.name || "download";
+    const mediaType = payload?.mediaType || sourcePart?.mediaType || "application/octet-stream";
+
+    if (payload?.kind === "text" && typeof payload?.text === "string") {
+      return {
+        name,
+        mediaType,
+        textContent: payload.text,
+      };
+    }
+
+    if (typeof payload?.dataBase64 === "string" && payload.dataBase64) {
+      return {
+        name,
+        mediaType,
+        dataBase64: payload.dataBase64,
+      };
+    }
+
+    if (typeof payload?.src === "string" && payload.src) {
+      return {
+        name,
+        mediaType,
+        uri: payload.src,
+      };
+    }
+
+    return {
+      name,
+      mediaType,
+      dataBase64: sourcePart?.dataBase64,
+      uri: sourcePart?.uri,
+      textContent: sourcePart?.textContent,
+    };
+  }
+
+  async function copyPreviewPayload(payload) {
+    if (!navigator.clipboard) {
+      throw new Error("Clipboard access is not available.");
+    }
+
+    if (payload?.kind === "text") {
+      await navigator.clipboard.writeText(payload.text || "");
+      return;
+    }
+
+    if (payload?.kind === "image") {
+      const src =
+        payload?.src ||
+        (payload?.dataBase64 && payload?.mediaType
+          ? `data:${payload.mediaType};base64,${payload.dataBase64}`
+          : "");
+      if (src && typeof ClipboardItem !== "undefined" && navigator.clipboard.write) {
+        const response = await fetch(src);
+        const blob = await response.blob();
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type || payload.mediaType || "image/png"]: blob })]);
+        return;
+      }
+    }
+
+    await navigator.clipboard.writeText(payload?.relativePath || payload?.name || "");
+  }
+
   function closePreviewModal() {
     previewState = null;
-    if (!previewModal || !previewModalBody || !previewModalSave) {
+    if (!previewModal || !previewModalBody || !previewModalSave || !previewModalCopy) {
       return;
     }
 
     previewModal.hidden = true;
     previewModalBody.innerHTML = "";
     previewModalSave.hidden = true;
+    previewModalCopy.hidden = true;
   }
 
-  async function openPreview(part, { saveable = false } = {}) {
-    if (!previewModal || !previewModalBody || !previewModalSave || !previewModalTitle || !previewModalMeta || !previewModalLabel) {
+  async function openPreview(part) {
+    if (
+      !previewModal ||
+      !previewModalBody ||
+      !previewModalCopy ||
+      !previewModalSave ||
+      !previewModalTitle ||
+      !previewModalMeta ||
+      !previewModalLabel
+    ) {
       return;
     }
 
-    previewState = { part: cloneData(part), saveable };
+    previewState = {
+      sourcePart: cloneData(part),
+      payload: null,
+    };
     previewModal.hidden = false;
     previewModalLabel.textContent = getPreviewKind(part) === "image" ? "Image Preview" : "File Preview";
     previewModalTitle.textContent = part?.name || "Attachment";
-    previewModalMeta.textContent = getPartMetaText(part);
+    previewModalMeta.textContent = fullMeta(part);
     previewModalBody.innerHTML = '<p class="preview-modal__hint">Loading preview...</p>';
-    previewModalSave.hidden = !saveable;
+    previewModalSave.hidden = true;
+    previewModalCopy.hidden = true;
 
     try {
       const payload = await resolvePreviewPayload(part);
-      if (!previewState || previewState.part?.name !== part?.name || previewModal.hidden) {
+      if (!previewState || previewModal.hidden) {
         return;
       }
+      previewState.payload = payload;
+      previewModalTitle.textContent = payload?.name || part?.name || "Attachment";
+      previewModalMeta.textContent = [payload?.mediaType || part?.mediaType, formatBytes(payload?.sizeBytes || part?.sizeBytes), payload?.relativePath || part?.relativePath].filter(Boolean).join(" · ");
       previewModalBody.innerHTML = buildPreviewBody(payload, part);
+      previewModalSave.hidden = false;
+      previewModalCopy.hidden = !["text", "image", "pdf", "audio", "video", "file"].includes(payload?.kind || "");
     } catch (error) {
       previewModalBody.innerHTML = `
         <div class="preview-modal__empty">
@@ -898,28 +1028,6 @@ function createChatController({
   }
 
   async function handleMessagesClick(event) {
-    const saveButton = event.target.closest("[data-save-ref]");
-    if (saveButton) {
-      const messageId = saveButton.dataset.messageId;
-      const partRef = saveButton.dataset.saveRef;
-      const message = messageModels.get(messageId);
-      const part = resolvePartByRef(message?.contents, partRef);
-      if (!part) {
-        return;
-      }
-
-      saveButton.disabled = true;
-      try {
-        await window.agentAPI.saveOutputPart(part);
-      } catch (error) {
-        console.error(error);
-        status.textContent = "save error";
-      } finally {
-        saveButton.disabled = false;
-      }
-      return;
-    }
-
     const previewButton = event.target.closest("[data-preview-ref]");
     if (previewButton) {
       const messageId = previewButton.dataset.messageId;
@@ -930,7 +1038,7 @@ function createChatController({
         return;
       }
 
-      await openPreview(part, { saveable: message?.role === "assistant" });
+      await openPreview(part);
       return;
     }
 
@@ -983,11 +1091,11 @@ function createChatController({
       return;
     }
 
-    await openPreview(stagedAttachments[index], { saveable: false });
+    await openPreview(stagedAttachments[index]);
   }
 
   function bindPreviewModal() {
-    if (!previewModal || !previewModalClose || !previewModalSave) {
+    if (!previewModal || !previewModalClose || !previewModalCopy || !previewModalSave) {
       return;
     }
 
@@ -1001,14 +1109,30 @@ function createChatController({
       closePreviewModal();
     });
 
+    previewModalCopy.addEventListener("click", async () => {
+      if (!previewState?.payload) {
+        return;
+      }
+
+      previewModalCopy.disabled = true;
+      try {
+        await copyPreviewPayload(previewState.payload);
+      } catch (error) {
+        status.textContent = "copy error";
+        console.error(error);
+      } finally {
+        previewModalCopy.disabled = false;
+      }
+    });
+
     previewModalSave.addEventListener("click", async () => {
-      if (!previewState?.saveable || !previewState?.part) {
+      if (!previewState?.payload || !previewState?.sourcePart) {
         return;
       }
 
       previewModalSave.disabled = true;
       try {
-        await window.agentAPI.saveOutputPart(previewState.part);
+        await window.agentAPI.saveOutputPart(normalizeSavePart(previewState.sourcePart, previewState.payload));
       } catch (error) {
         status.textContent = "save error";
         console.error(error);
@@ -1018,7 +1142,7 @@ function createChatController({
     });
 
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !previewModal.hidden) {
+      if (event.key === "Escape" && previewModal && !previewModal.hidden) {
         closePreviewModal();
       }
     });

@@ -16,6 +16,7 @@ const chatController = createChatController({
   previewModal: elements.previewModal,
   previewModalBody: elements.previewModalBody,
   previewModalClose: elements.previewModalClose,
+  previewModalCopy: elements.previewModalCopy,
   previewModalLabel: elements.previewModalLabel,
   previewModalMeta: elements.previewModalMeta,
   previewModalSave: elements.previewModalSave,

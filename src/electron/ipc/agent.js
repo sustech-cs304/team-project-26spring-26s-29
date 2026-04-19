@@ -194,6 +194,12 @@ async function writeOutputPart(filePath, part) {
   const fs = require("node:fs/promises");
   const { Buffer } = require("node:buffer");
 
+  const textContent = typeof part?.textContent === "string" ? part.textContent : "";
+  if (textContent) {
+    await fs.writeFile(filePath, textContent, "utf8");
+    return;
+  }
+
   const encoded = typeof part?.dataBase64 === "string" ? part.dataBase64.trim() : "";
   if (encoded) {
     await fs.writeFile(filePath, Buffer.from(encoded, "base64"));

@@ -102,7 +102,7 @@ class TodoQueryService:
             lines.append("- Next todo items: none")
 
         lines.append(
-            "- Use this context as a quick summary; call list_todos for exact todo details and the write tools for changes."
+            "- Use this context as a quick summary. Call list_todos for exact todo details, and only use the todo write tools when the user explicitly asks to manage their personal todo list."
         )
         return "\n".join(lines)
 

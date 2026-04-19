@@ -13,6 +13,7 @@ const elements = {
   previewModal: $("preview-modal"),
   previewModalBody: $("preview-modal-body"),
   previewModalClose: $("preview-modal-close"),
+  previewModalCopy: $("preview-modal-copy"),
   previewModalLabel: $("preview-modal-label"),
   previewModalMeta: $("preview-modal-meta"),
   previewModalSave: $("preview-modal-save"),

@@ -247,6 +247,7 @@ async function loadWorkspacePreview({
   const fileBuffer = await fs.readFile(absolutePath);
   const resolvedMediaType = mediaType || detectMediaType(absolutePath);
   const previewKind = previewKindForMediaType(resolvedMediaType);
+  const name = path.basename(absolutePath);
 
   if (previewKind === "text") {
     const decodedText = isProbablyBinaryBuffer(fileBuffer) ? null : decodeTextBuffer(fileBuffer);
@@ -263,6 +264,7 @@ async function loadWorkspacePreview({
     const normalized = text.replace(/\r\n/g, "\n");
     return {
       kind: "text",
+      name,
       mediaType: resolvedMediaType,
       relativePath,
       text: normalized.slice(0, maxTextCharacters),
@@ -274,6 +276,7 @@ async function loadWorkspacePreview({
     if (fileBuffer.byteLength > maxInlineBytes) {
       return {
         kind: previewKind,
+        name,
         mediaType: resolvedMediaType,
         relativePath,
         tooLarge: true,
@@ -284,6 +287,7 @@ async function loadWorkspacePreview({
 
     return {
       kind: previewKind,
+      name,
       mediaType: resolvedMediaType,
       relativePath,
       dataBase64: fileBuffer.toString("base64"),
@@ -293,6 +297,7 @@ async function loadWorkspacePreview({
 
   return {
     kind: "file",
+    name,
     mediaType: resolvedMediaType,
     relativePath,
     sizeBytes: fileBuffer.byteLength,

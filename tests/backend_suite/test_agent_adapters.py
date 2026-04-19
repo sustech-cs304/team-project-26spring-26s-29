@@ -40,6 +40,10 @@ class AgentToolTests(BackendTestCase):
         self.assertEqual(tool_modes["update_todo"], "always_require")
         self.assertEqual(tool_modes["delete_todo"], "always_require")
 
+    def test_todo_tool_descriptions_warn_against_internal_planning(self) -> None:
+        for tool in TODO_TOOLS:
+            self.assertIn("Never use it to track the assistant's own plan", tool.description)
+
 
 class AgentContextTests(AsyncBackendTestCase):
     async def test_current_info_provider_injects_snapshot(self) -> None:
