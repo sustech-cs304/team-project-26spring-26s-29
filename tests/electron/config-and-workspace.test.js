@@ -11,7 +11,7 @@ const {
   resolveDefaultWorkspacePath,
 } = require("../../src/electron/workspace");
 
-test("config store normalizes workspace and MiMo web search defaults", async () => {
+test("config store normalizes workspace defaults", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "config-store-"));
   const configPath = path.join(tempRoot, "config.json");
   const configStore = createConfigStore({
@@ -21,12 +21,12 @@ test("config store normalizes workspace and MiMo web search defaults", async () 
 
   const normalized = configStore.normalizeConfig({
     backendPort: "9000",
-    mimoWebSearchEnabled: "true",
+    legacySearchToggle: "true",
     workspacePath: "",
   });
 
   assert.equal(normalized.backendPort, 9000);
-  assert.equal(normalized.mimoWebSearchEnabled, true);
+  assert.equal("legacySearchToggle" in normalized, false);
   assert.equal(normalized.workspacePath, resolveDefaultWorkspacePath({ configPath }));
 });
 

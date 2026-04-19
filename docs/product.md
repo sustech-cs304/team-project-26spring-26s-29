@@ -12,7 +12,7 @@ The app already provides three working desktop surfaces.
 - Electron stages every upload into the configured workspace before it reaches the backend.
 - Electron forwards chat requests to the local Python backend.
 - The backend streams structured message snapshots over WebSocket.
-- The UI renders text, tool calls, approvals, images, files, and web citations in real time.
+- The UI renders text, tool calls, approvals, images, and files in real time.
 
 This is the main proof that the desktop shell, local backend, and agent runtime can work together.
 
@@ -46,7 +46,6 @@ The current editable keys are:
 - `openaiChatModel`
 - `openaiEndpoint`
 - `workspacePath`
-- `mimoWebSearchEnabled`
 
 Saving config updates the local file and synchronizes runtime values to the Python backend.
 
@@ -60,7 +59,6 @@ The current agent integration is intentionally narrow:
 - inspect files inside the local workspace
 - create and update text files inside the local workspace through approval-gated file tools
 - run PowerShell and Python inside the local workspace after approval
-- optionally use MiMo native web search when the provider toggle is enabled and the configured model supports it
 - receive a small runtime summary containing current time and todo counts
 - receive workspace guidance that points it to uploaded inputs and generated outputs
 

@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from agent_framework import AgentResponse, AgentResponseUpdate, Content, Message
 
-from backend.agent.mimo_client import _options_without_web_search, _should_retry_without_web_search
 from backend.agent.runtime import (
     AgentRunController,
     _build_user_message,
     _serialize_content,
-    _should_enable_mimo_web_search,
 )
 
 from .support import AsyncBackendTestCase
@@ -132,28 +130,6 @@ class AgentRuntimeTests(AsyncBackendTestCase):
         self.assertEqual(serialized_result["items"][2]["type"], "file")
         self.assertEqual(serialized_request["type"], "function_approval_request")
         self.assertEqual(serialized_request["decision"], "approved")
-
-    async def test_runtime_helpers_cover_mimo_web_search_toggle_and_fallback(self) -> None:
-        self.assertTrue(
-            _should_enable_mimo_web_search(
-                "https://token-plan-cn.xiaomimimo.com/v1",
-                "mimo-v2-omni",
-                True,
-            )
-        )
-        self.assertFalse(_should_enable_mimo_web_search("https://api.openai.com/v1", "gpt-4o", True))
-        self.assertEqual(
-            _options_without_web_search(
-                {
-                    "tools": [
-                        {"type": "web_search", "limit": 3},
-                        {"type": "function", "function": {"name": "list_todos"}},
-                    ]
-                }
-            )["tools"][0]["type"],
-            "function",
-        )
-        self.assertTrue(_should_retry_without_web_search(RuntimeError("plugin is not enabled")))
 
     async def test_agent_run_controller_resumes_after_approval(self) -> None:
         updates = []

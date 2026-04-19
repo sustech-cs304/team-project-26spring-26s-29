@@ -29,12 +29,6 @@ const configFieldDefinitions = [
     label: "Workspace Path",
     hint: "Workspace cleared on startup and used for uploaded files plus local tools.",
   },
-  {
-    key: "mimoWebSearchEnabled",
-    label: "MiMo Web Search",
-    hint: "Enable MiMo provider-native web search when the configured model and endpoint support it.",
-    control: "checkbox",
-  },
 ];
 
 function createConfigController({

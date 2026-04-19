@@ -15,7 +15,7 @@ class TempDbMixin:
 
     db_path: str
     workspace_path: str
-    _original_config: dict[str, str | bool | None]
+    _original_config: dict[str, str | None]
 
     def setup_temp_db(self) -> None:
         self._original_config = get_config()
@@ -29,7 +29,6 @@ class TempDbMixin:
                 **self._original_config,
                 "dbPath": self.db_path,
                 "workspacePath": self.workspace_path,
-                "mimoWebSearchEnabled": False,
             }
         )
 

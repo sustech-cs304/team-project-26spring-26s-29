@@ -91,7 +91,6 @@ class RuntimeConfigRequest(BaseModel):
     openaiChatModel: str | None = None
     openaiEndpoint: str | None = None
     workspacePath: str | None = None
-    mimoWebSearchEnabled: bool | None = None
 
 
 def format_validation_error(error: ValidationError) -> str:

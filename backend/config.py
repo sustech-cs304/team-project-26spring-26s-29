@@ -4,14 +4,13 @@ _CONFIG = {
     "openaiChatModel": None,
     "openaiEndpoint": None,
     "workspacePath": None,
-    "mimoWebSearchEnabled": False,
 }
 
 
-def get_config() -> dict[str, str | bool | None]:
+def get_config() -> dict[str, str | None]:
     return dict(_CONFIG)
 
 
-def set_config(config: dict[str, str | bool | None]) -> dict[str, str | bool | None]:
+def set_config(config: dict[str, str | None]) -> dict[str, str | None]:
     _CONFIG.update(config)
     return get_config()

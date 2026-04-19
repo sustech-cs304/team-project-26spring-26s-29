@@ -30,7 +30,7 @@ backend/
   Stable ASGI entry point used by `uvicorn`.
 
 - `backend/config.py`
-  In-memory runtime config store for `dbPath`, `openaiApiKey`, `openaiChatModel`, `openaiEndpoint`, `workspacePath`, and `mimoWebSearchEnabled`.
+  In-memory runtime config store for `dbPath`, `openaiApiKey`, `openaiChatModel`, `openaiEndpoint`, and `workspacePath`.
 
 - `backend/api/`
   FastAPI app factory, routes, request models, response models, and WebSocket helpers.
@@ -156,8 +156,6 @@ Important behaviors:
 - reuses a session while the backend process stays alive
 - streams structured assistant message snapshots
 - pauses and resumes the same run when a tool approval is required
-- keeps MiMo web search in provider-native tool shape when enabled
-- retries once without MiMo web search if the provider rejects the plugin
 
 ### Current tool surface
 

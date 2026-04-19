@@ -45,7 +45,6 @@ python -m pip install -r backend/requirements.txt
 - `openaiChatModel`
 - `openaiEndpoint`
 - `workspacePath`
-- `mimoWebSearchEnabled`
 
 5. Start the desktop app:
 
