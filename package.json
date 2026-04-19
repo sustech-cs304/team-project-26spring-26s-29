@@ -28,21 +28,40 @@
   },
   "build": {
     "appId": "com.studentproductivity.agent",
+    "compression": "maximum",
     "asar": true,
     "files": [
       "src/**/*",
-      "backend/**/*",
-      "docs/**/*",
-      "package.json"
+      "package.json",
+      "!**/__pycache__/**",
+      "!**/*.pyc",
+      "!**/*.pyo",
+      "!**/.pytest_cache/**"
     ],
     "extraResources": [
       {
         "from": "backend",
-        "to": "backend"
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!**/*.pyo",
+          "!**/.pytest_cache/**"
+        ]
       },
       {
         "from": "vendor/windows-python",
-        "to": "python"
+        "to": "python",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!**/*.pyo",
+          "!**/test/**",
+          "!**/tests/**",
+          "!**/testing/**"
+        ]
       }
     ],
     "win": {

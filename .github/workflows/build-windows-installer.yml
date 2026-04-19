@@ -9,6 +9,8 @@ on:
 jobs:
   build-win:
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -36,6 +38,9 @@ jobs:
       - name: Prepare bundled Python runtime
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+          $ProgressPreference = "SilentlyContinue"
+
           Remove-Item -Recurse -Force vendor/windows-python -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force vendor/windows-python | Out-Null
 
@@ -59,8 +64,54 @@ jobs:
             -OutFile "get-pip.py"
 
           & "vendor/windows-python/python.exe" "get-pip.py"
-          & "vendor/windows-python/python.exe" -m pip install --upgrade pip
-          & "vendor/windows-python/python.exe" -m pip install -r backend/requirements.txt
+          & "vendor/windows-python/python.exe" -m pip install --upgrade pip --disable-pip-version-check --no-cache-dir
+          & "vendor/windows-python/python.exe" -m pip install `
+            --disable-pip-version-check `
+            --no-cache-dir `
+            --no-compile `
+            -r backend/requirements.txt
+
+      - name: Trim bundled Python runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $runtimeRoot = (Resolve-Path "vendor/windows-python").Path
+          $sitePackages = Join-Path $runtimeRoot "Lib/site-packages"
+          $sizeBefore = (Get-ChildItem $runtimeRoot -Recurse -Force -File | Measure-Object Length -Sum).Sum
+
+          $patternsToRemove = @(
+            (Join-Path $runtimeRoot "Scripts"),
+            (Join-Path $sitePackages "pip"),
+            (Join-Path $sitePackages "pip-*"),
+            (Join-Path $sitePackages "setuptools"),
+            (Join-Path $sitePackages "setuptools-*"),
+            (Join-Path $sitePackages "wheel"),
+            (Join-Path $sitePackages "wheel-*"),
+            (Join-Path $sitePackages "pkg_resources"),
+            (Join-Path $sitePackages "_distutils_hack")
+          )
+
+          foreach ($pattern in $patternsToRemove) {
+            Get-ChildItem -Path $pattern -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          Get-ChildItem $runtimeRoot -Recurse -Force -Directory -ErrorAction SilentlyContinue `
+            | Where-Object { $_.Name -eq "__pycache__" } `
+            | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+          Get-ChildItem $runtimeRoot -Recurse -Force -File -Include *.pyc,*.pyo -ErrorAction SilentlyContinue `
+            | Remove-Item -Force -ErrorAction SilentlyContinue
+
+          Get-ChildItem $sitePackages -Recurse -Force -Directory -ErrorAction SilentlyContinue `
+            | Where-Object { $_.Name -in @("test", "tests", "testing") } `
+            | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+          Remove-Item "get-pip.py", "python-embed.zip" -Force -ErrorAction SilentlyContinue
+
+          $sizeAfter = (Get-ChildItem $runtimeRoot -Recurse -Force -File | Measure-Object Length -Sum).Sum
+          Write-Host ("Bundled Python size before trim: {0:N1} MB" -f ($sizeBefore / 1MB))
+          Write-Host ("Bundled Python size after trim:  {0:N1} MB" -f ($sizeAfter / 1MB))
+          Write-Host ("Bundled Python trimmed by:      {0:N1} MB" -f (($sizeBefore - $sizeAfter) / 1MB))
 
       - name: Verify bundled Python
         shell: pwsh
@@ -72,11 +123,52 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run package:win
 
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v6
+      - name: Resolve build artifact paths
+        id: artifact-paths
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $installer = Get-ChildItem "dist" -Filter "*.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Failed to find the generated Windows installer in dist/."
+          }
+
+          $blockmap = Get-ChildItem "dist" -Filter "*.blockmap" | Select-Object -First 1
+          $metadata = Get-ChildItem "dist" -Filter "latest*.yml" | Select-Object -First 1
+
+          "installer_path=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          if ($blockmap) {
+            "blockmap_path=$($blockmap.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+          if ($metadata) {
+            "metadata_path=$($metadata.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+
+      - name: Report output sizes
+        shell: pwsh
+        run: |
+          Get-ChildItem "dist" -File | Select-Object Name, @{
+            Name = "SizeMB"
+            Expression = { [math]::Round($_.Length / 1MB, 1) }
+          } | Format-Table -AutoSize
+
+      - name: Upload installer executable
+        uses: actions/upload-artifact@v7
         with:
-          name: windows-installer
-          path: |
-            dist/*.exe
-            dist/*.blockmap
-            dist/latest*.yml
+          path: ${{ steps.artifact-paths.outputs.installer_path }}
+          archive: false
+
+      - name: Upload installer blockmap
+        if: ${{ steps.artifact-paths.outputs.blockmap_path != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.artifact-paths.outputs.blockmap_path }}
+          archive: false
+
+      - name: Upload installer metadata
+        if: ${{ steps.artifact-paths.outputs.metadata_path != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.artifact-paths.outputs.metadata_path }}
+          archive: false
