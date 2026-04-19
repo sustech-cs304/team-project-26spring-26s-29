@@ -15,13 +15,15 @@ if TYPE_CHECKING:
 
 
 TODO_TOOL_SCOPE = (
-    "Only use this tool for the user's real-world personal todo list and reminders. "
-    "Never use it to track the assistant's own plan, scratch work, coding steps, debugging checklist, or internal progress "
-    "unless the user explicitly asks to manage their todo list."
+    "Only use this tool for the user's real-world personal deliverables and deadline-based tasks, such as homework, "
+    "assignments, projects, reports, applications, prep work, and chores that only need to be finished before some time. "
+    "Do not use it for classes, meetings, exams, appointments, departures, travel, or other fixed-time attendance events; "
+    "those belong in schedule. Never use it to track the assistant's own plan, scratch work, coding steps, debugging checklist, "
+    "internal progress, or other short-term AI-executed work unless the user explicitly asks to manage their todo list."
 )
 
 def list_todos() -> dict[str, Any]:
-    """Read the user's local todo list and return ids plus current fields."""
+    """Read the user's local deadline-based task list and return ids plus current fields."""
     todos = [_serialize_todo(todo) for todo in todo_service.list_todos()]
     return {
         "action": "list",
@@ -49,7 +51,7 @@ def create_todo(
         ),
     ] = None,
 ) -> dict[str, Any]:
-    """Create a new todo item for the user's personal task list."""
+    """Create a new todo item for the user's personal deadline-based task list."""
     todo = todo_service.create_todo(
         title=title,
         detail="" if detail is None else detail,
@@ -93,7 +95,7 @@ def update_todo(
         Field(description="Set true to complete the todo or false to reopen it."),
     ] = None,
 ) -> dict[str, Any]:
-    """Update an existing todo item in the user's personal task list."""
+    """Update an existing todo item in the user's personal deadline-based task list."""
     updates: TodoUpdate = {}
     if title is not None:
         updates["title"] = title
@@ -120,7 +122,7 @@ def delete_todo(
         Field(description="Existing todo id to delete."),
     ],
 ) -> dict[str, Any]:
-    """Delete a todo item from the user's personal task list."""
+    """Delete a todo item from the user's personal deadline-based task list."""
     deleted = todo_service.delete_todo(todo_id)
     return {
         "action": "delete",

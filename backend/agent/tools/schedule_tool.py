@@ -14,6 +14,13 @@ if TYPE_CHECKING:
 
 
 ScheduleAction = Literal["list", "list_range", "create", "update", "delete"]
+SCHEDULE_TOOL_SCOPE = (
+    "Use this tool for real-world events the user must attend on time, such as classes, meetings, exams, "
+    "appointments, interviews, departures, and travel. If the user asks to remember or remind them about a timed "
+    "event they must attend, store it here. For example, 'remind me tomorrow about my exam' belongs in schedule. "
+    "Do not use this tool for homework, assignments, projects, or other tasks that only need to be completed before "
+    "a deadline; those belong in todo. Never use this tool for the assistant's own short-term work or internal plan."
+)
 
 
 def manage_schedule(
@@ -65,7 +72,7 @@ def manage_schedule(
         Field(description="End ISO datetime for range queries (used with action='list_range')."),
     ] = None,
 ) -> dict[str, Any]:
-    """Manage schedule events: list, list_range, create, update, delete."""
+    """Manage the user's fixed-time schedule events and attendance reminders."""
     if action == "list":
         events = [_serialize_schedule(s) for s in schedule_service.list_schedules()]
         return {"action": "list", "count": len(events), "events": events}
@@ -135,9 +142,10 @@ def manage_schedule(
 schedule_tool = tool(
     name="manage_schedule",
     description=(
-        "Read, create, update, and delete schedule events. Use action='list' to inspect events, "
-        "action='list_range' with range_start and range_end to fetch events in a time window, "
-        "action='create' to add an event, action='update' to change an event, action='delete' to remove an event."
+        "Read, create, update, and delete schedule events for the user's fixed-time commitments. "
+        "Use action='list' to inspect events, action='list_range' with range_start and range_end to fetch events "
+        "in a time window, action='create' to add an event, action='update' to change an event, action='delete' "
+        f"to remove an event. {SCHEDULE_TOOL_SCOPE}"
     ),
     approval_mode="never_require",
 )(manage_schedule)

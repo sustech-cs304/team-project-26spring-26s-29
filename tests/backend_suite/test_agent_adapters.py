@@ -4,7 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from backend.agent.context import CurrentInfoProvider
+from backend.agent.instructions import AGENT_INSTRUCTIONS
 from backend.agent.tools import (
+    SCHEDULE_TOOLS,
     TODO_TOOLS,
     create_todo,
     delete_todo,
@@ -44,6 +46,24 @@ class AgentToolTests(BackendTestCase):
     def test_todo_tool_descriptions_warn_against_internal_planning(self) -> None:
         for tool in TODO_TOOLS:
             self.assertIn("Never use it to track the assistant's own plan", tool.description)
+
+    def test_schedule_and_todo_tool_descriptions_define_their_boundary(self) -> None:
+        self.assertIn("homework, assignments, projects", SCHEDULE_TOOLS[0].description)
+        self.assertIn("remind me tomorrow about my exam", SCHEDULE_TOOLS[0].description)
+        self.assertIn("those belong in schedule", TODO_TOOLS[0].description)
+        self.assertIn("short-term AI-executed work", TODO_TOOLS[0].description)
+
+    def test_agent_instructions_define_schedule_todo_split(self) -> None:
+        self.assertIn("schedule stores real-world events the user must attend on time", AGENT_INSTRUCTIONS)
+        self.assertIn("todo stores tasks the user only needs to finish before a deadline", AGENT_INSTRUCTIONS)
+        self.assertIn("remind me tomorrow about my exam", AGENT_INSTRUCTIONS)
+        self.assertIn("Do not add the assistant's own short-term work", AGENT_INSTRUCTIONS)
+
+    def test_agent_instructions_require_brief_save_confirmations(self) -> None:
+        self.assertIn("reply very briefly after the tool call", AGENT_INSTRUCTIONS)
+        self.assertIn("do not add extra study tips", AGENT_INSTRUCTIONS)
+        self.assertIn("I saved it for you. Remember to finish it on time.", AGENT_INSTRUCTIONS)
+        self.assertIn("Mention a schedule id or todo id only when it is helpful", AGENT_INSTRUCTIONS)
 
 
 class AgentContextTests(AsyncBackendTestCase):
