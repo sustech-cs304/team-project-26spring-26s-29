@@ -20,7 +20,7 @@
     "test:backend": "python -m unittest discover -s tests -v",
     "test:electron": "node --test tests/electron/*.test.js",
     "test": "npm run test:backend && npm run test:electron",
-    "package:win": "electron-builder --win nsis"
+    "package:win": "electron-builder --win nsis --publish never"
   },
   "devDependencies": {
     "electron-builder": "^26.0.12",
