@@ -21,6 +21,7 @@
       <nav class="sidebar__nav" aria-label="Page navigation">
         <button class="sidebar__link is-active" data-page-target="chat" type="button">Chat</button>
         <button class="sidebar__link" data-page-target="todo" type="button">Todo</button>
+        <button class="sidebar__link" data-page-target="schedule" type="button">Schedule</button>
         <button class="sidebar__link" data-page-target="config" type="button">Config</button>
       </nav>
 
@@ -133,6 +134,56 @@
 
         <div id="todo-list" class="todo-list" aria-live="polite"></div>
         <p id="todo-empty" class="todo-empty" hidden>No tasks in this view.</p>
+      </section>
+
+      <section class="page" data-page="schedule" hidden aria-labelledby="schedule-title">
+        <header class="page__header">
+          <p class="page__eyebrow">Calendar</p>
+          <h2 id="schedule-title">Schedule</h2>
+          <p class="page__copy">Create and manage calendar events.</p>
+        </header>
+
+        <div class="schedule-grid">
+          <div class="calendar">
+            <div class="calendar-header">
+              <button id="schedule-prev" type="button">‹</button>
+              <div id="schedule-current-month"></div>
+              <button id="schedule-next" type="button">›</button>
+            </div>
+            <div id="schedule-calendar" class="calendar-grid"></div>
+          </div>
+
+          <div class="schedule-right">
+            <form id="schedule-create-form">
+              <label class="field" for="schedule-title-input">
+                <span class="field__label">Title</span>
+                <input id="schedule-title-input" class="todo-input" type="text" placeholder="Event title" required />
+              </label>
+
+              <label class="field" for="schedule-start-input">
+                <span class="field__label">Start</span>
+                <input id="schedule-start-input" class="todo-input" type="datetime-local" />
+              </label>
+
+              <label class="field" for="schedule-end-input">
+                <span class="field__label">End</span>
+                <input id="schedule-end-input" class="todo-input" type="datetime-local" />
+              </label>
+
+              <label class="field" for="schedule-detail-input">
+                <span class="field__label">Detail</span>
+                <textarea id="schedule-detail-input" class="todo-input todo-input--textarea" rows="3" placeholder="Optional notes"></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button id="schedule-create-button" class="button" type="submit">Add Event</button>
+              </div>
+            </form>
+
+            <p id="schedule-feedback" class="form-feedback" aria-live="polite"></p>
+            <ul id="schedule-list" class="todo-list" aria-live="polite"></ul>
+          </div>
+        </div>
       </section>
 
       <section class="page" data-page="config" hidden aria-labelledby="config-title">

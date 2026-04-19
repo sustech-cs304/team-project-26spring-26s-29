@@ -31,8 +31,12 @@ class TinyDbScheduleRepository:
         all_day: bool = False,
         timezone_name: str | None = None,
         location: str | None = None,
+        is_done: bool = False,
+        completed_at: str | None = None,
         is_cancelled: bool = False,
         reminder_offsets: list[int] | tuple[int, ...] | None = None,
+        recurrence: str | None = None,
+        recurrence_end: str | None = None,
         db_path: str | Path | None = None,
     ) -> ScheduleEvent:
         start_dt = self._parse_datetime(start_at)
@@ -46,12 +50,16 @@ class TinyDbScheduleRepository:
             "location": None if location is None else str(location),
             "is_cancelled": is_cancelled,
             "reminder_offsets": [] if reminder_offsets is None else list(reminder_offsets),
+            "recurrence": recurrence,
+            "recurrence_end": recurrence_end,
         }
         payload.update(self._build_time_cache(start_dt, end_dt))
 
         timestamp = self._utcnow_iso()
         payload["created_at"] = timestamp
         payload["updated_at"] = timestamp
+        payload["is_done"] = bool(is_done)
+        payload["completed_at"] = completed_at
 
         with open_table(_TABLE_NAME, db_path) as table:
             event_id = int(table.insert(payload))
@@ -115,8 +123,11 @@ class TinyDbScheduleRepository:
         all_day: bool | None = None,
         timezone_name: str | None = None,
         location: str | None | object = UNSET,
+        is_done: bool | None = None,
         is_cancelled: bool | None = None,
         reminder_offsets: list[int] | tuple[int, ...] | None | object = UNSET,
+        recurrence: str | None | object = UNSET,
+        recurrence_end: str | None | object = UNSET,
         db_path: str | Path | None = None,
     ) -> ScheduleEvent:
         updates: dict[str, object] = {}
@@ -139,8 +150,23 @@ class TinyDbScheduleRepository:
         if is_cancelled is not None:
             updates["is_cancelled"] = is_cancelled
 
+        # Handle is_done/completed_at transitions
+        if is_done is not None:
+            # If marking done, set completed_at if not already present
+            updates["is_done"] = bool(is_done)
+            if is_done:
+                updates["completed_at"] = self._utcnow_iso()
+            else:
+                updates["completed_at"] = None
+
         if reminder_offsets is not UNSET:
             updates["reminder_offsets"] = [] if reminder_offsets is None else list(cast(list[int] | tuple[int, ...], reminder_offsets))
+
+        if recurrence is not UNSET:
+            updates["recurrence"] = cast(str | None, recurrence)
+
+        if recurrence_end is not UNSET:
+            updates["recurrence_end"] = cast(str | None, recurrence_end)
 
         with open_table(_TABLE_NAME, db_path) as table:
             existing = cast(dict[str, object], table.get(doc_id=event_id))
@@ -207,6 +233,8 @@ class TinyDbScheduleRepository:
         start_dt = self._parse_datetime(cast(str | datetime, row["start_at"]))
         end_dt = self._parse_datetime(cast(str | datetime, row["end_at"]))
         reminder_offsets_raw = cast(list[int] | tuple[int, ...], row["reminder_offsets"])
+        recurrence_raw = row.get("recurrence")
+        recurrence_end_raw = row.get("recurrence_end")
 
         return ScheduleEvent(
             id=event_id,
@@ -218,7 +246,11 @@ class TinyDbScheduleRepository:
             timezone=cast(str, row["timezone"]),
             location=cast(str | None, row["location"]),
             is_cancelled=cast(bool, row["is_cancelled"]),
+            is_done=cast(bool, row.get("is_done", False)),
+            completed_at=cast(str | None, row.get("completed_at")),
             reminder_offsets=list(reminder_offsets_raw),
+            recurrence=cast(str | None, recurrence_raw),
+            recurrence_end=cast(str | None, recurrence_end_raw),
             created_at=cast(str, row["created_at"]),
             updated_at=cast(str, row["updated_at"]),
             start_day=cast(str, row["start_day"]),

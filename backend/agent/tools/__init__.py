@@ -31,9 +31,16 @@ from .workspace_tool import (
     update_workspace_file_tool,
 )
 
+from .schedule_tool import (
+    SCHEDULE_TOOLS,
+    manage_schedule,
+    schedule_tool,
+)
+
 __all__ = [
     "TODO_TOOLS",
     "WORKSPACE_TOOLS",
+    "SCHEDULE_TOOLS",
     "list_todos",
     "list_todos_tool",
     "create_todo",
@@ -58,4 +65,6 @@ __all__ = [
     "run_workspace_shell_tool",
     "run_workspace_python_tool_impl",
     "run_workspace_python_tool",
+    "manage_schedule",
+    "schedule_tool",
 ]

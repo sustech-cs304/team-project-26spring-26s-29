@@ -22,7 +22,7 @@ from ..services import build_file_reference_text
 from .context import CurrentInfoProvider, WorkspaceInfoProvider
 from .instructions import AGENT_INSTRUCTIONS
 from .mimo_client import MiMoChatCompletionClient
-from .tools import TODO_TOOLS, WORKSPACE_TOOLS
+from .tools import TODO_TOOLS, SCHEDULE_TOOLS, WORKSPACE_TOOLS
 
 
 MessageSnapshot = dict[str, Any]
@@ -130,7 +130,7 @@ class AgentRuntime:
 
         next_config = (api_key, model, endpoint, workspace_path, mimo_web_search_enabled)
         if self._agent is None or self._agent_config != next_config:
-            tools: list[Any] = [*TODO_TOOLS, *WORKSPACE_TOOLS]
+            tools: list[Any] = [*TODO_TOOLS, *SCHEDULE_TOOLS, *WORKSPACE_TOOLS]
             if _should_enable_mimo_web_search(endpoint, model, mimo_web_search_enabled):
                 tools.append(
                     {

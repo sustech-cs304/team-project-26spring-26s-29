@@ -38,6 +38,19 @@ const elements = {
   todoUndoBar: $("todo-undo-bar"),
   todoUndoButton: $("todo-undo-button"),
   todoUndoText: $("todo-undo-text"),
+  // Schedule elements
+  scheduleCalendar: $("schedule-calendar"),
+  scheduleCurrentMonth: $("schedule-current-month"),
+  schedulePrev: $("schedule-prev"),
+  scheduleNext: $("schedule-next"),
+  scheduleCreateForm: $("schedule-create-form"),
+  scheduleTitleInput: $("schedule-title-input"),
+  scheduleStartInput: $("schedule-start-input"),
+  scheduleEndInput: $("schedule-end-input"),
+  scheduleDetailInput: $("schedule-detail-input"),
+  scheduleCreateButton: $("schedule-create-button"),
+  scheduleFeedback: $("schedule-feedback"),
+  scheduleList: $("schedule-list"),
 };
 
 export { $, elements };

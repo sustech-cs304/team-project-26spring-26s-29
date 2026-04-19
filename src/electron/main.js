@@ -5,6 +5,7 @@ const { createConfigStore } = require("./config-store");
 const { registerAgentIpc } = require("./ipc/agent");
 const { registerConfigIpc } = require("./ipc/config");
 const { registerTodoIpc } = require("./ipc/todo");
+const { registerScheduleIpc } = require("./ipc/schedule");
 const { assertSafeWorkspacePath, resetWorkspace } = require("./workspace");
 
 let configStore = null;
@@ -148,6 +149,7 @@ app.whenReady().then(async () => {
     getConfig: () => config,
   });
   registerTodoIpc({ getApi });
+  registerScheduleIpc({ getApi });
   createWindow();
 });
 app.on("before-quit", () => backendProcess?.shutdown());

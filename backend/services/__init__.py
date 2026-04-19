@@ -24,6 +24,7 @@ from .workspace_service import (
     to_workspace_relative_path,
     write_workspace_file,
 )
+from .schedule_service import ScheduleService, schedule_service
 
 __all__ = [
     "TodoQueryService",
@@ -49,6 +50,8 @@ __all__ = [
     "summarize_text",
     "todo_query_service",
     "todo_service",
+    "ScheduleService",
+    "schedule_service",
     "to_workspace_relative_path",
     "write_workspace_file",
 ]

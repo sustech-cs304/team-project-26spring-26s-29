@@ -3,6 +3,7 @@ import { createConfigController } from "./config/controller.js";
 import { elements } from "./shared/dom.js";
 import { createPageManager } from "./shared/page-manager.js";
 import { createTodoController } from "./todo/controller.js";
+import { createScheduleController } from "./schedule/controller.js";
 
 const FOREGROUND_REFRESH_COOLDOWN_MS = 300;
 
@@ -53,6 +54,21 @@ const todoController = createTodoController({
   todoFilterButtons: elements.todoFilterButtons,
 });
 
+const scheduleController = createScheduleController({
+  scheduleCalendar: elements.scheduleCalendar,
+  scheduleCurrentMonth: elements.scheduleCurrentMonth,
+  schedulePrev: elements.schedulePrev,
+  scheduleNext: elements.scheduleNext,
+  scheduleCreateForm: elements.scheduleCreateForm,
+  scheduleTitleInput: elements.scheduleTitleInput,
+  scheduleStartInput: elements.scheduleStartInput,
+  scheduleEndInput: elements.scheduleEndInput,
+  scheduleDetailInput: elements.scheduleDetailInput,
+  scheduleCreateButton: elements.scheduleCreateButton,
+  scheduleFeedback: elements.scheduleFeedback,
+  scheduleList: elements.scheduleList,
+});
+
 let foregroundRefreshInFlight = null;
 let lastForegroundRefreshAt = 0;
 
@@ -71,6 +87,9 @@ async function refreshActivePageOnForeground() {
 
   if (activePage === "config") {
     await configController.refreshOnForeground();
+  }
+  if (activePage === "schedule") {
+    await scheduleController.refreshOnForeground();
   }
 }
 
@@ -117,6 +136,7 @@ const pageManager = createPageManager({
 chatController.init();
 configController.init();
 todoController.init();
+scheduleController.init();
 pageManager.bind();
 
 window.addEventListener("focus", handleWindowFocus);
@@ -126,6 +146,7 @@ document.addEventListener("visibilitychange", handleVisibilityChange);
   await configController.loadConfig();
   await chatController.refreshStatus();
   await todoController.loadOnStartup();
+  await scheduleController.loadOnStartup();
   pageManager.setActivePage("chat");
   chatController.scrollToBottom(true);
 })();
