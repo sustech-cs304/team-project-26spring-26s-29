@@ -24,9 +24,11 @@ class ImageInputPart(BaseModel):
     type: Literal["image"]
     name: str = Field(min_length=1, max_length=255)
     mediaType: str = Field(min_length=1, max_length=120)
+    sizeBytes: int = Field(ge=0)
+    relativePath: str = Field(min_length=1, max_length=500)
     dataBase64: str = Field(min_length=1)
 
-    @field_validator("name", "mediaType", "dataBase64")
+    @field_validator("name", "mediaType", "dataBase64", "relativePath")
     @classmethod
     def normalize_required_text(cls, value: str) -> str:
         value = value.strip()
@@ -35,13 +37,15 @@ class ImageInputPart(BaseModel):
         return value
 
 
-class TextFileInputPart(BaseModel):
-    type: Literal["text_file"]
+class FileInputPart(BaseModel):
+    type: Literal["file"]
     name: str = Field(min_length=1, max_length=255)
     mediaType: str = Field(min_length=1, max_length=120)
-    text: str = Field(min_length=1, max_length=500000)
+    sizeBytes: int = Field(ge=0)
+    relativePath: str = Field(min_length=1, max_length=500)
+    summaryText: str | None = Field(default=None, max_length=5000)
 
-    @field_validator("name", "mediaType")
+    @field_validator("name", "mediaType", "relativePath")
     @classmethod
     def normalize_metadata(cls, value: str) -> str:
         value = value.strip()
@@ -49,16 +53,17 @@ class TextFileInputPart(BaseModel):
             raise ValueError("Field cannot be empty.")
         return value
 
-    @field_validator("text")
+    @field_validator("summaryText")
     @classmethod
-    def validate_text(cls, value: str) -> str:
-        if not value:
-            raise ValueError("File text is empty.")
-        return value
+    def normalize_summary(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
 
 RunInputPart = Annotated[
-    TextInputPart | ImageInputPart | TextFileInputPart,
+    TextInputPart | ImageInputPart | FileInputPart,
     Field(discriminator="type"),
 ]
 
@@ -85,6 +90,8 @@ class RuntimeConfigRequest(BaseModel):
     openaiApiKey: str | None = None
     openaiChatModel: str | None = None
     openaiEndpoint: str | None = None
+    workspacePath: str | None = None
+    mimoWebSearchEnabled: bool | None = None
 
 
 def format_validation_error(error: ValidationError) -> str:

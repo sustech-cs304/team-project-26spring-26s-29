@@ -68,17 +68,22 @@ class ApiTests(BackendTestCase):
                 "openaiApiKey": None,
                 "openaiChatModel": "demo-model",
                 "openaiEndpoint": None,
+                "workspacePath": self.workspace_path,
+                "mimoWebSearchEnabled": True,
             },
         )
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.json()["openaiChatModel"], "demo-model")
+        self.assertEqual(updated.json()["workspacePath"], self.workspace_path)
+        self.assertTrue(updated.json()["mimoWebSearchEnabled"])
 
         set_config({**get_config(), "openaiChatModel": None})
 
     def test_agent_run_post_accepts_structured_contents(self) -> None:
         async def fake_run_prompt(contents):
             self.assertEqual(contents[0]["type"], "image")
-            self.assertEqual(contents[1]["type"], "text")
+            self.assertEqual(contents[1]["type"], "file")
+            self.assertEqual(contents[2]["type"], "text")
             return {
                 "role": "assistant",
                 "status": "completed",
@@ -94,7 +99,17 @@ class ApiTests(BackendTestCase):
                             "type": "image",
                             "name": "diagram.png",
                             "mediaType": "image/png",
+                            "sizeBytes": 3,
+                            "relativePath": "inputs/req-1/01-diagram.png",
                             "dataBase64": "YWJj",
+                        },
+                        {
+                            "type": "file",
+                            "name": "notes.md",
+                            "mediaType": "text/markdown",
+                            "sizeBytes": 12,
+                            "relativePath": "inputs/req-1/02-notes.md",
+                            "summaryText": "hello",
                         },
                         {"type": "text", "text": "Please inspect this image."},
                     ]

@@ -1,6 +1,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
+const { normalizeWorkspacePath } = require("./workspace");
+
 const DEFAULTS = {
   backendHost: "127.0.0.1",
   backendPort: 8765,
@@ -8,10 +10,13 @@ const DEFAULTS = {
   openaiApiKey: null,
   openaiChatModel: null,
   openaiEndpoint: null,
+  workspacePath: null,
+  mimoWebSearchEnabled: false,
 };
 
 function createConfigStore({
   configPath = path.resolve(__dirname, "..", "..", "config.json"),
+  appPath = path.resolve(__dirname, "..", ".."),
 } = {}) {
   function parseConfigFile() {
     try {
@@ -30,6 +35,31 @@ function createConfigStore({
     return text || null;
   }
 
+  function normalizeBoolean(value, defaultValue = false) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (value == null) {
+      return defaultValue;
+    }
+
+    const text = String(value).trim().toLowerCase();
+    if (!text) {
+      return defaultValue;
+    }
+
+    if (["true", "1", "yes", "on"].includes(text)) {
+      return true;
+    }
+
+    if (["false", "0", "no", "off"].includes(text)) {
+      return false;
+    }
+
+    return defaultValue;
+  }
+
   function normalizeConfig(raw = {}) {
     const port = Number.parseInt(String(raw.backendPort ?? DEFAULTS.backendPort), 10);
 
@@ -40,10 +70,13 @@ function createConfigStore({
       openaiApiKey: normalizeOptionalString(raw.openaiApiKey),
       openaiChatModel: normalizeOptionalString(raw.openaiChatModel),
       openaiEndpoint: normalizeOptionalString(raw.openaiEndpoint),
+      workspacePath: normalizeWorkspacePath(raw.workspacePath ?? DEFAULTS.workspacePath, { configPath }),
+      mimoWebSearchEnabled: normalizeBoolean(raw.mimoWebSearchEnabled, DEFAULTS.mimoWebSearchEnabled),
     };
   }
 
   function persist(config) {
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
     return config;
   }
@@ -54,6 +87,8 @@ function createConfigStore({
       openaiApiKey: config.openaiApiKey,
       openaiChatModel: config.openaiChatModel,
       openaiEndpoint: config.openaiEndpoint,
+      workspacePath: config.workspacePath,
+      mimoWebSearchEnabled: config.mimoWebSearchEnabled,
     };
   }
 
@@ -85,6 +120,7 @@ function createConfigStore({
   }
 
   return {
+    appPath,
     configPath,
     defaults: { ...DEFAULTS },
     getRuntimeConfig,

@@ -16,12 +16,13 @@ from agent_framework import (
     InMemoryHistoryProvider,
     Message,
 )
-from agent_framework.openai import OpenAIChatCompletionClient
 
 from ..config import get_config
-from .context import CurrentInfoProvider
+from ..services import build_file_reference_text
+from .context import CurrentInfoProvider, WorkspaceInfoProvider
 from .instructions import AGENT_INSTRUCTIONS
-from .tools import TODO_TOOLS
+from .mimo_client import MiMoChatCompletionClient
+from .tools import TODO_TOOLS, WORKSPACE_TOOLS
 
 
 MessageSnapshot = dict[str, Any]
@@ -94,10 +95,13 @@ class AgentRunController:
                 serialized = _serialize_content(content, self._approval_decisions)
                 if serialized is not None:
                     contents.append(serialized)
+        contents.extend(_serialize_annotations_from_messages(response.messages))
+        if self._last_response is not None:
+            contents.extend(_serialize_annotations_from_messages(self._last_response.messages))
         return {
             "role": "assistant",
             "status": status,
-            "contents": contents,
+            "contents": _dedupe_message_contents(contents),
         }
 
     def _build_response(self) -> AgentResponse[Any]:
@@ -113,7 +117,7 @@ class AgentRuntime:
 
     def __init__(self) -> None:
         self._agent: Any | None = None
-        self._agent_config: tuple[str | None, str | None, str | None] | None = None
+        self._agent_config: tuple[str | None, str | None, str | None, str | None, bool] | None = None
         self._session: AgentSession | None = None
 
     def get_agent(self) -> Any:
@@ -121,19 +125,34 @@ class AgentRuntime:
         api_key = config["openaiApiKey"]
         model = config["openaiChatModel"]
         endpoint = config["openaiEndpoint"]
+        workspace_path = config.get("workspacePath")
+        mimo_web_search_enabled = bool(config.get("mimoWebSearchEnabled"))
 
-        next_config = (api_key, model, endpoint)
+        next_config = (api_key, model, endpoint, workspace_path, mimo_web_search_enabled)
         if self._agent is None or self._agent_config != next_config:
-            self._agent = OpenAIChatCompletionClient(
+            tools: list[Any] = [*TODO_TOOLS, *WORKSPACE_TOOLS]
+            if _should_enable_mimo_web_search(endpoint, model, mimo_web_search_enabled):
+                tools.append(
+                    {
+                        "type": "web_search",
+                        "force_search": False,
+                        "max_keyword": 3,
+                        "limit": 3,
+                    }
+                )
+
+            self._agent = MiMoChatCompletionClient(
                 model=model,
                 api_key=api_key or "unused",
                 base_url=endpoint or None,
             ).as_agent(
                 instructions=AGENT_INSTRUCTIONS,
-                tools=TODO_TOOLS,
+                tools=tools,
+                default_options={"tool_choice": "auto"},
                 context_providers=[
                     InMemoryHistoryProvider("memory", load_messages=True),
                     CurrentInfoProvider(),
+                    WorkspaceInfoProvider(),
                 ],
             )
             self._agent_config = next_config
@@ -166,22 +185,41 @@ def _build_user_message(contents: Sequence[InputPart]) -> Message:
         if part_type == "image":
             media_type = str(item.get("mediaType") or "image/png")
             encoded = str(item.get("dataBase64") or "")
+            relative_path = str(item.get("relativePath") or "")
+            name = str(item.get("name") or "image")
             user_contents.append(
                 Content.from_uri(
                     uri=f"data:{media_type};base64,{encoded}",
                     media_type=media_type,
-                    additional_properties={"name": str(item.get("name") or "image")},
+                    additional_properties={"name": name, "relativePath": relative_path},
+                )
+            )
+            user_contents.append(
+                Content.from_text(
+                    build_file_reference_text(
+                        name=name,
+                        media_type=media_type,
+                        size_bytes=int(item.get("sizeBytes") or 0),
+                        relative_path=relative_path,
+                        inline_note="The image bytes are attached inline for multimodal inspection.",
+                    )
                 )
             )
             continue
 
-        if part_type == "text_file":
-            name = str(item.get("name") or "file.txt")
-            media_type = str(item.get("mediaType") or "text/plain")
-            file_text = str(item.get("text") or "")
+        if part_type == "file":
+            name = str(item.get("name") or "file")
+            media_type = str(item.get("mediaType") or "application/octet-stream")
+            summary_text = str(item.get("summaryText") or "") or None
             user_contents.append(
                 Content.from_text(
-                    f"Attached text file: {name}\nMedia-Type: {media_type}\n\n{file_text}"
+                    build_file_reference_text(
+                        name=name,
+                        media_type=media_type,
+                        size_bytes=int(item.get("sizeBytes") or 0),
+                        relative_path=str(item.get("relativePath") or ""),
+                        summary_text=summary_text,
+                    )
                 )
             )
             continue
@@ -277,6 +315,28 @@ def _serialize_binary_content(content: Content, *, part_type: str) -> dict[str, 
     return payload
 
 
+def _serialize_annotations_from_messages(messages: Sequence[Message]) -> list[dict[str, Any]]:
+    parts: list[dict[str, Any]] = []
+    for message in messages:
+        annotations = (message.additional_properties or {}).get("annotations")
+        if not annotations:
+            continue
+        parts.append({"type": "citations", "items": annotations})
+    return parts
+
+
+def _dedupe_message_contents(contents: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for item in contents:
+        marker = json.dumps(item, ensure_ascii=False, sort_keys=True, default=str)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        deduped.append(item)
+    return deduped
+
+
 def _resolve_content_name(content: Content, fallback_stem: str) -> str:
     additional_properties = content.additional_properties or {}
     name = getattr(content, "name", None) or additional_properties.get("name")
@@ -325,6 +385,18 @@ def _stringify_arguments(arguments: Any) -> str:
 async def _maybe_await(value: Awaitable[None] | None) -> None:
     if isawaitable(value):
         await value
+
+
+def _should_enable_mimo_web_search(
+    endpoint: str | None,
+    model: str | None,
+    enabled: bool,
+) -> bool:
+    if not enabled:
+        return False
+    if not endpoint or "xiaomimimo.com" not in endpoint:
+        return False
+    return (model or "") in {"mimo-v2-pro", "mimo-v2-omni", "mimo-v2-flash"}
 
 
 agent_runtime = AgentRuntime()

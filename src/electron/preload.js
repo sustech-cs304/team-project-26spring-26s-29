@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("agentAPI", {
   health: () => ipcRenderer.invoke("agent:health"),
-  pickAttachments: () => ipcRenderer.invoke("agent:pick-attachments"),
+  pickAttachments: (payload) => ipcRenderer.invoke("agent:pick-attachments", payload),
   runPrompt: (payload) => ipcRenderer.invoke("agent:run", payload),
   respondApproval: (payload) => ipcRenderer.invoke("agent:approval", payload),
   saveOutputPart: (part) => ipcRenderer.invoke("agent:save-output-part", part),

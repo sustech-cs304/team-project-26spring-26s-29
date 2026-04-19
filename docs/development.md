@@ -36,6 +36,8 @@ Current keys:
 | `openaiApiKey` | API key for the configured chat provider |
 | `openaiChatModel` | Model name used by the backend runtime |
 | `openaiEndpoint` | Optional OpenAI-compatible base URL |
+| `workspacePath` | Workspace root for uploaded files and local agent tools |
+| `mimoWebSearchEnabled` | Enables MiMo native web search on supported MiMo endpoints/models |
 
 Rules to remember:
 
@@ -43,6 +45,8 @@ Rules to remember:
 - Python owns only an in-memory copy of runtime config.
 - Changing host or port causes Electron to restart the backend.
 - Changing runtime model settings causes Electron to resync Python.
+- Changing the workspace path causes Electron to clear and recreate the new workspace before syncing Python.
+- Packaged Windows builds move the persistent config file under `%LOCALAPPDATA%\Student Productivity Agent\config.json`.
 
 ## Common Commands
 
@@ -62,6 +66,18 @@ Run backend tests:
 
 ```powershell
 python -m unittest discover -s tests -v
+```
+
+Run Electron-side unit tests:
+
+```powershell
+node --test tests/electron/*.test.js
+```
+
+Run both:
+
+```powershell
+npm test
 ```
 
 `package.json` does not currently provide a real `npm test` workflow, so backend tests are the main automated safety net.
@@ -96,6 +112,7 @@ That means:
 - Todo data is stored in TinyDB table `todo_list`.
 - Schedule groundwork is stored in TinyDB table `schedule_events`.
 - If `dbPath` is unset, the backend falls back to `db.json` in the current working directory.
+- Uploaded files and generated artifacts live in `workspacePath`, with `inputs/` and `outputs/` recreated on every application start.
 
 For the Electron-managed app flow, that default file is normally the project-root `db.json`.
 
@@ -107,5 +124,6 @@ If you change the repo in a meaningful way, update the docs in the same branch:
 - update `docs/architecture.md` for boundary or flow changes
 - update `docs/backend.md` for endpoint, data model, or backend structure changes
 - update `docs/product.md` when the shipped scope changes
+- update `docs/windows-packaging.md` when the Windows build/runtime bundling workflow changes
 
 `docs/PROPOSAL.md` should stay unchanged as the original planning document.

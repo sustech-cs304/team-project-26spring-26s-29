@@ -23,6 +23,9 @@ Renderer UI
 - `src/electron/main.js` now mostly wires modules together.
 - `src/electron/backend-process.js` owns the Python backend process lifecycle.
 - `src/electron/config-store.js` owns `config.json` normalization, validation, persistence, and runtime sync.
+- `src/electron/workspace.js` owns workspace path safety checks plus startup cleanup.
+- `src/electron/attachment-staging.js` copies uploads into the workspace and builds attachment metadata.
+- `src/electron/python-runtime.js` resolves the Python executable used in development versus packaged builds.
 - `src/electron/ipc/` owns domain-specific IPC handlers such as `agent`, `todo`, and `config`.
 - `backend/` owns HTTP routes, the agent runtime, local business logic, and persistence.
 
@@ -70,7 +73,8 @@ The Electron layer is now split into smaller modules:
 Together they:
 
 - reads and normalizes `config.json`
-- starts `python -m uvicorn backend.app:app`
+- clears and recreates the configured workspace
+- starts `python -m uvicorn backend.app:app` in development or the bundled Python runtime in packaged builds
 - waits for `/health`
 - syncs runtime config to `POST /api/config`
 - registers IPC handlers for agent, todo, and config actions
@@ -95,10 +99,11 @@ Application startup currently works like this:
 
 1. `npm start` launches Electron.
 2. Electron reads `config.json`.
-3. Electron spawns `uvicorn` for `backend.app:app`.
-4. Electron polls `GET /health` until the backend is ready.
-5. Electron pushes runtime config to `POST /api/config`.
-6. Electron creates the browser window and loads the renderer.
+3. Electron clears and recreates the configured workspace.
+4. Electron spawns `uvicorn` for `backend.app:app`.
+5. Electron polls `GET /health` until the backend is ready.
+6. Electron pushes runtime config to `POST /api/config`.
+7. Electron creates the browser window and loads the renderer.
 
 If the backend host or port changes later, Electron restarts the Python process and repeats the sync.
 
@@ -108,8 +113,9 @@ If the backend host or port changes later, Electron restarts the Python process 
 
 ```text
 Renderer
-  -> window.agentAPI.runPrompt(...)
-  -> IPC: agent:run
+  -> window.agentAPI.pickAttachments(...) / runPrompt(...)
+  -> IPC: agent:pick-attachments / agent:run
+  -> Electron copies uploads into workspace inputs/<requestId>/...
   -> Electron opens WebSocket /api/agent/run
   -> FastAPI validates structured run contents
   -> AgentRuntime streams structured message snapshots
@@ -144,9 +150,10 @@ The flow is:
 
 1. Renderer edits config through `window.configAPI`.
 2. Electron validates and writes `config.json`.
-3. Electron restarts the backend if host or port changed.
-4. Electron syncs runtime values to `POST /api/config`.
-5. Python updates its in-memory runtime config.
+3. Electron validates and resets the workspace if the workspace path changed.
+4. Electron restarts the backend if host or port changed.
+5. Electron syncs runtime values to `POST /api/config`.
+6. Python updates its in-memory runtime config.
 
 This keeps file ownership in Electron while allowing the backend to react to runtime model changes.
 
@@ -157,6 +164,8 @@ TinyDB is the current storage layer.
 - Todo data is stored in the `todo_list` table.
 - Schedule groundwork is stored in the `schedule_events` table.
 - The active database path comes from `dbPath` in config, or falls back to `db.json`.
+- Uploaded files and generated artifacts live in the workspace configured by `workspacePath`.
+- Electron recreates `inputs/` and `outputs/` inside that workspace every time the app starts.
 
 Only Todo is currently surfaced through the UI and HTTP API. Schedule storage exists as backend groundwork for future features.
 
@@ -165,15 +174,21 @@ Only Todo is currently surfaced through the UI and HTTP API. Schedule storage ex
 The Python agent runtime lives in `backend/agent/`.
 
 - `runtime.py` builds or rebuilds the chat client from runtime config
+- `mimo_client.py` keeps MiMo web search in provider-native tool shape and retries once without it if the plugin is unavailable
 - `instructions.py` defines the base behavior prompt
 - `tools/todo_tool.py` exposes `list_todos`, `create_todo`, `update_todo`, and `delete_todo`
+- `tools/workspace_tool.py` exposes workspace file tools plus approval-gated shell and Python tools
 - `context/current_info.py` injects time and todo summary context before each run
+- `context/workspace_info.py` injects workspace root, uploaded input location, and output guidance before each run
 
 The current agent is therefore stateful enough to:
 
 - chat with the configured model
 - inspect local todos without approval and request approval before changing them
-- receive a short summary of current time and todo state on each run
+- inspect and edit workspace files with tool approval where appropriate
+- run local PowerShell and Python inside the workspace after approval
+- optionally call MiMo web search on supported models
+- receive a short summary of current time, todo state, and workspace state on each run
 
 ## Extension Guidance
 

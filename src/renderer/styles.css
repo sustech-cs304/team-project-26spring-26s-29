@@ -186,6 +186,20 @@ button {
   gap: 10px;
 }
 
+.config-field--checkbox {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel-strong);
+}
+
+.config-field__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .field__label,
 .config-field__label {
   font-size: 1.05rem;
@@ -211,6 +225,12 @@ button {
 
 .config-field__input {
   min-height: 92px;
+}
+
+.config-field__checkbox {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
 }
 
 #prompt:focus,

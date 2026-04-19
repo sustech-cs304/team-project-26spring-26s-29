@@ -9,9 +9,10 @@ The app already provides three working desktop surfaces.
 ## Chat Workspace
 
 - The renderer sends structured chat inputs through Electron IPC.
+- Electron stages every upload into the configured workspace before it reaches the backend.
 - Electron forwards chat requests to the local Python backend.
 - The backend streams structured message snapshots over WebSocket.
-- The UI renders text, tool calls, approvals, images, and files in real time.
+- The UI renders text, tool calls, approvals, images, files, and web citations in real time.
 
 This is the main proof that the desktop shell, local backend, and agent runtime can work together.
 
@@ -44,6 +45,8 @@ The current editable keys are:
 - `openaiApiKey`
 - `openaiChatModel`
 - `openaiEndpoint`
+- `workspacePath`
+- `mimoWebSearchEnabled`
 
 Saving config updates the local file and synchronizes runtime values to the Python backend.
 
@@ -54,7 +57,12 @@ The current agent integration is intentionally narrow:
 - answer chat prompts through the configured model
 - inspect local todo items
 - create, update, and delete local todo items through approval-gated todo write tools
+- inspect files inside the local workspace
+- create and update text files inside the local workspace through approval-gated file tools
+- run PowerShell and Python inside the local workspace after approval
+- optionally use MiMo native web search when the provider toggle is enabled and the configured model supports it
 - receive a small runtime summary containing current time and todo counts
+- receive workspace guidance that points it to uploaded inputs and generated outputs
 
 This is enough to validate tool calling and context injection without pretending the full product already exists.
 
@@ -65,6 +73,7 @@ Some groundwork already exists in the codebase but is not yet surfaced as a fini
 - schedule repository and schedule storage model
 - backend-friendly domain layering for more routes and tools
 - config sync path that can support more runtime options later
+- Windows packaging path that bundles the backend Python runtime, documented but still manual to prepare
 
 ## What Is Not Implemented Yet
 
@@ -74,7 +83,7 @@ Compared with the original project direction, the following items are still futu
 - campus knowledge retrieval
 - reminders and notifications
 - external integrations such as Microsoft To Do
-- packaged distribution and installer workflows
+- one-click portable runtime preparation for packaged distribution
 
 ## Relationship To The Original Proposal
 

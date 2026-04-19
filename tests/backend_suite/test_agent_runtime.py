@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from agent_framework import AgentResponse, AgentResponseUpdate, Content, Message
 
-from backend.agent.runtime import AgentRunController, _build_user_message, _serialize_content
+from backend.agent.mimo_client import _options_without_web_search, _should_retry_without_web_search
+from backend.agent.runtime import (
+    AgentRunController,
+    _build_user_message,
+    _serialize_content,
+    _should_enable_mimo_web_search,
+)
 
 from .support import AsyncBackendTestCase
 
@@ -62,12 +68,26 @@ class FakeAgent:
 
 
 class AgentRuntimeTests(AsyncBackendTestCase):
-    async def test_build_user_message_supports_text_image_and_text_file(self) -> None:
+    async def test_build_user_message_supports_text_image_and_workspace_file(self) -> None:
         message = _build_user_message(
             [
                 {"type": "text", "text": "Summarize this"},
-                {"type": "image", "name": "photo.png", "mediaType": "image/png", "dataBase64": "YWJj"},
-                {"type": "text_file", "name": "notes.md", "mediaType": "text/markdown", "text": "# Notes"},
+                {
+                    "type": "image",
+                    "name": "photo.png",
+                    "mediaType": "image/png",
+                    "sizeBytes": 3,
+                    "relativePath": "inputs/req-1/01-photo.png",
+                    "dataBase64": "YWJj",
+                },
+                {
+                    "type": "file",
+                    "name": "notes.md",
+                    "mediaType": "text/markdown",
+                    "sizeBytes": 7,
+                    "relativePath": "inputs/req-1/02-notes.md",
+                    "summaryText": "# Notes",
+                },
             ]
         )
 
@@ -76,7 +96,8 @@ class AgentRuntimeTests(AsyncBackendTestCase):
         self.assertEqual(message.contents[1].type, "data")
         self.assertEqual(message.contents[1].media_type, "image/png")
         self.assertIn("data:image/png;base64,YWJj", message.contents[1].uri)
-        self.assertIn("Attached text file: notes.md", message.contents[2].text)
+        self.assertIn("Workspace Path: inputs/req-1/01-photo.png", message.contents[2].text)
+        self.assertIn("Preview:", message.contents[3].text)
 
     async def test_serialize_content_supports_tool_requests_results_images_and_files(self) -> None:
         image_content = Content.from_uri(
@@ -110,6 +131,28 @@ class AgentRuntimeTests(AsyncBackendTestCase):
         self.assertEqual(serialized_result["items"][2]["type"], "file")
         self.assertEqual(serialized_request["type"], "function_approval_request")
         self.assertEqual(serialized_request["decision"], "approved")
+
+    async def test_runtime_helpers_cover_mimo_web_search_toggle_and_fallback(self) -> None:
+        self.assertTrue(
+            _should_enable_mimo_web_search(
+                "https://token-plan-cn.xiaomimimo.com/v1",
+                "mimo-v2-omni",
+                True,
+            )
+        )
+        self.assertFalse(_should_enable_mimo_web_search("https://api.openai.com/v1", "gpt-4o", True))
+        self.assertEqual(
+            _options_without_web_search(
+                {
+                    "tools": [
+                        {"type": "web_search", "limit": 3},
+                        {"type": "function", "function": {"name": "list_todos"}},
+                    ]
+                }
+            )["tools"][0]["type"],
+            "function",
+        )
+        self.assertTrue(_should_retry_without_web_search(RuntimeError("plugin is not enabled")))
 
     async def test_agent_run_controller_resumes_after_approval(self) -> None:
         updates = []

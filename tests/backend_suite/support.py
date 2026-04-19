@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+import shutil
 
 from backend.config import get_config, set_config
 
@@ -13,7 +14,8 @@ class TempDbMixin:
     """Provides a temporary TinyDB path for each test case."""
 
     db_path: str
-    _original_config: dict[str, str | None]
+    workspace_path: str
+    _original_config: dict[str, str | bool | None]
 
     def setup_temp_db(self) -> None:
         self._original_config = get_config()
@@ -21,12 +23,22 @@ class TempDbMixin:
         os.close(file_descriptor)
         os.unlink(path)
         self.db_path = path
-        set_config({**self._original_config, "dbPath": self.db_path})
+        self.workspace_path = tempfile.mkdtemp(prefix="agent-workspace-")
+        set_config(
+            {
+                **self._original_config,
+                "dbPath": self.db_path,
+                "workspacePath": self.workspace_path,
+                "mimoWebSearchEnabled": False,
+            }
+        )
 
     def teardown_temp_db(self) -> None:
         set_config(self._original_config)
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
+        if os.path.exists(self.workspace_path):
+            shutil.rmtree(self.workspace_path, ignore_errors=True)
 
 
 class BackendTestCase(TempDbMixin, unittest.TestCase):

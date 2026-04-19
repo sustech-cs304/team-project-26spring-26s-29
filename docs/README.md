@@ -9,7 +9,8 @@ This directory documents the repository as it exists now, not as it was first pr
 3. [architecture.md](./architecture.md)
 4. [backend.md](./backend.md)
 5. [development.md](./development.md)
-6. [PROPOSAL.md](./PROPOSAL.md)
+6. [windows-packaging.md](./windows-packaging.md)
+7. [PROPOSAL.md](./PROPOSAL.md)
 
 ## Document Map
 
@@ -24,6 +25,9 @@ This directory documents the repository as it exists now, not as it was first pr
 
 - [development.md](./development.md)
   Local setup, config handling, testing, and contributor workflows.
+
+- [windows-packaging.md](./windows-packaging.md)
+  Windows installer workflow, bundled Python runtime expectations, and post-install verification.
 
 - [PROPOSAL.md](./PROPOSAL.md)
   Historical project proposal. Keep it unchanged as the original planning artifact.

@@ -1,10 +1,13 @@
 const { spawn } = require("node:child_process");
+const path = require("node:path");
+
+const { resolveBackendWorkingDirectory, resolvePythonExecutable } = require("./python-runtime");
 
 function wait(delayMs) {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
-function createBackendProcessController({ appPath }) {
+function createBackendProcessController({ appPath, isPackaged = false, resourcesPath = process.resourcesPath }) {
   let python = null;
   let ready = null;
 
@@ -13,7 +16,11 @@ function createBackendProcessController({ appPath }) {
   }
 
   function spawnBackend(targetConfig) {
-    const child = spawn("python", [
+    const workingDirectory = resolveBackendWorkingDirectory({ appPath, isPackaged, resourcesPath });
+    const pythonExecutable = resolvePythonExecutable({ isPackaged, resourcesPath });
+    const pythonPathSegments = [workingDirectory, process.env.PYTHONPATH].filter(Boolean);
+
+    const child = spawn(pythonExecutable, [
       "-m",
       "uvicorn",
       "backend.app:app",
@@ -22,8 +29,11 @@ function createBackendProcessController({ appPath }) {
       "--port",
       String(targetConfig.backendPort),
     ], {
-      cwd: appPath,
-      env: process.env,
+      cwd: workingDirectory,
+      env: {
+        ...process.env,
+        PYTHONPATH: pythonPathSegments.join(path.delimiter),
+      },
       stdio: "inherit",
     });
 

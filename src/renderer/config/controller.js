@@ -24,6 +24,17 @@ const configFieldDefinitions = [
     label: "OpenAI Endpoint",
     hint: "Optional custom base URL for the chat provider.",
   },
+  {
+    key: "workspacePath",
+    label: "Workspace Path",
+    hint: "Workspace cleared on startup and used for uploaded files plus local tools.",
+  },
+  {
+    key: "mimoWebSearchEnabled",
+    label: "MiMo Web Search",
+    hint: "Enable MiMo provider-native web search when the configured model and endpoint support it.",
+    control: "checkbox",
+  },
 ];
 
 function createConfigController({
@@ -40,21 +51,37 @@ function createConfigController({
 
   function buildConfigFields() {
     configFields.replaceChildren(
-      ...configFieldDefinitions.map(({ key, label, hint }) => {
+      ...configFieldDefinitions.map(({ key, label, hint, control }) => {
         const wrapper = document.createElement("label");
-        wrapper.className = "config-field";
-        wrapper.htmlFor = `config-${key}`;
-        wrapper.innerHTML = `
-          <span class="config-field__label">${label}</span>
-          <span class="config-field__hint">${hint}</span>
-          <textarea
-            id="config-${key}"
-            class="config-field__input"
-            data-config-key="${key}"
-            rows="3"
-            spellcheck="false"
-          ></textarea>
-        `;
+        const inputId = `config-${key}`;
+        wrapper.className = `config-field${control === "checkbox" ? " config-field--checkbox" : ""}`;
+        wrapper.htmlFor = inputId;
+        wrapper.innerHTML = control === "checkbox"
+          ? `
+            <div class="config-field__toggle-row">
+              <div>
+                <span class="config-field__label">${label}</span>
+                <span class="config-field__hint">${hint}</span>
+              </div>
+              <input
+                id="${inputId}"
+                class="config-field__checkbox"
+                data-config-key="${key}"
+                type="checkbox"
+              />
+            </div>
+          `
+          : `
+            <span class="config-field__label">${label}</span>
+            <span class="config-field__hint">${hint}</span>
+            <textarea
+              id="${inputId}"
+              class="config-field__input"
+              data-config-key="${key}"
+              rows="3"
+              spellcheck="false"
+            ></textarea>
+          `;
         return wrapper;
       }),
     );
@@ -73,7 +100,10 @@ function createConfigController({
 
   function getConfigDraft() {
     return Object.fromEntries(
-      configFieldDefinitions.map(({ key }) => [key, configInputs[key].value]),
+      configFieldDefinitions.map(({ key, control }) => [
+        key,
+        control === "checkbox" ? Boolean(configInputs[key].checked) : configInputs[key].value,
+      ]),
     );
   }
 
@@ -109,7 +139,12 @@ function createConfigController({
   function populateConfigForm(config) {
     savedConfig = { ...config };
 
-    configFieldDefinitions.forEach(({ key }) => {
+    configFieldDefinitions.forEach(({ key, control }) => {
+      if (control === "checkbox") {
+        configInputs[key].checked = Boolean(config[key]);
+        return;
+      }
+
       configInputs[key].value = config[key] == null ? "" : String(config[key]);
     });
 
@@ -166,7 +201,7 @@ function createConfigController({
   }
 
   function handleConfigInput(event) {
-    if (!event.target.matches(".config-field__input")) {
+    if (!event.target.matches(".config-field__input, .config-field__checkbox")) {
       return;
     }
 

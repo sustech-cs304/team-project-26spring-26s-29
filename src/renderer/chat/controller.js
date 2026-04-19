@@ -22,6 +22,7 @@ function createChatController({
   let shouldAutoScroll = true;
   const messageModels = new Map();
   let stagedAttachments = [];
+  let draftRequestId = crypto.randomUUID();
 
   function cloneData(value) {
     return JSON.parse(JSON.stringify(value));
@@ -97,8 +98,8 @@ function createChatController({
         if (part.type === "image") {
           return `[image] ${part.name || "image"}`;
         }
-        if (part.type === "text_file") {
-          return `[file] ${part.name || "text file"}`;
+        if (part.type === "file") {
+          return `[file] ${part.name || "file"}`;
         }
         return `[${part.type}]`;
       })
@@ -171,12 +172,15 @@ function createChatController({
   }
 
   function renderUserTextFile(part) {
-    const preview = truncateText(String(part.text || "").replace(/\s+/g, " "), FILE_PREVIEW_MAX_LENGTH);
-    const metaBits = [part.mediaType, formatBytes(part.sizeBytes)].filter(Boolean).join(" · ");
+    const preview = truncateText(
+      String(part.summaryText || "No inline preview. Use the workspace path to inspect this file."),
+      FILE_PREVIEW_MAX_LENGTH
+    );
+    const metaBits = [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
     return `
       <div class="message__card message__card--file">
-        <p class="message__card-label">Text File</p>
-        <p class="message__filename">${escapeHtml(part.name || "text file")}</p>
+        <p class="message__card-label">File</p>
+        <p class="message__filename">${escapeHtml(part.name || "file")}</p>
         ${metaBits ? `<p class="message__filemeta">${escapeHtml(metaBits)}</p>` : ""}
         <p class="message__filepreview">${escapeHtml(preview)}</p>
       </div>
@@ -185,10 +189,12 @@ function createChatController({
 
   function renderUserImage(part) {
     const src = buildDataUri(part);
+    const metaBits = [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
     return `
       <div class="message__card message__card--image">
         <p class="message__card-label">Image</p>
         <p class="message__filename">${escapeHtml(part.name || "image")}</p>
+        ${metaBits ? `<p class="message__filemeta">${escapeHtml(metaBits)}</p>` : ""}
         <img class="message__image" src="${escapeHtml(src)}" alt="${escapeHtml(part.name || "Attached image")}" />
       </div>
     `;
@@ -205,7 +211,7 @@ function createChatController({
         blocks.push(renderUserImage(part));
         continue;
       }
-      if (part.type === "text_file") {
+      if (part.type === "file") {
         blocks.push(renderUserTextFile(part));
       }
     }
@@ -327,6 +333,22 @@ function createChatController({
     `;
   }
 
+  function renderCitationsCard(part) {
+    const items = Array.isArray(part.items) ? part.items : [];
+    return `
+      <div class="message__card message__card--tool">
+        <p class="message__card-label">Web Sources</p>
+        ${items.map((item) => `
+          <div class="message__toolresult">
+            <p><strong>${escapeHtml(item.title || item.site_name || item.url || "Source")}</strong></p>
+            ${item.url ? `<p>${escapeHtml(item.url)}</p>` : ""}
+            ${item.summary ? `<p>${escapeHtml(truncateText(item.summary, 260))}</p>` : ""}
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function renderAssistantPart(part, context, ref) {
     if (part.type === "text") {
       return renderMarkdown(part.text || "");
@@ -353,6 +375,9 @@ function createChatController({
     }
     if (part.type === "file") {
       return renderDownloadCard(part, context, ref, "File Output");
+    }
+    if (part.type === "citations") {
+      return renderCitationsCard(part);
     }
     return renderJsonCard(part);
   }
@@ -450,8 +475,12 @@ function createChatController({
     attachments.hidden = false;
     attachments.innerHTML = stagedAttachments
       .map((attachment, index) => {
-        const label = attachment.type === "image" ? "Image" : "Text File";
-        const metaBits = [attachment.mediaType, formatBytes(attachment.sizeBytes)].filter(Boolean).join(" · ");
+        const label = attachment.type === "image" ? "Image" : "File";
+        const metaBits = [
+          attachment.mediaType,
+          formatBytes(attachment.sizeBytes),
+          attachment.relativePath,
+        ].filter(Boolean).join(" · ");
         return `
           <div class="composer-attachment">
             <div class="composer-attachment__main">
@@ -511,13 +540,20 @@ function createChatController({
     return contents;
   }
 
+  function ensureDraftRequestId() {
+    if (!draftRequestId) {
+      draftRequestId = crypto.randomUUID();
+    }
+    return draftRequestId;
+  }
+
   async function pickAttachments() {
     if (!attachmentButton || attachmentButton.disabled) {
       return;
     }
 
     try {
-      const picked = await window.agentAPI.pickAttachments();
+      const picked = await window.agentAPI.pickAttachments({ requestId: ensureDraftRequestId() });
       if (!Array.isArray(picked) || !picked.length) {
         return;
       }
@@ -534,6 +570,7 @@ function createChatController({
     prompt.value = "";
     prompt.style.height = "auto";
     stagedAttachments = [];
+    draftRequestId = crypto.randomUUID();
     renderAttachmentList();
   }
 
@@ -543,7 +580,7 @@ function createChatController({
       return;
     }
 
-    const requestId = crypto.randomUUID();
+    const requestId = stagedAttachments.length ? ensureDraftRequestId() : crypto.randomUUID();
     isRunning = true;
     activeRequestId = requestId;
     activeAssistantMessage = null;

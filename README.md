@@ -5,6 +5,8 @@ Student Productivity Agent is a desktop prototype for a student-facing planning 
 This repository already contains a working vertical slice:
 
 - a streamed chat page backed by a Python agent runtime
+- a workspace-enabled chat flow that stages uploads into a local workspace on every run
+- approval-gated workspace tools for file editing plus local PowerShell and Python execution
 - a local-first Todo workspace with CRUD, filtering, sorting, and undo
 - a config page that edits local settings and syncs runtime model config to Python
 - local persistence through TinyDB
@@ -42,6 +44,8 @@ python -m pip install -r backend/requirements.txt
 - `openaiApiKey`
 - `openaiChatModel`
 - `openaiEndpoint`
+- `workspacePath`
+- `mimoWebSearchEnabled`
 
 5. Start the desktop app:
 
@@ -50,6 +54,8 @@ npm start
 ```
 
 When the backend is reachable and `openaiChatModel` is configured, the app status changes to `ready`.
+
+Uploaded files are copied into the configured workspace under `inputs/<requestId>/...`. The workspace is cleared and recreated on every app start.
 
 ## Running Only The Backend
 
@@ -61,8 +67,20 @@ Electron normally starts the backend for you, but this command is useful when te
 
 ## Tests
 
+Run everything:
+
+```powershell
+npm test
+```
+
+Or run suites separately:
+
 ```powershell
 python -m unittest discover -s tests -v
+```
+
+```powershell
+node --test tests/electron/*.test.js
 ```
 
 The current automated tests focus on backend routes, repositories, todo services, and agent-facing adapters.
@@ -84,11 +102,13 @@ tests/          Python unittest suites for backend behavior
 - [docs/architecture.md](./docs/architecture.md): runtime boundaries and request flows
 - [docs/backend.md](./docs/backend.md): backend modules, API surface, persistence, and agent runtime
 - [docs/development.md](./docs/development.md): setup, config, testing, and contributor guidance
+- [docs/windows-packaging.md](./docs/windows-packaging.md): Windows installer build flow with a bundled Python runtime
 - [docs/PROPOSAL.md](./docs/PROPOSAL.md): original proposal kept for historical reference
 
 ## Notes
 
-- `config.json` is the persistent source of truth for local app settings.
+- `config.json` is the persistent source of truth for local app settings in development. Packaged Windows builds use `%LOCALAPPDATA%\Student Productivity Agent\config.json`.
 - If `dbPath` is unset, TinyDB defaults to `db.json` in the project root when launched through Electron.
+- If `workspacePath` is unset, Electron defaults it to a `workspace/` directory beside the active `config.json`.
 - The schedule domain already has repository groundwork, but there is no schedule UI or public API yet.
 - Avoid committing real API keys or environment-specific secrets.

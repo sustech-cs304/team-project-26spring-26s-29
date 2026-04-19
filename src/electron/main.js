@@ -5,6 +5,7 @@ const { createConfigStore } = require("./config-store");
 const { registerAgentIpc } = require("./ipc/agent");
 const { registerConfigIpc } = require("./ipc/config");
 const { registerTodoIpc } = require("./ipc/todo");
+const { assertSafeWorkspacePath, resetWorkspace } = require("./workspace");
 
 let configStore = null;
 let backendProcess = null;
@@ -16,12 +17,25 @@ function getApi(targetConfig = config) {
 
 async function applyConfig(nextConfig, previousConfig = config) {
   config = nextConfig;
+  await prepareWorkspace(nextConfig);
   await backendProcess.applyConfig({
     nextConfig,
     previousConfig,
     syncRuntimeConfig: configStore.syncRuntimeConfig,
   });
   return config;
+}
+
+async function prepareWorkspace(targetConfig) {
+  const protectedPaths = [
+    configStore.configPath,
+    path.dirname(configStore.configPath),
+    configStore.appPath,
+    process.env.USERPROFILE,
+  ].filter(Boolean);
+
+  assertSafeWorkspacePath(targetConfig.workspacePath, { protectedPaths });
+  await resetWorkspace(targetConfig.workspacePath);
 }
 
 async function saveConfig(payload) {
@@ -109,15 +123,30 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  configStore = createConfigStore();
-  config = configStore.read();
-  backendProcess = createBackendProcessController({ appPath: app.getAppPath() });
+  const configPath = app.isPackaged
+    ? path.join(process.env.LOCALAPPDATA || app.getPath("userData"), app.getName(), "config.json")
+    : path.join(app.getAppPath(), "config.json");
 
+  configStore = createConfigStore({
+    appPath: app.getAppPath(),
+    configPath,
+  });
+  config = configStore.read();
+  backendProcess = createBackendProcessController({
+    appPath: app.getAppPath(),
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+  });
+
+  await prepareWorkspace(config);
   await backendProcess.start(config);
   await configStore.syncRuntimeConfig(config);
 
   registerConfigIpc({ configStore, onSave: saveConfig });
-  registerAgentIpc({ getApi });
+  registerAgentIpc({
+    getApi,
+    getConfig: () => config,
+  });
   registerTodoIpc({ getApi });
   createWindow();
 });

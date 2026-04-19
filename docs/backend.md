@@ -30,7 +30,7 @@ backend/
   Stable ASGI entry point used by `uvicorn`.
 
 - `backend/config.py`
-  In-memory runtime config store for `dbPath`, `openaiApiKey`, `openaiChatModel`, and `openaiEndpoint`.
+  In-memory runtime config store for `dbPath`, `openaiApiKey`, `openaiChatModel`, `openaiEndpoint`, `workspacePath`, and `mimoWebSearchEnabled`.
 
 - `backend/api/`
   FastAPI app factory, routes, request models, response models, and WebSocket helpers.
@@ -92,6 +92,12 @@ Key validation rules:
 
 The desktop app uses the WebSocket path so chat output, approval requests, and resumed tool runs can all flow through one session.
 
+Current input content types:
+
+- `text`
+- `image` with inline base64 plus workspace-relative metadata
+- `file` with workspace-relative metadata and optional preview summary
+
 ## Todo Data Model
 
 The backend exposes Todo items with these fields:
@@ -150,6 +156,8 @@ Important behaviors:
 - reuses a session while the backend process stays alive
 - streams structured assistant message snapshots
 - pauses and resumes the same run when a tool approval is required
+- keeps MiMo web search in provider-native tool shape when enabled
+- retries once without MiMo web search if the provider rejects the plugin
 
 ### Current tool surface
 
@@ -162,6 +170,18 @@ The current registered todo tools are:
 
 `list_todos` runs without approval. The write tools require explicit approval before execution.
 
+The current workspace tools are:
+
+- `list_workspace_files`
+- `search_workspace_text`
+- `read_workspace_file`
+- `create_workspace_file`
+- `update_workspace_file`
+- `run_workspace_shell`
+- `run_workspace_python`
+
+The first three are read-only and do not require approval. File writes and command execution require approval.
+
 ### Current context providers
 
 `CurrentInfoProvider` injects a short runtime summary before each run, including:
@@ -169,6 +189,12 @@ The current registered todo tools are:
 - local time metadata
 - current session id
 - todo counts and upcoming items when available
+
+`WorkspaceInfoProvider` injects:
+
+- workspace root path
+- `inputs/` and `outputs/` guidance
+- a short list of current workspace files
 
 That gives the model lightweight awareness of the user's current todo state before it decides whether to call a tool.
 
@@ -184,6 +210,8 @@ The current tables are:
 
 - `todo_list`
 - `schedule_events`
+
+Workspace file persistence is separate from TinyDB. It is rooted at `workspacePath` from runtime config and is managed by Electron startup logic rather than the backend repository layer.
 
 ## Tests
 

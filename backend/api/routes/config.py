@@ -15,10 +15,10 @@ async def health() -> dict[str, bool]:
 
 
 @router.get("/api/config")
-async def read_runtime_config() -> dict[str, str | None]:
+async def read_runtime_config() -> dict[str, str | bool | None]:
     return get_config()
 
 
 @router.post("/api/config")
-async def write_runtime_config(payload: RuntimeConfigRequest) -> dict[str, str | None]:
+async def write_runtime_config(payload: RuntimeConfigRequest) -> dict[str, str | bool | None]:
     return set_config(payload.model_dump())
