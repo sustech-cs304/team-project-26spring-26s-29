@@ -4,6 +4,7 @@ const { BrowserWindow, dialog, ipcMain } = require("electron");
 
 const {
   extensionFromMediaType: lookupExtensionFromMediaType,
+  loadWorkspacePreview,
   stageAttachments,
 } = require("../attachment-staging");
 const { ping } = require("./http");
@@ -156,6 +157,19 @@ function registerAgentIpc({ getApi, getConfig }) {
 
     await writeOutputPart(result.filePath, part);
     return { canceled: false, path: result.filePath };
+  });
+
+  ipcMain.handle("agent:load-preview", async (_event, payload) => {
+    const relativePath = String(payload?.relativePath || "").trim();
+    if (!relativePath) {
+      throw new Error("Preview loading requires a workspace-relative path.");
+    }
+
+    return loadWorkspacePreview({
+      workspacePath: getConfig().workspacePath,
+      relativePath,
+      mediaType: payload?.mediaType,
+    });
   });
 }
 

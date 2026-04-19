@@ -5,6 +5,8 @@ const { TextDecoder } = require("node:util");
 
 const MAX_INLINE_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_SUMMARY_CHARACTERS = 4000;
+const MAX_INLINE_PREVIEW_BYTES = 8 * 1024 * 1024;
+const MAX_TEXT_PREVIEW_CHARACTERS = 12000;
 
 const IMAGE_MEDIA_TYPES = {
   ".bmp": "image/bmp",
@@ -85,6 +87,29 @@ function isImageMediaType(mediaType) {
   return String(mediaType || "").toLowerCase().startsWith("image/");
 }
 
+function previewKindForMediaType(mediaType) {
+  const normalized = String(mediaType || "").toLowerCase();
+  if (!normalized) {
+    return "file";
+  }
+  if (normalized.startsWith("image/")) {
+    return "image";
+  }
+  if (normalized.startsWith("audio/")) {
+    return "audio";
+  }
+  if (normalized.startsWith("video/")) {
+    return "video";
+  }
+  if (normalized === "application/pdf") {
+    return "pdf";
+  }
+  if (normalized.startsWith("text/") || normalized.includes("json") || normalized.includes("xml")) {
+    return "text";
+  }
+  return "file";
+}
+
 function decodeTextBuffer(buffer) {
   if (buffer.byteLength >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
     return new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(3));
@@ -154,6 +179,16 @@ function buildSummaryText(text) {
   return normalized.slice(0, MAX_SUMMARY_CHARACTERS);
 }
 
+function ensureWorkspaceRelativePath(workspacePath, relativePath) {
+  const root = path.resolve(workspacePath);
+  const candidate = path.resolve(root, relativePath || ".");
+  const normalizedRoot = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
+  if (candidate !== root && !candidate.startsWith(normalizedRoot)) {
+    throw new Error("Attachment preview path escapes the workspace root.");
+  }
+  return candidate;
+}
+
 async function stageAttachments({ filePaths, requestId, workspacePath }) {
   const requestDirectory = path.join(workspacePath, "inputs", requestId);
   await fs.mkdir(requestDirectory, { recursive: true });
@@ -201,15 +236,83 @@ async function stageAttachments({ filePaths, requestId, workspacePath }) {
   return attachments;
 }
 
+async function loadWorkspacePreview({
+  workspacePath,
+  relativePath,
+  mediaType,
+  maxTextCharacters = MAX_TEXT_PREVIEW_CHARACTERS,
+  maxInlineBytes = MAX_INLINE_PREVIEW_BYTES,
+}) {
+  const absolutePath = ensureWorkspaceRelativePath(workspacePath, relativePath);
+  const fileBuffer = await fs.readFile(absolutePath);
+  const resolvedMediaType = mediaType || detectMediaType(absolutePath);
+  const previewKind = previewKindForMediaType(resolvedMediaType);
+
+  if (previewKind === "text") {
+    const decodedText = isProbablyBinaryBuffer(fileBuffer) ? null : decodeTextBuffer(fileBuffer);
+    const text = decodedText && isProbablyText(decodedText) ? decodedText : null;
+    if (text === null) {
+      return {
+        kind: "file",
+        mediaType: resolvedMediaType,
+        relativePath,
+        message: "This file is not safely decodable as text.",
+      };
+    }
+
+    const normalized = text.replace(/\r\n/g, "\n");
+    return {
+      kind: "text",
+      mediaType: resolvedMediaType,
+      relativePath,
+      text: normalized.slice(0, maxTextCharacters),
+      truncated: normalized.length > maxTextCharacters,
+    };
+  }
+
+  if (["image", "pdf", "audio", "video"].includes(previewKind)) {
+    if (fileBuffer.byteLength > maxInlineBytes) {
+      return {
+        kind: previewKind,
+        mediaType: resolvedMediaType,
+        relativePath,
+        tooLarge: true,
+        sizeBytes: fileBuffer.byteLength,
+        message: `This ${previewKind} is too large to preview inline.`,
+      };
+    }
+
+    return {
+      kind: previewKind,
+      mediaType: resolvedMediaType,
+      relativePath,
+      dataBase64: fileBuffer.toString("base64"),
+      sizeBytes: fileBuffer.byteLength,
+    };
+  }
+
+  return {
+    kind: "file",
+    mediaType: resolvedMediaType,
+    relativePath,
+    sizeBytes: fileBuffer.byteLength,
+    message: "Inline preview is not available for this file type.",
+  };
+}
+
 module.exports = {
   MAX_INLINE_IMAGE_BYTES,
+  MAX_INLINE_PREVIEW_BYTES,
   MAX_SUMMARY_CHARACTERS,
+  MAX_TEXT_PREVIEW_CHARACTERS,
   buildSummaryText,
   decodeTextBuffer,
   detectMediaType,
   extensionFromMediaType: (mediaType) => MEDIA_TYPE_TO_EXTENSION[String(mediaType || "").toLowerCase()] || "",
   isProbablyBinaryBuffer,
   isImageMediaType,
+  loadWorkspacePreview,
+  previewKindForMediaType,
   sanitizeFileName,
   stageAttachments,
 };

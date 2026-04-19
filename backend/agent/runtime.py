@@ -304,6 +304,7 @@ def _serialize_content(
 
 def _serialize_binary_content(content: Content, *, part_type: str) -> dict[str, Any]:
     name = _resolve_content_name(content, part_type)
+    additional_properties = content.additional_properties or {}
     payload = {
         "type": part_type,
         "name": name,
@@ -311,6 +312,9 @@ def _serialize_binary_content(content: Content, *, part_type: str) -> dict[str, 
         "uri": getattr(content, "uri", None),
         "dataBase64": _extract_base64_from_data_uri(getattr(content, "uri", None)),
         "fileId": getattr(content, "file_id", None),
+        "relativePath": additional_properties.get("relativePath"),
+        "sizeBytes": additional_properties.get("sizeBytes"),
+        "summaryText": additional_properties.get("summaryText"),
     }
     return payload
 

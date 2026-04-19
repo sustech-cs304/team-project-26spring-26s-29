@@ -13,6 +13,13 @@ const chatController = createChatController({
   send: elements.send,
   status: elements.status,
   messages: elements.messages,
+  previewModal: elements.previewModal,
+  previewModalBody: elements.previewModalBody,
+  previewModalClose: elements.previewModalClose,
+  previewModalLabel: elements.previewModalLabel,
+  previewModalMeta: elements.previewModalMeta,
+  previewModalSave: elements.previewModalSave,
+  previewModalTitle: elements.previewModalTitle,
   scrollToBottomButton: elements.scrollToBottomButton,
 });
 

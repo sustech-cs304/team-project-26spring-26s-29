@@ -4,7 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { stageAttachments } = require("../../src/electron/attachment-staging");
+const { loadWorkspacePreview, stageAttachments } = require("../../src/electron/attachment-staging");
 
 test("stageAttachments preserves image bytes and file metadata in the workspace", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "attachment-stage-"));
@@ -43,4 +43,30 @@ test("stageAttachments preserves image bytes and file metadata in the workspace"
 
   const stagedImage = await fs.readFile(path.join(workspacePath, "inputs", "req-123", "01-diagram.png"));
   assert.equal(stagedImage.toString(), "fakepng");
+});
+
+test("loadWorkspacePreview returns inline text and pdf previews from the workspace", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "attachment-preview-"));
+  const workspacePath = path.join(tempRoot, "workspace");
+  const inputsPath = path.join(workspacePath, "inputs", "req-456");
+  await fs.mkdir(inputsPath, { recursive: true });
+
+  await fs.writeFile(path.join(inputsPath, "01-notes.txt"), "preview me please");
+  await fs.writeFile(path.join(inputsPath, "02-doc.pdf"), Buffer.from("%PDF-1.4 fake"));
+
+  const textPreview = await loadWorkspacePreview({
+    workspacePath,
+    relativePath: "inputs/req-456/01-notes.txt",
+    mediaType: "text/plain",
+  });
+  const pdfPreview = await loadWorkspacePreview({
+    workspacePath,
+    relativePath: "inputs/req-456/02-doc.pdf",
+    mediaType: "application/pdf",
+  });
+
+  assert.equal(textPreview.kind, "text");
+  assert.equal(textPreview.text, "preview me please");
+  assert.equal(pdfPreview.kind, "pdf");
+  assert.ok(pdfPreview.dataBase64);
 });

@@ -1,7 +1,9 @@
-"""Workspace path, file metadata, and text-decoding helpers."""
+"""Workspace path, file metadata, preview payloads, and text-decoding helpers."""
 
 from __future__ import annotations
 
+import base64
+import mimetypes
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -13,6 +15,8 @@ SUMMARY_PREVIEW_MAX_CHARACTERS = 4000
 READ_FILE_MAX_CHARACTERS = 20000
 LIST_FILES_MAX_ENTRIES = 200
 SEARCH_MAX_MATCHES = 50
+PREVIEW_TEXT_MAX_CHARACTERS = 8000
+PREVIEW_INLINE_MAX_BYTES = 8 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -117,6 +121,12 @@ def summarize_text(text: str, *, max_characters: int = SUMMARY_PREVIEW_MAX_CHARA
     if not normalized:
         return None
     return normalized[:max_characters]
+
+
+def guess_workspace_media_type(relative_path: str) -> str:
+    normalized = normalize_relative_path(relative_path)
+    media_type, _encoding = mimetypes.guess_type(normalized)
+    return media_type or "application/octet-stream"
 
 
 def read_text_from_workspace(
@@ -231,6 +241,75 @@ def read_workspace_file(relative_path: str, *, max_characters: int = READ_FILE_M
             "truncated": text_result.truncated,
             "text": text_result.text,
         }
+    )
+    return payload
+
+
+def build_workspace_preview(
+    relative_path: str,
+    *,
+    max_text_characters: int = PREVIEW_TEXT_MAX_CHARACTERS,
+    max_inline_bytes: int = PREVIEW_INLINE_MAX_BYTES,
+) -> dict[str, Any]:
+    normalized = normalize_relative_path(relative_path)
+    file_path = resolve_workspace_path(normalized)
+    if file_path.is_dir():
+        raise IsADirectoryError(f"Workspace path is a directory: {normalized}")
+    if not file_path.exists():
+        raise FileNotFoundError(f"Workspace file does not exist: {normalized}")
+
+    size_bytes = file_path.stat().st_size
+    media_type = guess_workspace_media_type(normalized)
+    payload: dict[str, Any] = {
+        "relative_path": normalized,
+        "name": file_path.name,
+        "size_bytes": size_bytes,
+        "media_type": media_type,
+        "preview_type": "file",
+        "message": "This file can be opened from the workspace, but no inline preview is available.",
+    }
+
+    preview_type = _preview_type_for_media_type(media_type)
+    if preview_type is not None:
+        if size_bytes > max_inline_bytes:
+            payload.update(
+                {
+                    "preview_type": preview_type,
+                    "message": f"This {preview_type} is too large for inline preview ({size_bytes} bytes).",
+                }
+            )
+            return payload
+
+        encoded = base64.b64encode(file_path.read_bytes()).decode("ascii")
+        payload.update(
+            {
+                "preview_type": preview_type,
+                "data_base64": encoded,
+                "message": f"{preview_type.title()} preview prepared.",
+            }
+        )
+        return payload
+
+    text_result = read_text_from_workspace(normalized, max_characters=max_text_characters)
+    if text_result is not None:
+        preview_text = summarize_text(text_result.text, max_characters=max_text_characters) or ""
+        payload.update(
+            {
+                "preview_type": "text",
+                "encoding": text_result.encoding,
+                "text": preview_text,
+                "truncated": text_result.truncated,
+                "message": (
+                    "Text preview prepared."
+                    if not text_result.truncated
+                    else f"Text preview truncated to the first {max_text_characters} characters."
+                ),
+            }
+        )
+        return payload
+
+    payload["message"] = (
+        "This binary file type does not support inline preview. Use workspace shell/python tools if deeper inspection is needed."
     )
     return payload
 
@@ -370,3 +449,16 @@ def format_workspace_snapshot(snapshot: dict[str, Any]) -> str:
         lines.append("- Current workspace files:")
         lines.extend(f"  - {item}" for item in snapshot["recent_files"])
     return "\n".join(lines)
+
+
+def _preview_type_for_media_type(media_type: str) -> str | None:
+    normalized = str(media_type or "").lower()
+    if normalized.startswith("image/"):
+        return "image"
+    if normalized.startswith("audio/"):
+        return "audio"
+    if normalized.startswith("video/"):
+        return "video"
+    if normalized == "application/pdf":
+        return "pdf"
+    return None

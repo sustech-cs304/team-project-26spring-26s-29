@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from agent_framework import tool
+from agent_framework import Content, tool
 from pydantic import Field
 
 from ...services import (
     append_workspace_file,
+    build_workspace_preview,
     list_workspace_entries,
     read_workspace_file,
     run_workspace_python,
@@ -71,6 +72,53 @@ def read_workspace_file_tool_impl(
 ) -> dict[str, Any]:
     """Read one workspace file. Binary files return metadata plus a guidance message."""
     return read_workspace_file(relative_path, max_characters=max_characters)
+
+
+def preview_workspace_file_tool_impl(
+    relative_path: Annotated[
+        str,
+        Field(description="Workspace-relative file path to preview."),
+    ],
+    max_text_characters: Annotated[
+        int,
+        Field(description="Maximum number of preview characters to return for text files.", ge=200, le=20000),
+    ] = 8000,
+) -> list[Content]:
+    """Prepare an inline preview for text, image, PDF, audio, or video files in the workspace."""
+    preview = build_workspace_preview(relative_path, max_text_characters=max_text_characters)
+    summary = [
+        f"Preview request prepared for {preview['relative_path']}.",
+        f"Media-Type: {preview['media_type']}",
+        f"Size Bytes: {preview['size_bytes']}",
+        f"Preview Type: {preview['preview_type']}",
+        f"Status: {preview['message']}",
+    ]
+
+    items: list[Content] = [Content.from_text("\n".join(summary))]
+    if preview["preview_type"] == "text":
+        items.append(
+            Content.from_text(
+                f"Text preview for {preview['relative_path']}:\n\n{preview.get('text') or '(empty file)'}"
+            )
+        )
+        return items
+
+    data_base64 = preview.get("data_base64")
+    if not data_base64:
+        return items
+
+    items.append(
+        Content.from_uri(
+            uri=f"data:{preview['media_type']};base64,{data_base64}",
+            media_type=preview["media_type"],
+            additional_properties={
+                "name": preview["name"],
+                "relativePath": preview["relative_path"],
+                "sizeBytes": preview["size_bytes"],
+            },
+        )
+    )
+    return items
 
 
 def create_workspace_file(
@@ -176,6 +224,12 @@ read_workspace_file_tool = tool(
     approval_mode="never_require",
 )(read_workspace_file_tool_impl)
 
+preview_workspace_file_tool = tool(
+    name="preview_workspace_file",
+    description="Prepare an inline preview for text, image, PDF, audio, or video files in the workspace.",
+    approval_mode="never_require",
+)(preview_workspace_file_tool_impl)
+
 create_workspace_file_tool = tool(
     name="create_workspace_file",
     description="Create a new UTF-8 text file inside the current workspace.",
@@ -204,6 +258,7 @@ WORKSPACE_TOOLS = [
     list_workspace_files_tool,
     search_workspace_text_tool,
     read_workspace_file_tool,
+    preview_workspace_file_tool,
     create_workspace_file_tool,
     update_workspace_file_tool,
     run_workspace_shell_tool,

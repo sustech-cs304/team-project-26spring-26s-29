@@ -3,7 +3,8 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; frame-src 'self' data: blob: https:;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agent Console</title>
   <link rel="stylesheet" href="./styles.css" />
@@ -153,6 +154,24 @@
         </form>
       </section>
     </main>
+  </div>
+
+  <div id="preview-modal" class="preview-modal" hidden>
+    <div class="preview-modal__backdrop" data-preview-close="backdrop"></div>
+    <section class="preview-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
+      <header class="preview-modal__header">
+        <div class="preview-modal__heading">
+          <p id="preview-modal-label" class="preview-modal__label">Preview</p>
+          <h3 id="preview-modal-title" class="preview-modal__title">Attachment</h3>
+          <p id="preview-modal-meta" class="preview-modal__meta"></p>
+        </div>
+        <div class="preview-modal__actions">
+          <button id="preview-modal-save" class="button button--secondary" type="button" hidden>Save</button>
+          <button id="preview-modal-close" class="button button--secondary" type="button">Close</button>
+        </div>
+      </header>
+      <div id="preview-modal-body" class="preview-modal__body"></div>
+    </section>
   </div>
   <script type="module" src="./renderer.js"></script>
 </body>

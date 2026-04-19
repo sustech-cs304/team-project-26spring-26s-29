@@ -15,14 +15,23 @@ function createChatController({
   scrollToBottomButton,
   attachmentButton,
   attachments,
+  previewModal,
+  previewModalBody,
+  previewModalClose,
+  previewModalLabel,
+  previewModalMeta,
+  previewModalSave,
+  previewModalTitle,
 }) {
   let isRunning = false;
   let activeRequestId = null;
   let activeAssistantMessage = null;
   let shouldAutoScroll = true;
   const messageModels = new Map();
+  const localPreviewCache = new Map();
   let stagedAttachments = [];
   let draftRequestId = crypto.randomUUID();
+  let previewState = null;
 
   function cloneData(value) {
     return JSON.parse(JSON.stringify(value));
@@ -89,24 +98,34 @@ function createChatController({
     return `${normalized.slice(0, maxLength).trimEnd()}...`;
   }
 
+  function isTextLikeMediaType(mediaType) {
+    const normalized = String(mediaType || "").toLowerCase();
+    return (
+      normalized.startsWith("text/") ||
+      normalized.includes("json") ||
+      normalized.includes("xml") ||
+      normalized.includes("yaml") ||
+      normalized.includes("javascript") ||
+      normalized.includes("typescript")
+    );
+  }
+
   function buildUserPreview(contents) {
     return contents
-      .map((part) => {
-        if (part.type === "text") {
-          return String(part.text || "");
-        }
-        if (part.type === "image") {
-          return `[image] ${part.name || "image"}`;
-        }
-        if (part.type === "file") {
-          return `[file] ${part.name || "file"}`;
-        }
-        return `[${part.type}]`;
-      })
+      .filter((part) => part.type === "text")
+      .map((part) => String(part.text || ""))
       .join("\n");
   }
 
-  function attachUserMessageToggle(article, contentNode, previewText) {
+  function messageHasAttachmentPreview(contents) {
+    return contents.some((part) => part.type === "image" || part.type === "file");
+  }
+
+  function attachUserMessageToggle(article, contentNode, previewText, contents) {
+    if (messageHasAttachmentPreview(contents)) {
+      return;
+    }
+
     const text = String(previewText ?? "");
     const normalized = text.trim();
     const shouldCollapse =
@@ -171,48 +190,141 @@ function createChatController({
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  function renderUserTextFile(part) {
-    const preview = truncateText(
-      String(part.summaryText || "No inline preview. Use the workspace path to inspect this file."),
-      FILE_PREVIEW_MAX_LENGTH
-    );
-    const metaBits = [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
-    return `
-      <div class="message__card message__card--file">
-        <p class="message__card-label">File</p>
-        <p class="message__filename">${escapeHtml(part.name || "file")}</p>
-        ${metaBits ? `<p class="message__filemeta">${escapeHtml(metaBits)}</p>` : ""}
-        <p class="message__filepreview">${escapeHtml(preview)}</p>
-      </div>
-    `;
+  function getPartMetaText(part) {
+    return [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
   }
 
-  function renderUserImage(part) {
+  function getPreviewKind(part) {
+    if (part?.type === "image") {
+      return "image";
+    }
+
+    const mediaType = String(part?.mediaType || "").toLowerCase();
+    if (mediaType.startsWith("image/")) {
+      return "image";
+    }
+    if (mediaType === "application/pdf") {
+      return "pdf";
+    }
+    if (mediaType.startsWith("audio/")) {
+      return "audio";
+    }
+    if (mediaType.startsWith("video/")) {
+      return "video";
+    }
+    if (part?.summaryText || isTextLikeMediaType(mediaType)) {
+      return "text";
+    }
+    return "file";
+  }
+
+  function getPreviewBadge(kind) {
+    switch (kind) {
+      case "pdf":
+        return "PDF";
+      case "audio":
+        return "AUDIO";
+      case "video":
+        return "VIDEO";
+      case "text":
+        return "TEXT";
+      default:
+        return "FILE";
+    }
+  }
+
+  function renderInlinePreview(part, { compact = false } = {}) {
+    const kind = getPreviewKind(part);
     const src = buildDataUri(part);
-    const metaBits = [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
+    const imageClass = compact ? "message__image message__image--thumb" : "message__image";
+
+    if (kind === "image" && src) {
+      return `<img class="${imageClass}" src="${escapeHtml(src)}" alt="${escapeHtml(part.name || "Attached image")}" />`;
+    }
+
+    if (kind === "text") {
+      const previewText = truncateText(
+        String(part.summaryText || "Open preview to inspect the file contents."),
+        compact ? 80 : FILE_PREVIEW_MAX_LENGTH
+      );
+      return `
+        <div class="message__filethumb message__filethumb--text">
+          <span class="message__filethumb-badge">${escapeHtml(getPreviewBadge(kind))}</span>
+          <p class="message__filethumb-copy">${escapeHtml(previewText)}</p>
+        </div>
+      `;
+    }
+
     return `
-      <div class="message__card message__card--image">
-        <p class="message__card-label">Image</p>
-        <p class="message__filename">${escapeHtml(part.name || "image")}</p>
-        ${metaBits ? `<p class="message__filemeta">${escapeHtml(metaBits)}</p>` : ""}
-        <img class="message__image" src="${escapeHtml(src)}" alt="${escapeHtml(part.name || "Attached image")}" />
+      <div class="message__filethumb">
+        <span class="message__filethumb-badge">${escapeHtml(getPreviewBadge(kind))}</span>
       </div>
     `;
   }
 
-  function renderUserContents(message) {
+  function renderAttachmentCard(part, context, ref, { label, saveable = false } = {}) {
+    const previewKind = getPreviewKind(part);
+    const metaBits = getPartMetaText(part);
+    const actions = [
+      `
+        <button
+          class="button button--secondary message__action-button"
+          type="button"
+          data-preview-ref="${escapeHtml(ref)}"
+          data-message-id="${escapeHtml(context.messageId)}"
+        >
+          Preview
+        </button>
+      `,
+    ];
+
+    if (saveable) {
+      actions.push(
+        `
+          <button
+            class="button button--secondary message__action-button"
+            type="button"
+            data-save-ref="${escapeHtml(ref)}"
+            data-message-id="${escapeHtml(context.messageId)}"
+          >
+            Save
+          </button>
+        `
+      );
+    }
+
+    return `
+      <div class="message__card message__card--preview message__card--${escapeHtml(previewKind)}">
+        <div class="message__card-shell">
+          <div class="message__card-art">
+            ${renderInlinePreview(part, { compact: true })}
+          </div>
+          <div class="message__card-copy">
+            <p class="message__card-label">${escapeHtml(label)}</p>
+            <p class="message__filename">${escapeHtml(part.name || label.toLowerCase())}</p>
+            ${metaBits ? `<p class="message__filemeta">${escapeHtml(metaBits)}</p>` : ""}
+          </div>
+        </div>
+        <div class="message__card-actions">
+          ${actions.join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderUserContents(message, context) {
     const blocks = [];
-    for (const part of message.contents) {
+    for (const [index, part] of message.contents.entries()) {
       if (part.type === "text") {
         blocks.push(renderPlainText(part.text || ""));
         continue;
       }
       if (part.type === "image") {
-        blocks.push(renderUserImage(part));
+        blocks.push(renderAttachmentCard(part, context, String(index), { label: "Image" }));
         continue;
       }
       if (part.type === "file") {
-        blocks.push(renderUserTextFile(part));
+        blocks.push(renderAttachmentCard(part, context, String(index), { label: "File" }));
       }
     }
     return blocks.join("") || "<p></p>";
@@ -303,30 +415,6 @@ function createChatController({
     `;
   }
 
-  function renderDownloadCard(part, context, ref, label) {
-    const preview = part.type === "image" ? `
-      <img class="message__image" src="${escapeHtml(buildDataUri(part))}" alt="${escapeHtml(part.name || label)}" />
-    ` : `
-      <div class="message__fileicon" aria-hidden="true">FILE</div>
-    `;
-    const metaBits = [part.mediaType].filter(Boolean).join(" · ");
-
-    return `
-      <button
-        class="message__card message__card--download"
-        type="button"
-        data-save-ref="${escapeHtml(ref)}"
-        data-message-id="${escapeHtml(context.messageId)}"
-      >
-        <p class="message__card-label">${escapeHtml(label)}</p>
-        <p class="message__filename">${escapeHtml(part.name || label.toLowerCase())}</p>
-        ${metaBits ? `<p class="message__filemeta">${escapeHtml(metaBits)}</p>` : ""}
-        ${preview}
-        <span class="message__download-hint">Click to save</span>
-      </button>
-    `;
-  }
-
   function renderJsonCard(part) {
     return `
       <pre class="message__card message__card--json">${escapeHtml(JSON.stringify(part.data || {}, null, 2))}</pre>
@@ -371,10 +459,10 @@ function createChatController({
       return renderApprovalCard(part, context);
     }
     if (part.type === "image") {
-      return renderDownloadCard(part, context, ref, "Image Output");
+      return renderAttachmentCard(part, context, ref, { label: "Image Output", saveable: true });
     }
     if (part.type === "file") {
-      return renderDownloadCard(part, context, ref, "File Output");
+      return renderAttachmentCard(part, context, ref, { label: "File Output", saveable: true });
     }
     if (part.type === "citations") {
       return renderCitationsCard(part);
@@ -393,14 +481,16 @@ function createChatController({
   }
 
   function renderMessageContent(message, messageId, isActive = false) {
-    if (message.role === "user") {
-      return renderUserContents(message);
-    }
-
-    return renderAssistantContents(message, {
+    const context = {
       isActive,
       messageId,
-    });
+    };
+
+    if (message.role === "user") {
+      return renderUserContents(message, context);
+    }
+
+    return renderAssistantContents(message, context);
   }
 
   function appendMessage(message, { isActive = false } = {}) {
@@ -415,7 +505,12 @@ function createChatController({
     contentNode.innerHTML = renderMessageContent(normalizedMessage, messageId, isActive);
 
     if (normalizedMessage.role === "user") {
-      attachUserMessageToggle(article, contentNode, buildUserPreview(normalizedMessage.contents));
+      attachUserMessageToggle(
+        article,
+        contentNode,
+        buildUserPreview(normalizedMessage.contents),
+        normalizedMessage.contents
+      );
     }
 
     messages.append(article);
@@ -461,6 +556,42 @@ function createChatController({
     updateExistingMessage(activeAssistantMessage, message, { isActive: true });
   }
 
+  function renderComposerAttachmentCard(attachment, index) {
+    const label = attachment.type === "image" ? "Image" : "File";
+    const metaBits = [
+      attachment.mediaType,
+      formatBytes(attachment.sizeBytes),
+      attachment.relativePath,
+    ].filter(Boolean).join(" · ");
+
+    return `
+      <div class="composer-attachment">
+        <button
+          class="composer-attachment__preview"
+          type="button"
+          data-composer-preview-index="${index}"
+        >
+          <div class="composer-attachment__art">
+            ${renderInlinePreview(attachment, { compact: true })}
+          </div>
+          <div class="composer-attachment__main">
+            <p class="composer-attachment__label">${escapeHtml(label)}</p>
+            <p class="composer-attachment__name">${escapeHtml(attachment.name || label.toLowerCase())}</p>
+            ${metaBits ? `<p class="composer-attachment__meta">${escapeHtml(metaBits)}</p>` : ""}
+          </div>
+        </button>
+        <button
+          class="composer-attachment__remove"
+          type="button"
+          aria-label="Remove attachment"
+          data-remove-attachment="${index}"
+        >
+          ×
+        </button>
+      </div>
+    `;
+  }
+
   function renderAttachmentList() {
     if (!attachments) {
       return;
@@ -474,31 +605,7 @@ function createChatController({
 
     attachments.hidden = false;
     attachments.innerHTML = stagedAttachments
-      .map((attachment, index) => {
-        const label = attachment.type === "image" ? "Image" : "File";
-        const metaBits = [
-          attachment.mediaType,
-          formatBytes(attachment.sizeBytes),
-          attachment.relativePath,
-        ].filter(Boolean).join(" · ");
-        return `
-          <div class="composer-attachment">
-            <div class="composer-attachment__main">
-              <p class="composer-attachment__label">${escapeHtml(label)}</p>
-              <p class="composer-attachment__name">${escapeHtml(attachment.name || label.toLowerCase())}</p>
-              ${metaBits ? `<p class="composer-attachment__meta">${escapeHtml(metaBits)}</p>` : ""}
-            </div>
-            <button
-              class="composer-attachment__remove"
-              type="button"
-              aria-label="Remove attachment"
-              data-remove-attachment="${index}"
-            >
-              ×
-            </button>
-          </div>
-        `;
-      })
+      .map((attachment, index) => renderComposerAttachmentCard(attachment, index))
       .join("");
   }
 
@@ -653,6 +760,143 @@ function createChatController({
     return nextMessage;
   }
 
+  function previewSourceFromPart(part) {
+    const src = buildDataUri(part);
+    const kind = getPreviewKind(part);
+
+    if (kind === "text" && part?.summaryText) {
+      return {
+        kind: "text",
+        mediaType: part.mediaType,
+        relativePath: part.relativePath,
+        text: part.summaryText,
+        truncated: false,
+      };
+    }
+
+    if (src && ["image", "pdf", "audio", "video"].includes(kind)) {
+      return {
+        kind,
+        mediaType: part.mediaType,
+        relativePath: part.relativePath,
+        src,
+        sizeBytes: part.sizeBytes,
+      };
+    }
+
+    return null;
+  }
+
+  async function resolvePreviewPayload(part) {
+    const cacheKey = JSON.stringify({
+      name: part?.name,
+      relativePath: part?.relativePath,
+      mediaType: part?.mediaType,
+      uri: part?.uri,
+      dataBase64: part?.dataBase64 ? "inline" : "",
+      summaryText: part?.summaryText || "",
+    });
+
+    if (localPreviewCache.has(cacheKey)) {
+      return localPreviewCache.get(cacheKey);
+    }
+
+    const directPreview = previewSourceFromPart(part);
+    if (directPreview) {
+      localPreviewCache.set(cacheKey, directPreview);
+      return directPreview;
+    }
+
+    if (part?.relativePath) {
+      const loadedPreview = await window.agentAPI.loadPreview({
+        relativePath: part.relativePath,
+        mediaType: part.mediaType,
+      });
+      localPreviewCache.set(cacheKey, loadedPreview);
+      return loadedPreview;
+    }
+
+    const fallback = {
+      kind: "file",
+      mediaType: part?.mediaType,
+      relativePath: part?.relativePath,
+      message: "Preview unavailable for this attachment.",
+    };
+    localPreviewCache.set(cacheKey, fallback);
+    return fallback;
+  }
+
+  function buildPreviewBody(payload, part) {
+    const src =
+      payload?.src ||
+      (payload?.dataBase64 && payload?.mediaType
+        ? `data:${payload.mediaType};base64,${payload.dataBase64}`
+        : buildDataUri(part));
+
+    switch (payload?.kind) {
+      case "image":
+        return `<img class="preview-modal__image" src="${escapeHtml(src)}" alt="${escapeHtml(part?.name || "Preview image")}" />`;
+      case "pdf":
+        return `<iframe class="preview-modal__frame" src="${escapeHtml(src)}" title="${escapeHtml(part?.name || "PDF preview")}"></iframe>`;
+      case "audio":
+        return `<audio class="preview-modal__media" controls src="${escapeHtml(src)}"></audio>`;
+      case "video":
+        return `<video class="preview-modal__media" controls src="${escapeHtml(src)}"></video>`;
+      case "text":
+        return `
+          <div class="preview-modal__text-wrap">
+            <pre class="preview-modal__text">${escapeHtml(payload.text || "(empty file)")}</pre>
+            ${payload.truncated ? '<p class="preview-modal__hint">Preview truncated for readability.</p>' : ""}
+          </div>
+        `;
+      default:
+        return `
+          <div class="preview-modal__empty">
+            <p>${escapeHtml(payload?.message || "Preview unavailable.")}</p>
+          </div>
+        `;
+    }
+  }
+
+  function closePreviewModal() {
+    previewState = null;
+    if (!previewModal || !previewModalBody || !previewModalSave) {
+      return;
+    }
+
+    previewModal.hidden = true;
+    previewModalBody.innerHTML = "";
+    previewModalSave.hidden = true;
+  }
+
+  async function openPreview(part, { saveable = false } = {}) {
+    if (!previewModal || !previewModalBody || !previewModalSave || !previewModalTitle || !previewModalMeta || !previewModalLabel) {
+      return;
+    }
+
+    previewState = { part: cloneData(part), saveable };
+    previewModal.hidden = false;
+    previewModalLabel.textContent = getPreviewKind(part) === "image" ? "Image Preview" : "File Preview";
+    previewModalTitle.textContent = part?.name || "Attachment";
+    previewModalMeta.textContent = getPartMetaText(part);
+    previewModalBody.innerHTML = '<p class="preview-modal__hint">Loading preview...</p>';
+    previewModalSave.hidden = !saveable;
+
+    try {
+      const payload = await resolvePreviewPayload(part);
+      if (!previewState || previewState.part?.name !== part?.name || previewModal.hidden) {
+        return;
+      }
+      previewModalBody.innerHTML = buildPreviewBody(payload, part);
+    } catch (error) {
+      previewModalBody.innerHTML = `
+        <div class="preview-modal__empty">
+          <p>${escapeHtml(error?.message || "Failed to load preview.")}</p>
+        </div>
+      `;
+    }
+  }
+
   async function handleMessagesClick(event) {
     const saveButton = event.target.closest("[data-save-ref]");
     if (saveButton) {
@@ -673,6 +917,20 @@ function createChatController({
       } finally {
         saveButton.disabled = false;
       }
+      return;
+    }
+
+    const previewButton = event.target.closest("[data-preview-ref]");
+    if (previewButton) {
+      const messageId = previewButton.dataset.messageId;
+      const partRef = previewButton.dataset.previewRef;
+      const message = messageModels.get(messageId);
+      const part = resolvePartByRef(message?.contents, partRef);
+      if (!part) {
+        return;
+      }
+
+      await openPreview(part, { saveable: message?.role === "assistant" });
       return;
     }
 
@@ -702,6 +960,70 @@ function createChatController({
     }
   }
 
+  async function handleAttachmentListClick(event) {
+    const removeButton = event.target.closest("[data-remove-attachment]");
+    if (removeButton) {
+      const index = Number.parseInt(removeButton.dataset.removeAttachment, 10);
+      if (!Number.isInteger(index)) {
+        return;
+      }
+
+      stagedAttachments = stagedAttachments.filter((_, currentIndex) => currentIndex !== index);
+      renderAttachmentList();
+      return;
+    }
+
+    const previewButton = event.target.closest("[data-composer-preview-index]");
+    if (!previewButton) {
+      return;
+    }
+
+    const index = Number.parseInt(previewButton.dataset.composerPreviewIndex, 10);
+    if (!Number.isInteger(index) || !stagedAttachments[index]) {
+      return;
+    }
+
+    await openPreview(stagedAttachments[index], { saveable: false });
+  }
+
+  function bindPreviewModal() {
+    if (!previewModal || !previewModalClose || !previewModalSave) {
+      return;
+    }
+
+    previewModal.addEventListener("click", (event) => {
+      if (event.target?.dataset?.previewClose === "backdrop") {
+        closePreviewModal();
+      }
+    });
+
+    previewModalClose.addEventListener("click", () => {
+      closePreviewModal();
+    });
+
+    previewModalSave.addEventListener("click", async () => {
+      if (!previewState?.saveable || !previewState?.part) {
+        return;
+      }
+
+      previewModalSave.disabled = true;
+      try {
+        await window.agentAPI.saveOutputPart(previewState.part);
+      } catch (error) {
+        status.textContent = "save error";
+        console.error(error);
+      } finally {
+        previewModalSave.disabled = false;
+      }
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !previewModal.hidden) {
+        closePreviewModal();
+      }
+    });
+  }
+
   function init() {
     window.agentAPI.onStreamEvent((streamEvent) => {
       if (streamEvent.requestId !== activeRequestId) {
@@ -725,18 +1047,7 @@ function createChatController({
 
     if (attachments) {
       attachments.addEventListener("click", (event) => {
-        const removeButton = event.target.closest("[data-remove-attachment]");
-        if (!removeButton) {
-          return;
-        }
-
-        const index = Number.parseInt(removeButton.dataset.removeAttachment, 10);
-        if (!Number.isInteger(index)) {
-          return;
-        }
-
-        stagedAttachments = stagedAttachments.filter((_, currentIndex) => currentIndex !== index);
-        renderAttachmentList();
+        void handleAttachmentListClick(event);
       });
     }
 
@@ -751,6 +1062,8 @@ function createChatController({
         void pickAttachments();
       });
     }
+
+    bindPreviewModal();
 
     send.addEventListener("click", () => {
       void run();

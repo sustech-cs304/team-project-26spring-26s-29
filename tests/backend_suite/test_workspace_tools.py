@@ -5,6 +5,7 @@ from backend.agent.tools import (
     WORKSPACE_TOOLS,
     create_workspace_file,
     list_workspace_files,
+    preview_workspace_file_tool_impl,
     read_workspace_file_tool_impl,
     run_workspace_python_tool_impl,
     run_workspace_shell_tool_impl,
@@ -42,11 +43,25 @@ class WorkspaceToolTests(BackendTestCase):
         self.assertEqual(python_result["exit_code"], 0)
         self.assertIn("workspace-python", python_result["stdout"])
 
+    def test_preview_workspace_file_returns_rich_preview_items(self) -> None:
+        create_workspace_file("outputs/preview.txt", "hello preview world")
+        create_workspace_file("outputs/sample.pdf", "%PDF-1.4 preview")
+
+        text_preview = preview_workspace_file_tool_impl("outputs/preview.txt")
+        pdf_preview = preview_workspace_file_tool_impl("outputs/sample.pdf")
+
+        self.assertEqual(text_preview[0].type, "text")
+        self.assertEqual(text_preview[1].type, "text")
+        self.assertIn("hello preview world", text_preview[1].text)
+        self.assertEqual(pdf_preview[1].type, "data")
+        self.assertEqual(pdf_preview[1].media_type, "application/pdf")
+
     def test_workspace_tool_approval_modes(self) -> None:
         tool_modes = {tool.name: tool.approval_mode for tool in WORKSPACE_TOOLS}
         self.assertEqual(tool_modes["list_workspace_files"], "never_require")
         self.assertEqual(tool_modes["search_workspace_text"], "never_require")
         self.assertEqual(tool_modes["read_workspace_file"], "never_require")
+        self.assertEqual(tool_modes["preview_workspace_file"], "never_require")
         self.assertEqual(tool_modes["create_workspace_file"], "always_require")
         self.assertEqual(tool_modes["update_workspace_file"], "always_require")
         self.assertEqual(tool_modes["run_workspace_shell"], "always_require")

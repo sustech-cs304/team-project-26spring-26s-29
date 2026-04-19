@@ -103,7 +103,7 @@ class AgentRuntimeTests(AsyncBackendTestCase):
         image_content = Content.from_uri(
             uri="data:image/png;base64,YWJj",
             media_type="image/png",
-            additional_properties={"name": "preview.png"},
+            additional_properties={"name": "preview.png", "relativePath": "outputs/preview.png", "sizeBytes": 3},
         )
         file_content = Content.from_hosted_file(
             file_id="file-123",
@@ -128,6 +128,7 @@ class AgentRuntimeTests(AsyncBackendTestCase):
 
         self.assertEqual(serialized_result["type"], "function_result")
         self.assertEqual(serialized_result["items"][1]["type"], "image")
+        self.assertEqual(serialized_result["items"][1]["relativePath"], "outputs/preview.png")
         self.assertEqual(serialized_result["items"][2]["type"], "file")
         self.assertEqual(serialized_request["type"], "function_approval_request")
         self.assertEqual(serialized_request["decision"], "approved")
