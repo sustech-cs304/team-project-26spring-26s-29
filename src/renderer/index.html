@@ -54,24 +54,15 @@
 
             <div class="chat-toolbar">
               <div class="chat-toolbar__actions">
-                <button id="attach-file" class="button button--secondary button--icon" type="button" aria-label="Add attachment">+</button>
+                <button id="attach-file" class="button button--secondary button--icon" type="button"
+                  aria-label="Add attachment">+</button>
                 <p class="chat-toolbar__hint">Attach images or text files. Use Ctrl/Cmd + Enter to send quickly.</p>
               </div>
               <div class="chat-toolbar__controls">
-                <button
-                  id="always-approve-tools"
-                  class="button button--secondary"
-                  type="button"
-                  aria-pressed="false"
-                >
+                <button id="always-approve-tools" class="button button--secondary" type="button" aria-pressed="false">
                   Always Approve Tools
                 </button>
-                <button
-                  id="interrupt-run"
-                  class="button button--secondary"
-                  type="button"
-                  disabled
-                >
+                <button id="interrupt-run" class="button button--secondary" type="button" disabled>
                   Interrupt
                 </button>
                 <button id="send" type="button">Send</button>
@@ -172,7 +163,12 @@
           </div>
 
           <div class="schedule-right">
-            <form id="schedule-create-form">
+            <button id="schedule-toggle-create" class="button button--secondary schedule-right__toggle" type="button"
+              aria-expanded="false" hidden>
+              Add Event
+            </button>
+
+            <form id="schedule-create-form" class="schedule-create-form">
               <label class="field" for="schedule-title-input">
                 <span class="field__label">Title</span>
                 <input id="schedule-title-input" class="todo-input" type="text" placeholder="Event title" required />
@@ -190,7 +186,8 @@
 
               <label class="field" for="schedule-detail-input">
                 <span class="field__label">Detail</span>
-                <textarea id="schedule-detail-input" class="todo-input todo-input--textarea" rows="3" placeholder="Optional notes"></textarea>
+                <textarea id="schedule-detail-input" class="todo-input todo-input--textarea" rows="3"
+                  placeholder="Optional notes"></textarea>
               </label>
 
               <div class="form-actions">
