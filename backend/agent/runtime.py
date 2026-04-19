@@ -16,12 +16,12 @@ from agent_framework import (
     InMemoryHistoryProvider,
     Message,
 )
+from agent_framework.openai import OpenAIChatCompletionClient
 
 from ..config import get_config
 from ..services import build_file_reference_text
 from .context import CurrentInfoProvider, WorkspaceInfoProvider
 from .instructions import AGENT_INSTRUCTIONS
-from .mimo_client import MiMoChatCompletionClient
 from .tools import TODO_TOOLS, WORKSPACE_TOOLS
 
 
@@ -95,9 +95,6 @@ class AgentRunController:
                 serialized = _serialize_content(content, self._approval_decisions)
                 if serialized is not None:
                     contents.append(serialized)
-        contents.extend(_serialize_annotations_from_messages(response.messages))
-        if self._last_response is not None:
-            contents.extend(_serialize_annotations_from_messages(self._last_response.messages))
         return {
             "role": "assistant",
             "status": status,
@@ -117,7 +114,7 @@ class AgentRuntime:
 
     def __init__(self) -> None:
         self._agent: Any | None = None
-        self._agent_config: tuple[str | None, str | None, str | None, str | None, bool] | None = None
+        self._agent_config: tuple[str | None, str | None, str | None, str | None] | None = None
         self._session: AgentSession | None = None
 
     def get_agent(self) -> Any:
@@ -126,22 +123,11 @@ class AgentRuntime:
         model = config["openaiChatModel"]
         endpoint = config["openaiEndpoint"]
         workspace_path = config.get("workspacePath")
-        mimo_web_search_enabled = bool(config.get("mimoWebSearchEnabled"))
 
-        next_config = (api_key, model, endpoint, workspace_path, mimo_web_search_enabled)
+        next_config = (api_key, model, endpoint, workspace_path)
         if self._agent is None or self._agent_config != next_config:
             tools: list[Any] = [*TODO_TOOLS, *WORKSPACE_TOOLS]
-            if _should_enable_mimo_web_search(endpoint, model, mimo_web_search_enabled):
-                tools.append(
-                    {
-                        "type": "web_search",
-                        "force_search": False,
-                        "max_keyword": 3,
-                        "limit": 3,
-                    }
-                )
-
-            self._agent = MiMoChatCompletionClient(
+            self._agent = OpenAIChatCompletionClient(
                 model=model,
                 api_key=api_key or "unused",
                 base_url=endpoint or None,
@@ -319,16 +305,6 @@ def _serialize_binary_content(content: Content, *, part_type: str) -> dict[str, 
     return payload
 
 
-def _serialize_annotations_from_messages(messages: Sequence[Message]) -> list[dict[str, Any]]:
-    parts: list[dict[str, Any]] = []
-    for message in messages:
-        annotations = (message.additional_properties or {}).get("annotations")
-        if not annotations:
-            continue
-        parts.append({"type": "citations", "items": annotations})
-    return parts
-
-
 def _dedupe_message_contents(contents: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: set[str] = set()
     deduped: list[dict[str, Any]] = []
@@ -389,18 +365,6 @@ def _stringify_arguments(arguments: Any) -> str:
 async def _maybe_await(value: Awaitable[None] | None) -> None:
     if isawaitable(value):
         await value
-
-
-def _should_enable_mimo_web_search(
-    endpoint: str | None,
-    model: str | None,
-    enabled: bool,
-) -> bool:
-    if not enabled:
-        return False
-    if not endpoint or "xiaomimimo.com" not in endpoint:
-        return False
-    return (model or "") in {"mimo-v2-pro", "mimo-v2-omni", "mimo-v2-flash"}
 
 
 agent_runtime = AgentRuntime()

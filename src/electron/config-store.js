@@ -11,7 +11,6 @@ const DEFAULTS = {
   openaiChatModel: null,
   openaiEndpoint: null,
   workspacePath: null,
-  mimoWebSearchEnabled: false,
 };
 
 function createConfigStore({
@@ -35,31 +34,6 @@ function createConfigStore({
     return text || null;
   }
 
-  function normalizeBoolean(value, defaultValue = false) {
-    if (typeof value === "boolean") {
-      return value;
-    }
-
-    if (value == null) {
-      return defaultValue;
-    }
-
-    const text = String(value).trim().toLowerCase();
-    if (!text) {
-      return defaultValue;
-    }
-
-    if (["true", "1", "yes", "on"].includes(text)) {
-      return true;
-    }
-
-    if (["false", "0", "no", "off"].includes(text)) {
-      return false;
-    }
-
-    return defaultValue;
-  }
-
   function normalizeConfig(raw = {}) {
     const port = Number.parseInt(String(raw.backendPort ?? DEFAULTS.backendPort), 10);
 
@@ -71,7 +45,6 @@ function createConfigStore({
       openaiChatModel: normalizeOptionalString(raw.openaiChatModel),
       openaiEndpoint: normalizeOptionalString(raw.openaiEndpoint),
       workspacePath: normalizeWorkspacePath(raw.workspacePath ?? DEFAULTS.workspacePath, { configPath }),
-      mimoWebSearchEnabled: normalizeBoolean(raw.mimoWebSearchEnabled, DEFAULTS.mimoWebSearchEnabled),
     };
   }
 
@@ -88,7 +61,6 @@ function createConfigStore({
       openaiChatModel: config.openaiChatModel,
       openaiEndpoint: config.openaiEndpoint,
       workspacePath: config.workspacePath,
-      mimoWebSearchEnabled: config.mimoWebSearchEnabled,
     };
   }
 

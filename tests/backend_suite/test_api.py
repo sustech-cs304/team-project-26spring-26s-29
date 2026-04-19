@@ -69,13 +69,11 @@ class ApiTests(BackendTestCase):
                 "openaiChatModel": "demo-model",
                 "openaiEndpoint": None,
                 "workspacePath": self.workspace_path,
-                "mimoWebSearchEnabled": True,
             },
         )
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.json()["openaiChatModel"], "demo-model")
         self.assertEqual(updated.json()["workspacePath"], self.workspace_path)
-        self.assertTrue(updated.json()["mimoWebSearchEnabled"])
 
         set_config({**get_config(), "openaiChatModel": None})
 

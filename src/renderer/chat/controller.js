@@ -442,22 +442,6 @@ function createChatController({
     `;
   }
 
-  function renderCitationsCard(part) {
-    const items = Array.isArray(part.items) ? part.items : [];
-    return `
-      <div class="message__card message__card--tool">
-        <p class="message__card-label">Web Sources</p>
-        ${items.map((item) => `
-          <div class="message__toolresult">
-            <p><strong>${escapeHtml(item.title || item.site_name || item.url || "Source")}</strong></p>
-            ${item.url ? `<p>${escapeHtml(item.url)}</p>` : ""}
-            ${item.summary ? `<p>${escapeHtml(truncateText(item.summary, 220))}</p>` : ""}
-          </div>
-        `).join("")}
-      </div>
-    `;
-  }
-
   function renderAssistantPart(part, context, ref) {
     if (part.type === "text") {
       return renderMarkdown(part.text || "");
@@ -486,9 +470,6 @@ function createChatController({
     }
     if (part.type === "image" || part.type === "file") {
       return renderMediaTile(part, context, ref, null);
-    }
-    if (part.type === "citations") {
-      return renderCitationsCard(part);
     }
     return renderJsonCard(part);
   }

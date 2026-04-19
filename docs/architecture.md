@@ -174,7 +174,6 @@ Only Todo is currently surfaced through the UI and HTTP API. Schedule storage ex
 The Python agent runtime lives in `backend/agent/`.
 
 - `runtime.py` builds or rebuilds the chat client from runtime config
-- `mimo_client.py` keeps MiMo web search in provider-native tool shape and retries once without it if the plugin is unavailable
 - `instructions.py` defines the base behavior prompt
 - `tools/todo_tool.py` exposes `list_todos`, `create_todo`, `update_todo`, and `delete_todo`
 - `tools/workspace_tool.py` exposes workspace file tools plus approval-gated shell and Python tools
@@ -187,7 +186,6 @@ The current agent is therefore stateful enough to:
 - inspect local todos without approval and request approval before changing them
 - inspect and edit workspace files with tool approval where appropriate
 - run local PowerShell and Python inside the workspace after approval
-- optionally call MiMo web search on supported models
 - receive a short summary of current time, todo state, and workspace state on each run
 
 ## Extension Guidance

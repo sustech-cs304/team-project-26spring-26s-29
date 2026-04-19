@@ -37,7 +37,6 @@ Current keys:
 | `openaiChatModel` | Model name used by the backend runtime |
 | `openaiEndpoint` | Optional OpenAI-compatible base URL |
 | `workspacePath` | Workspace root for uploaded files and local agent tools |
-| `mimoWebSearchEnabled` | Enables MiMo native web search on supported MiMo endpoints/models |
 
 Rules to remember:
 
