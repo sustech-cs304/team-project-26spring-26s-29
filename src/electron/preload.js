@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("agentAPI", {
   health: () => ipcRenderer.invoke("agent:health"),
   pickAttachments: (payload) => ipcRenderer.invoke("agent:pick-attachments", payload),
   runPrompt: (payload) => ipcRenderer.invoke("agent:run", payload),
+  interruptRun: (payload) => ipcRenderer.invoke("agent:interrupt", payload),
   respondApproval: (payload) => ipcRenderer.invoke("agent:approval", payload),
   copyPreviewPart: (part) => ipcRenderer.invoke("agent:copy-preview-part", part),
   saveOutputPart: (part) => ipcRenderer.invoke("agent:save-output-part", part),

@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { normalizeWorkspacePath } = require("./workspace");
+const { normalizeWorkspacePath, resolveWorkspacePath } = require("./workspace");
 
 const DEFAULTS = {
   backendHost: "127.0.0.1",
@@ -60,7 +60,7 @@ function createConfigStore({
       openaiApiKey: config.openaiApiKey,
       openaiChatModel: config.openaiChatModel,
       openaiEndpoint: config.openaiEndpoint,
-      workspacePath: config.workspacePath,
+      workspacePath: resolveWorkspacePath(config.workspacePath, { configPath }),
     };
   }
 

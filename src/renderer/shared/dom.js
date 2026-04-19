@@ -3,10 +3,12 @@ const $ = (id) => document.getElementById(id);
 const elements = {
   attachmentButton: $("attach-file"),
   attachments: $("attachments"),
+  alwaysApproveToolsButton: $("always-approve-tools"),
   configFeedback: $("config-feedback"),
   configFields: $("config-fields"),
   configForm: $("config-form"),
   discard: $("discard"),
+  interruptRunButton: $("interrupt-run"),
   messages: $("messages"),
   navButtons: Array.from(document.querySelectorAll("[data-page-target]")),
   pages: Array.from(document.querySelectorAll("[data-page]")),

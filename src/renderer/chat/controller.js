@@ -7,6 +7,7 @@ const BOTTOM_SCROLL_THRESHOLD = 80;
 const PROMPT_MAX_HEIGHT = 220;
 const TOOL_DETAIL_MAX_LENGTH = 160;
 const FILE_TILE_TEXT_MAX_LENGTH = 76;
+const ALWAYS_APPROVE_STORAGE_KEY = "chat.alwaysApproveTools";
 
 function createChatController({
   prompt,
@@ -16,6 +17,8 @@ function createChatController({
   scrollToBottomButton,
   attachmentButton,
   attachments,
+  alwaysApproveToolsButton,
+  interruptRunButton,
   previewModal,
   previewModalBody,
   previewModalClose,
@@ -34,6 +37,22 @@ function createChatController({
   let stagedAttachments = [];
   let draftRequestId = crypto.randomUUID();
   let previewState = null;
+  let alwaysApproveTools = readAlwaysApproveToolsPreference();
+  const approvalRequestsInFlight = new Set();
+
+  function readAlwaysApproveToolsPreference() {
+    try {
+      return window.localStorage.getItem(ALWAYS_APPROVE_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  function persistAlwaysApproveToolsPreference(nextValue) {
+    try {
+      window.localStorage.setItem(ALWAYS_APPROVE_STORAGE_KEY, nextValue ? "true" : "false");
+    } catch { }
+  }
 
   function cloneData(value) {
     return JSON.parse(JSON.stringify(value));
@@ -397,9 +416,11 @@ function createChatController({
     const pending = decision === "pending";
 
     if (!pending) {
+      const isApproved = decision === "approved";
+      const isInterrupted = decision === "interrupted";
       return renderToolLine({
-        label: decision === "approved" ? "Approved" : "Rejected",
-        tone: decision === "approved" ? "approved" : "rejected",
+        label: isApproved ? "Approved" : isInterrupted ? "Interrupted" : "Rejected",
+        tone: isApproved ? "approved" : isInterrupted ? "interrupted" : "rejected",
         title: functionCall.name || "Tool action",
         detail: summarizeToolArguments(functionCall),
       });
@@ -589,6 +610,7 @@ function createChatController({
     }
 
     updateExistingMessage(activeAssistantMessage, message, { isActive: true });
+    maybeAutoApprovePendingRequests();
   }
 
   function renderComposerAttachmentCard(attachment, index) {
@@ -649,12 +671,36 @@ function createChatController({
     prompt.style.height = `${Math.min(prompt.scrollHeight, PROMPT_MAX_HEIGHT)}px`;
   }
 
+  function syncAlwaysApproveToolsButton() {
+    if (!alwaysApproveToolsButton) {
+      return;
+    }
+
+    alwaysApproveToolsButton.setAttribute("aria-pressed", String(alwaysApproveTools));
+    alwaysApproveToolsButton.classList.toggle("button--toggled", alwaysApproveTools);
+    alwaysApproveToolsButton.textContent = alwaysApproveTools
+      ? "Always Approve Tools: On"
+      : "Always Approve Tools: Off";
+  }
+
+  function setAlwaysApproveTools(nextValue) {
+    alwaysApproveTools = Boolean(nextValue);
+    persistAlwaysApproveToolsPreference(alwaysApproveTools);
+    syncAlwaysApproveToolsButton();
+    if (alwaysApproveTools) {
+      maybeAutoApprovePendingRequests();
+    }
+  }
+
   function updateComposerAvailability(ready) {
     if (send) {
       send.disabled = isRunning || !ready;
     }
     if (attachmentButton) {
       attachmentButton.disabled = isRunning || !ready;
+    }
+    if (interruptRunButton) {
+      interruptRunButton.disabled = !isRunning || !activeRequestId;
     }
   }
 
@@ -719,6 +765,7 @@ function createChatController({
     }
 
     const requestId = stagedAttachments.length ? ensureDraftRequestId() : crypto.randomUUID();
+    approvalRequestsInFlight.clear();
     isRunning = true;
     activeRequestId = requestId;
     activeAssistantMessage = null;
@@ -742,18 +789,41 @@ function createChatController({
       status.textContent = "ready";
     } catch (error) {
       const errorText = error?.message || String(error);
-      updateAssistantMessage({
-        role: "assistant",
-        status: "error",
-        contents: [{ type: "error", message: errorText }],
-      });
-      status.textContent = "error";
+      if (errorText === "Agent run interrupted.") {
+        updateAssistantMessage(buildInterruptedMessage(activeAssistantMessage?.message));
+        status.textContent = "interrupted";
+      } else {
+        updateAssistantMessage({
+          role: "assistant",
+          status: "error",
+          contents: [{ type: "error", message: errorText }],
+        });
+        status.textContent = "error";
+      }
     } finally {
+      approvalRequestsInFlight.clear();
       isRunning = false;
       activeRequestId = null;
     }
 
     await refreshStatus();
+  }
+
+  async function interruptRun() {
+    if (!isRunning || !activeRequestId || !interruptRunButton || interruptRunButton.disabled) {
+      return;
+    }
+
+    interruptRunButton.disabled = true;
+    status.textContent = "interrupting";
+
+    try {
+      await window.agentAPI.interruptRun({ requestId: activeRequestId });
+    } catch (error) {
+      status.textContent = "error";
+      console.error(error);
+      updateComposerAvailability(true);
+    }
   }
 
   function resolvePartByRef(contents, ref) {
@@ -789,6 +859,99 @@ function createChatController({
       }
     }
     return nextMessage;
+  }
+
+  function buildInterruptedMessage(message) {
+    const nextMessage = normalizeMessage(message || { role: "assistant", contents: [] }, "assistant");
+    nextMessage.status = "interrupted";
+
+    let hasInterruptionNote = false;
+    for (const part of nextMessage.contents) {
+      if (
+        part.type === "function_approval_request" &&
+        (part.decision || "pending") === "pending"
+      ) {
+        part.decision = "interrupted";
+      }
+      if (part.type === "text" && String(part.text || "").trim() === "_Run interrupted._") {
+        hasInterruptionNote = true;
+      }
+    }
+
+    if (!hasInterruptionNote) {
+      nextMessage.contents.push({ type: "text", text: "_Run interrupted._" });
+    }
+
+    return nextMessage;
+  }
+
+  function listPendingApprovalIds(message) {
+    if (!message || !Array.isArray(message.contents)) {
+      return [];
+    }
+
+    return message.contents
+      .filter(
+        (part) =>
+          part.type === "function_approval_request" &&
+          part.approvalId &&
+          (part.decision || "pending") === "pending"
+      )
+      .map((part) => part.approvalId);
+  }
+
+  async function submitApprovalDecision(approvalId, approved) {
+    if (
+      !approvalId ||
+      !activeAssistantMessage ||
+      !activeRequestId ||
+      approvalRequestsInFlight.has(approvalId)
+    ) {
+      return;
+    }
+
+    const localDecision = approved ? "approved" : "rejected";
+    const optimisticMessage = applyLocalApprovalDecision(
+      activeAssistantMessage.message,
+      approvalId,
+      localDecision
+    );
+    updateExistingMessage(activeAssistantMessage, optimisticMessage, { isActive: true });
+    approvalRequestsInFlight.add(approvalId);
+
+    try {
+      await window.agentAPI.respondApproval({
+        requestId: activeRequestId,
+        approvalId,
+        approved,
+      });
+    } catch (error) {
+      const revertedMessage = applyLocalApprovalDecision(
+        activeAssistantMessage.message,
+        approvalId,
+        "pending"
+      );
+      updateExistingMessage(activeAssistantMessage, revertedMessage, { isActive: true });
+      status.textContent = "error";
+      console.error(error);
+    } finally {
+      approvalRequestsInFlight.delete(approvalId);
+    }
+  }
+
+  function maybeAutoApprovePendingRequests() {
+    if (!alwaysApproveTools || !isRunning || !activeAssistantMessage || !activeRequestId) {
+      return;
+    }
+
+    const pendingApprovalId = listPendingApprovalIds(activeAssistantMessage.message).find(
+      (approvalId) => !approvalRequestsInFlight.has(approvalId)
+    );
+    if (!pendingApprovalId) {
+      return;
+    }
+
+    void submitApprovalDecision(pendingApprovalId, true);
   }
 
   function previewSourceFromPart(part) {
@@ -1023,23 +1186,7 @@ function createChatController({
 
     const approvalId = approvalButton.dataset.approvalId;
     const approved = approvalButton.dataset.approvalAction === "approve";
-    const localDecision = approved ? "approved" : "rejected";
-
-    const nextMessage = applyLocalApprovalDecision(activeAssistantMessage.message, approvalId, localDecision);
-    updateExistingMessage(activeAssistantMessage, nextMessage, { isActive: true });
-
-    try {
-      await window.agentAPI.respondApproval({
-        requestId: activeRequestId,
-        approvalId,
-        approved,
-      });
-    } catch (error) {
-      const revertedMessage = applyLocalApprovalDecision(activeAssistantMessage.message, approvalId, "pending");
-      updateExistingMessage(activeAssistantMessage, revertedMessage, { isActive: true });
-      status.textContent = "error";
-      console.error(error);
-    }
+    await submitApprovalDecision(approvalId, approved);
   }
 
   async function handleAttachmentListClick(event) {
@@ -1164,10 +1311,21 @@ function createChatController({
     }
 
     bindPreviewModal();
+    syncAlwaysApproveToolsButton();
 
     send.addEventListener("click", () => {
       void run();
     });
+    if (interruptRunButton) {
+      interruptRunButton.addEventListener("click", () => {
+        void interruptRun();
+      });
+    }
+    if (alwaysApproveToolsButton) {
+      alwaysApproveToolsButton.addEventListener("click", () => {
+        setAlwaysApproveTools(!alwaysApproveTools);
+      });
+    }
     prompt.addEventListener("keydown", (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         void run();

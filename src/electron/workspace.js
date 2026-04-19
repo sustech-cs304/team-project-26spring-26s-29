@@ -1,16 +1,30 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 
+const DEFAULT_WORKSPACE_PATH = "workspace";
+
 function resolveDefaultWorkspacePath({ configPath }) {
-  return path.resolve(path.dirname(configPath), "workspace");
+  return resolveWorkspacePath(DEFAULT_WORKSPACE_PATH, { configPath });
 }
 
 function normalizeWorkspacePath(value, { configPath }) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text) {
-    return resolveDefaultWorkspacePath({ configPath });
+    return DEFAULT_WORKSPACE_PATH;
   }
-  return path.resolve(text);
+  return path.normalize(text);
+}
+
+function resolveWorkspacePath(value, { configPath } = {}) {
+  const normalized = normalizeWorkspacePath(value, { configPath });
+  if (path.isAbsolute(normalized)) {
+    return path.resolve(normalized);
+  }
+
+  const baseDirectory = configPath
+    ? path.dirname(path.resolve(configPath))
+    : process.cwd();
+  return path.resolve(baseDirectory, normalized);
 }
 
 function isSameOrDescendant(parentPath, targetPath) {
@@ -61,5 +75,6 @@ module.exports = {
   assertSafeWorkspacePath,
   normalizeWorkspacePath,
   resetWorkspace,
+  resolveWorkspacePath,
   resolveDefaultWorkspacePath,
 };

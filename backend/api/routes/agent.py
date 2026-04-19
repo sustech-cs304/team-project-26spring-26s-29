@@ -38,6 +38,7 @@ async def run_agent(payload: RunRequest) -> dict[str, Any]:
 async def run_agent_stream(websocket: WebSocket) -> None:
     await websocket.accept()
     request_id: str | None = None
+    controller = None
 
     try:
         payload = StreamRunRequest.model_validate(await websocket.receive_json())
@@ -82,8 +83,12 @@ async def run_agent_stream(websocket: WebSocket) -> None:
                 {"type": "error", "requestId": request_id, "error": format_validation_error(exc)},
             )
         except WebSocketDisconnect:
+            if controller is not None:
+                controller.handle_disconnect()
             return
     except WebSocketDisconnect:
+        if controller is not None:
+            controller.handle_disconnect()
         return
     except Exception as exc:
         try:

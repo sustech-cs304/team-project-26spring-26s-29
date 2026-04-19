@@ -29,6 +29,7 @@ function registerAgentIpc({ getApi, getConfig }) {
         sender: event.sender,
         socket,
         settled: false,
+        interrupted: false,
       };
       activeRuns.set(requestId, state);
 
@@ -40,7 +41,9 @@ function registerAgentIpc({ getApi, getConfig }) {
         state.settled = true;
         activeRuns.delete(requestId);
         try {
-          socket.close();
+          if (!state.interrupted) {
+            socket.close();
+          }
         } catch { }
         callback(value);
       }
@@ -54,6 +57,9 @@ function registerAgentIpc({ getApi, getConfig }) {
         try {
           payloadText = typeof data === "string" ? data : data.toString();
           const streamEvent = JSON.parse(payloadText);
+          if (state.interrupted) {
+            return;
+          }
           const forwardedEvent = {
             ...streamEvent,
             requestId: streamEvent.requestId || requestId,
@@ -89,10 +95,36 @@ function registerAgentIpc({ getApi, getConfig }) {
       socket.addEventListener("close", ({ reason }) => {
         if (!state.settled) {
           activeRuns.delete(requestId);
-          finish(reject, new Error(reason || "Streaming connection closed before completion."));
+          finish(
+            reject,
+            new Error(
+              state.interrupted
+                ? "Agent run interrupted."
+                : (reason || "Streaming connection closed before completion.")
+            )
+          );
         }
       });
     });
+  });
+
+  ipcMain.handle("agent:interrupt", async (_event, payload) => {
+    const requestId = String(payload?.requestId || "").trim();
+    if (!requestId) {
+      throw new Error("Interrupt requestId is required.");
+    }
+
+    const run = activeRuns.get(requestId);
+    if (!run || run.settled) {
+      throw new Error("No active agent run can be interrupted.");
+    }
+
+    run.interrupted = true;
+    try {
+      run.socket.close();
+    } catch { }
+
+    return { ok: true };
   });
 
   ipcMain.handle("agent:approval", async (_event, payload) => {
@@ -105,7 +137,7 @@ function registerAgentIpc({ getApi, getConfig }) {
     }
 
     const run = activeRuns.get(requestId);
-    if (!run || run.settled) {
+    if (!run || run.settled || run.interrupted) {
       throw new Error("No active agent run is waiting for approval.");
     }
 

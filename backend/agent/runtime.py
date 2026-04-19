@@ -41,6 +41,9 @@ class AgentRunController:
         self._last_response: AgentResponse[Any] | None = None
         self._pending_approvals: dict[str, Content] = {}
         self._approval_decisions: dict[str, str] = {}
+        self._active_input_messages: list[Message] = []
+        self._active_update_start = 0
+        self._active_run_committed = True
 
     async def start(
         self,
@@ -68,26 +71,72 @@ class AgentRunController:
         agent_input: Content | Message,
         on_update: Callable[[MessageSnapshot], Awaitable[None] | None],
     ) -> MessageSnapshot:
+        self._active_input_messages = _normalize_agent_input_messages(agent_input)
+        self._active_update_start = len(self._updates)
+        self._active_run_committed = False
         stream = self._agent.run(agent_input, stream=True, session=self._session)
 
-        async for update in stream:
-            self._updates.append(update)
-            self._track_pending_approvals(update.user_input_requests)
-            await _maybe_await(on_update(self._build_snapshot(status="running")))
+        try:
+            async for update in stream:
+                self._updates.append(update)
+                self._track_pending_approvals(update.user_input_requests)
+                await _maybe_await(on_update(self._build_snapshot(status="running")))
 
-        self._last_response = await stream.get_final_response()
-        self._track_pending_approvals(self._last_response.user_input_requests)
+            self._last_response = await stream.get_final_response()
+            self._track_pending_approvals(self._last_response.user_input_requests)
+            self._active_run_committed = True
 
-        status = "needs_approval" if self._pending_approvals else "completed"
-        snapshot = self._build_snapshot(status=status)
-        if not snapshot["contents"] and status != "needs_approval":
-            raise RuntimeError("The agent returned an empty reply.")
-        return snapshot
+            status = "needs_approval" if self._pending_approvals else "completed"
+            snapshot = self._build_snapshot(status=status)
+            if not snapshot["contents"] and status != "needs_approval":
+                raise RuntimeError("The agent returned an empty reply.")
+            return snapshot
+        finally:
+            if self._active_run_committed:
+                self._active_input_messages = []
+
+    def handle_disconnect(self) -> None:
+        self._persist_interrupted_history()
+        self._pending_approvals.clear()
+        pending_requests = getattr(self._agent, "pending_requests", None)
+        if isinstance(pending_requests, dict):
+            pending_requests.clear()
 
     def _track_pending_approvals(self, requests: Sequence[Content]) -> None:
         for request in requests:
             if request.type == "function_approval_request" and request.id:
                 self._pending_approvals[request.id] = request
+
+    def _persist_interrupted_history(self) -> None:
+        if self._active_run_committed:
+            return
+
+        history_state = self._session.state.setdefault("memory", {})
+        existing_messages = list(history_state.get("messages", []))
+        partial_messages = self._build_interrupted_history_messages()
+        if not self._active_input_messages and not partial_messages:
+            return
+
+        history_state["messages"] = [*existing_messages, *self._active_input_messages, *partial_messages]
+        self._active_run_committed = True
+        self._active_input_messages = []
+
+    def _build_interrupted_history_messages(self) -> list[Message]:
+        response = self._build_active_response()
+        messages = list(response.messages)
+        interruption_note = Content.from_text("[Run interrupted by user before completion.]")
+
+        if messages:
+            messages[-1].contents.append(interruption_note)
+            return messages
+
+        return [Message("assistant", [interruption_note])]
+
+    def _build_active_response(self) -> AgentResponse[Any]:
+        active_updates = self._updates[self._active_update_start :]
+        if active_updates:
+            return AgentResponse.from_updates(active_updates)
+        return AgentResponse(messages=[])
 
     def _build_snapshot(self, *, status: str) -> MessageSnapshot:
         response = self._build_response()
@@ -264,6 +313,12 @@ def _build_user_message(contents: Sequence[InputPart]) -> Message:
         raise ValueError(f"Unsupported input content type: {part_type}")
 
     return Message("user", user_contents)
+
+
+def _normalize_agent_input_messages(agent_input: Content | Message) -> list[Message]:
+    if isinstance(agent_input, Message):
+        return [agent_input]
+    return [Message("user", [agent_input])]
 
 
 def _serialize_content(

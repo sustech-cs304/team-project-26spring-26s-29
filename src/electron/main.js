@@ -6,7 +6,7 @@ const { registerAgentIpc } = require("./ipc/agent");
 const { registerConfigIpc } = require("./ipc/config");
 const { registerTodoIpc } = require("./ipc/todo");
 const { registerScheduleIpc } = require("./ipc/schedule");
-const { assertSafeWorkspacePath, resetWorkspace } = require("./workspace");
+const { assertSafeWorkspacePath, resetWorkspace, resolveWorkspacePath } = require("./workspace");
 
 let configStore = null;
 let backendProcess = null;
@@ -28,6 +28,9 @@ async function applyConfig(nextConfig, previousConfig = config) {
 }
 
 async function prepareWorkspace(targetConfig) {
+  const resolvedWorkspacePath = resolveWorkspacePath(targetConfig.workspacePath, {
+    configPath: configStore.configPath,
+  });
   const protectedPaths = [
     configStore.configPath,
     path.dirname(configStore.configPath),
@@ -35,8 +38,8 @@ async function prepareWorkspace(targetConfig) {
     process.env.USERPROFILE,
   ].filter(Boolean);
 
-  assertSafeWorkspacePath(targetConfig.workspacePath, { protectedPaths });
-  await resetWorkspace(targetConfig.workspacePath);
+  assertSafeWorkspacePath(resolvedWorkspacePath, { protectedPaths });
+  await resetWorkspace(resolvedWorkspacePath);
 }
 
 async function saveConfig(payload) {
@@ -146,7 +149,7 @@ app.whenReady().then(async () => {
   registerConfigIpc({ configStore, onSave: saveConfig });
   registerAgentIpc({
     getApi,
-    getConfig: () => config,
+    getConfig: () => configStore.getRuntimeConfig(config),
   });
   registerTodoIpc({ getApi });
   registerScheduleIpc({ getApi });

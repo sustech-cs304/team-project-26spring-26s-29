@@ -5,7 +5,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from agent_framework import AgentResponse, AgentResponseUpdate, Content, Message
+from fastapi import WebSocketDisconnect
+
+from agent_framework import AgentResponse, AgentResponseUpdate, AgentSession, Content, Message
 
 from backend.agent.runtime import (
     AdaptiveChatCompletionClient,
@@ -42,6 +44,7 @@ class FakeStream:
 class FakeAgent:
     def __init__(self) -> None:
         self.calls = []
+        self.pending_requests = {}
         self.approval_request = Content.from_function_approval_request(
             id="approval-1",
             function_call=Content.from_function_call(
@@ -66,6 +69,20 @@ class FakeAgent:
         update = AgentResponseUpdate(
             role="assistant",
             contents=[Content.from_text("Done.")],
+        )
+        response = AgentResponse(messages=[Message("assistant", [Content.from_text("Done.")])])
+        return FakeStream([update], response)
+
+
+class PartialResponseAgent:
+    def __init__(self) -> None:
+        self.pending_requests = {"approval-1": object()}
+
+    def run(self, _agent_input, stream, session):
+        self.last_call = (stream, session)
+        update = AgentResponseUpdate(
+            role="assistant",
+            contents=[Content.from_text("Working on it.")],
         )
         response = AgentResponse(messages=[Message("assistant", [Content.from_text("Done.")])])
         return FakeStream([update], response)
@@ -160,6 +177,33 @@ class AgentRuntimeTests(AsyncBackendTestCase):
         self.assertEqual(final_message["contents"][1]["decision"], "approved")
         self.assertEqual(final_message["contents"][-1]["type"], "text")
         self.assertEqual(final_message["contents"][-1]["text"], "Done.")
+
+    async def test_agent_run_controller_persists_interrupted_partial_turn_and_clears_pending_requests(self) -> None:
+        agent = PartialResponseAgent()
+        session = AgentSession()
+        controller = AgentRunController(agent, session=session)
+
+        async def fail_on_stream(_message) -> None:
+            raise WebSocketDisconnect()
+
+        with self.assertRaises(WebSocketDisconnect):
+            await controller.start(
+                [{"type": "text", "text": "Keep this interrupted turn"}],
+                fail_on_stream,
+            )
+
+        controller.handle_disconnect()
+        controller.handle_disconnect()
+
+        self.assertEqual(agent.pending_requests, {})
+        history_messages = session.state["memory"]["messages"]
+        self.assertEqual(len(history_messages), 2)
+        self.assertEqual(history_messages[0].role, "user")
+        self.assertEqual(history_messages[0].contents[0].text, "Keep this interrupted turn")
+        self.assertEqual(history_messages[1].role, "assistant")
+        assistant_texts = [content.text for content in history_messages[1].contents if content.type == "text"]
+        self.assertEqual(assistant_texts[0], "Working on it.")
+        self.assertEqual(assistant_texts[-1], "[Run interrupted by user before completion.]")
 
 
 class AdaptiveClientTests(BackendTestCase):

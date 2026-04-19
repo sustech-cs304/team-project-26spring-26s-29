@@ -57,7 +57,25 @@
                 <button id="attach-file" class="button button--secondary button--icon" type="button" aria-label="Add attachment">+</button>
                 <p class="chat-toolbar__hint">Attach images or text files. Use Ctrl/Cmd + Enter to send quickly.</p>
               </div>
-              <button id="send" type="button">Send</button>
+              <div class="chat-toolbar__controls">
+                <button
+                  id="always-approve-tools"
+                  class="button button--secondary"
+                  type="button"
+                  aria-pressed="false"
+                >
+                  Always Approve Tools
+                </button>
+                <button
+                  id="interrupt-run"
+                  class="button button--secondary"
+                  type="button"
+                  disabled
+                >
+                  Interrupt
+                </button>
+                <button id="send" type="button">Send</button>
+              </div>
             </div>
           </section>
         </div>

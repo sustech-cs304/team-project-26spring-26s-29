@@ -125,6 +125,7 @@ class ApiTests(BackendTestCase):
         class FakeController:
             def __init__(self) -> None:
                 self.approvals = []
+                self.disconnected = False
 
             async def start(self, contents, on_update):
                 self.contents = contents
@@ -169,6 +170,9 @@ class ApiTests(BackendTestCase):
                     "contents": [{"type": "text", "text": "Done."}],
                 }
 
+            def handle_disconnect(self) -> None:
+                self.disconnected = True
+
         fake_controller = FakeController()
 
         with patch("backend.api.routes.agent.create_run", return_value=fake_controller):
@@ -205,3 +209,53 @@ class ApiTests(BackendTestCase):
                 self.assertEqual(fourth_event["type"], "done")
                 self.assertEqual(fourth_event["message"]["contents"][0]["text"], "Done.")
                 self.assertEqual(fake_controller.approvals, [("approval-1", True)])
+
+    def test_agent_run_websocket_disconnect_calls_controller_cleanup(self) -> None:
+        class FakeController:
+            def __init__(self) -> None:
+                self.disconnected = False
+
+            async def start(self, contents, on_update):
+                self.contents = contents
+                return {
+                    "role": "assistant",
+                    "status": "needs_approval",
+                    "contents": [
+                        {
+                            "type": "function_approval_request",
+                            "approvalId": "approval-1",
+                            "decision": "pending",
+                            "functionCall": {
+                                "type": "function_call",
+                                "callId": "call-1",
+                                "name": "create_todo",
+                                "arguments": {"title": "Ship report"},
+                                "argumentsText": "{\n  \"title\": \"Ship report\"\n}",
+                            },
+                        }
+                    ],
+                }
+
+            async def respond_to_approval(self, approval_id, approved, on_update):
+                raise AssertionError("Approval should not be sent in this test.")
+
+            def handle_disconnect(self) -> None:
+                self.disconnected = True
+
+        fake_controller = FakeController()
+
+        with patch("backend.api.routes.agent.create_run", return_value=fake_controller):
+            with self.client.websocket_connect("/api/agent/run") as websocket:
+                websocket.send_json(
+                    {
+                        "type": "run",
+                        "requestId": "req-disconnect",
+                        "contents": [{"type": "text", "text": "Create a todo"}],
+                    }
+                )
+
+                event = websocket.receive_json()
+                self.assertEqual(event["type"], "update")
+                self.assertEqual(event["message"]["status"], "needs_approval")
+
+        self.assertTrue(fake_controller.disconnected)
