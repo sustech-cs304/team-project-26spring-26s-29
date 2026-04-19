@@ -8,20 +8,20 @@ on:
 
 jobs:
   build-win:
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python
         with:
           python-version: "3.12"
 
