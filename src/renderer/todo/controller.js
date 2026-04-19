@@ -265,7 +265,7 @@ function createTodoController({
       const detail = separatorIndex < 0 ? "" : encoded.slice(separatorIndex + 1);
 
       if (category === "network") {
-        return "Network error: cannot connect to backend service. Check backend host and port settings.";
+        return "Network error: cannot connect to backend service. Check the local backend port setting.";
       }
       if (category === "not-found") {
         return "Task not found. It may have been deleted in another operation. Please refresh and retry.";
@@ -279,7 +279,7 @@ function createTodoController({
     }
 
     if (rawMessage.includes("Cannot reach backend service") || rawMessage.includes("Failed to fetch")) {
-      return "Network error: cannot connect to backend service. Check backend host and port settings.";
+      return "Network error: cannot connect to backend service. Check the local backend port setting.";
     }
 
     if (rawMessage.includes("does not exist")) {

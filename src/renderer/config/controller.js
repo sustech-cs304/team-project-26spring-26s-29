@@ -1,13 +1,8 @@
 const configFieldDefinitions = [
   {
-    key: "backendHost",
-    label: "Backend Host",
-    hint: "Hostname used when Electron talks to the local Python backend.",
-  },
-  {
     key: "backendPort",
     label: "Backend Port",
-    hint: "Port used for the local Python backend process.",
+    hint: "Port used for the local Python backend process on 127.0.0.1.",
   },
   {
     key: "openaiApiKey",
@@ -23,11 +18,6 @@ const configFieldDefinitions = [
     key: "openaiEndpoint",
     label: "OpenAI Endpoint",
     hint: "Optional custom base URL for the chat provider.",
-  },
-  {
-    key: "workspacePath",
-    label: "Workspace Path",
-    hint: "Workspace cleared on startup and used for uploaded files plus local tools.",
   },
 ];
 

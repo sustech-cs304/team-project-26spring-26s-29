@@ -30,7 +30,7 @@ backend/
   Stable ASGI entry point used by `uvicorn`.
 
 - `backend/config.py`
-  In-memory runtime config store for `dbPath`, `openaiApiKey`, `openaiChatModel`, `openaiEndpoint`, and `workspacePath`.
+  In-memory runtime config store for derived `dbPath`, derived `workspacePath`, and the OpenAI runtime settings.
 
 - `backend/api/`
   FastAPI app factory, routes, request models, response models, and WebSocket helpers.
@@ -231,7 +231,9 @@ The current tables are:
 - `todo_list`
 - `schedule_events`
 
-Workspace file persistence is separate from TinyDB. It is rooted at `workspacePath` from runtime config and is managed by Electron startup logic rather than the backend repository layer.
+In the Electron-managed app flow, `dbPath` is derived to `db.json` beside `config.json`.
+
+Workspace file persistence is separate from TinyDB. It is rooted at `workspacePath` from runtime config and is managed by Electron startup logic rather than the backend repository layer. In the Electron-managed app flow, that path resolves to `workspace/` beside `config.json`.
 
 ## Tests
 

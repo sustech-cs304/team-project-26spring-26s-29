@@ -76,14 +76,14 @@ The Electron layer is now split into smaller modules:
 Together they:
 
 - reads and normalizes `config.json`
-- resolves runtime workspace paths from `config.json` (relative path supported)
-- clears and recreates the configured workspace
+- derives `db.json` and `workspace/` beside `config.json`
+- clears and recreates that workspace
 - starts `python -m uvicorn backend.app:app` in development or the bundled Python runtime in packaged builds
 - waits for `/health`
 - syncs runtime config to `POST /api/config`
 - registers IPC handlers for agent, todo, schedule, and config actions
 
-Electron is also responsible for restarting the backend when `backendHost` or `backendPort` changes.
+Electron is also responsible for restarting the backend when `backendPort` changes. The host is fixed to `127.0.0.1`.
 
 ### Python Backend
 
@@ -103,13 +103,13 @@ Application startup currently works like this:
 
 1. `npm start` launches Electron.
 2. Electron reads `config.json`.
-3. Electron clears and recreates the configured workspace.
+3. Electron clears and recreates `workspace/` beside that file.
 4. Electron spawns `uvicorn` for `backend.app:app`.
 5. Electron polls `GET /health` until the backend is ready.
 6. Electron pushes runtime config to `POST /api/config`.
 7. Electron creates the browser window and loads the renderer.
 
-If the backend host or port changes later, Electron restarts the Python process and repeats the sync.
+If the backend port changes later, Electron restarts the Python process and repeats the sync.
 
 ## Request Flows
 
@@ -170,8 +170,8 @@ The flow is:
 
 1. Renderer edits config through `window.configAPI`.
 2. Electron validates and writes `config.json`.
-3. Electron normalizes `workspacePath`, resolves it to an absolute runtime path, and resets the workspace if the path changed.
-4. Electron restarts the backend if host or port changed.
+3. Electron derives absolute runtime paths for `db.json` and `workspace/` beside that file, then resets the workspace.
+4. Electron restarts the backend if the port changed.
 5. Electron syncs runtime values to `POST /api/config`.
 6. Python updates its in-memory runtime config.
 
@@ -183,8 +183,8 @@ TinyDB is the current storage layer.
 
 - Todo data is stored in the `todo_list` table.
 - Schedule data is stored in the `schedule_events` table.
-- The active database path comes from `dbPath` in config, or falls back to `db.json`.
-- Uploaded files and generated artifacts live in the workspace configured by `workspacePath`.
+- The active database path is `db.json` beside the active `config.json`.
+- Uploaded files and generated artifacts live in `workspace/` beside the active `config.json`.
 - Electron recreates `inputs/` and `outputs/` inside that workspace every time the app starts.
 
 Both Todo and Schedule are surfaced through the UI and HTTP API.

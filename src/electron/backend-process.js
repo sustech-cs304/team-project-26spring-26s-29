@@ -3,6 +3,8 @@ const path = require("node:path");
 
 const { resolveBackendWorkingDirectory, resolvePythonExecutable } = require("./python-runtime");
 
+const LOCAL_BACKEND_HOST = "127.0.0.1";
+
 function wait(delayMs) {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
@@ -12,7 +14,7 @@ function createBackendProcessController({ appPath, isPackaged = false, resources
   let ready = null;
 
   function getApi(targetConfig) {
-    return `http://${targetConfig.backendHost}:${targetConfig.backendPort}`;
+    return `http://${LOCAL_BACKEND_HOST}:${targetConfig.backendPort}`;
   }
 
   function spawnBackend(targetConfig) {
@@ -25,7 +27,7 @@ function createBackendProcessController({ appPath, isPackaged = false, resources
       "uvicorn",
       "backend.app:app",
       "--host",
-      targetConfig.backendHost,
+      LOCAL_BACKEND_HOST,
       "--port",
       String(targetConfig.backendPort),
     ], {
@@ -119,7 +121,6 @@ function createBackendProcessController({ appPath, isPackaged = false, resources
   async function applyConfig({ nextConfig, previousConfig, syncRuntimeConfig }) {
     const shouldRestart =
       !python ||
-      previousConfig.backendHost !== nextConfig.backendHost ||
       previousConfig.backendPort !== nextConfig.backendPort;
 
     if (shouldRestart) {

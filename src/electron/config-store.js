@@ -1,16 +1,15 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { normalizeWorkspacePath, resolveWorkspacePath } = require("./workspace");
+const { resolveDefaultWorkspacePath } = require("./workspace");
+
+const LOCAL_BACKEND_HOST = "127.0.0.1";
 
 const DEFAULTS = {
-  backendHost: "127.0.0.1",
   backendPort: 8765,
-  dbPath: null,
   openaiApiKey: null,
   openaiChatModel: null,
   openaiEndpoint: null,
-  workspacePath: null,
 };
 
 function createConfigStore({
@@ -38,13 +37,10 @@ function createConfigStore({
     const port = Number.parseInt(String(raw.backendPort ?? DEFAULTS.backendPort), 10);
 
     return {
-      backendHost: normalizeOptionalString(raw.backendHost) || DEFAULTS.backendHost,
       backendPort: Number.isInteger(port) ? port : DEFAULTS.backendPort,
-      dbPath: normalizeOptionalString(raw.dbPath),
       openaiApiKey: normalizeOptionalString(raw.openaiApiKey),
       openaiChatModel: normalizeOptionalString(raw.openaiChatModel),
       openaiEndpoint: normalizeOptionalString(raw.openaiEndpoint),
-      workspacePath: normalizeWorkspacePath(raw.workspacePath ?? DEFAULTS.workspacePath, { configPath }),
     };
   }
 
@@ -56,16 +52,16 @@ function createConfigStore({
 
   function getRuntimeConfig(config) {
     return {
-      dbPath: config.dbPath,
+      dbPath: path.resolve(path.dirname(configPath), "db.json"),
       openaiApiKey: config.openaiApiKey,
       openaiChatModel: config.openaiChatModel,
       openaiEndpoint: config.openaiEndpoint,
-      workspacePath: resolveWorkspacePath(config.workspacePath, { configPath }),
+      workspacePath: resolveDefaultWorkspacePath({ configPath }),
     };
   }
 
   async function syncRuntimeConfig(config) {
-    const api = `http://${config.backendHost}:${config.backendPort}`;
+    const api = `http://${LOCAL_BACKEND_HOST}:${config.backendPort}`;
     const response = await fetch(`${api}/api/config`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

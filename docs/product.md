@@ -53,15 +53,12 @@ The Config page lets the user edit local app settings without leaving the app.
 
 The current editable keys are:
 
-- `backendHost`
 - `backendPort`
-- `dbPath`
 - `openaiApiKey`
 - `openaiChatModel`
 - `openaiEndpoint`
-- `workspacePath`
 
-Saving config updates the local file and synchronizes runtime values to the Python backend.
+Saving config updates the local file and synchronizes runtime values to the Python backend. The backend host is fixed to `127.0.0.1`, and Electron keeps `db.json` plus `workspace/` beside `config.json`.
 
 ## What The Agent Can Do Today
 

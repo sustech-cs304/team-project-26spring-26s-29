@@ -89,7 +89,11 @@ After installing:
 %LOCALAPPDATA%\Student Productivity Agent\config.json
 ```
 
-3. Confirm the workspace exists beside it:
+3. Confirm the database file and workspace exist beside it:
+
+```text
+%LOCALAPPDATA%\Student Productivity Agent\db.json
+```
 
 ```text
 %LOCALAPPDATA%\Student Productivity Agent\workspace\

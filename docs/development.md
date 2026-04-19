@@ -30,21 +30,19 @@ Current keys:
 
 | Key               | Meaning                                                 |
 | ----------------- | ------------------------------------------------------- |
-| `backendHost`     | Host Electron uses to reach the local backend           |
 | `backendPort`     | Port Electron uses to reach the local backend           |
-| `dbPath`          | Optional TinyDB file path                               |
 | `openaiApiKey`    | API key for the configured chat provider                |
 | `openaiChatModel` | Model name used by the backend runtime                  |
 | `openaiEndpoint`  | Optional OpenAI-compatible base URL                     |
-| `workspacePath`   | Workspace root for uploaded files and local agent tools |
 
 Rules to remember:
 
 - Electron owns the file on disk.
 - Python owns only an in-memory copy of runtime config.
-- Changing host or port causes Electron to restart the backend.
+- Electron always uses `127.0.0.1` for the backend host, and changing the port causes Electron to restart the backend.
 - Changing runtime model settings causes Electron to resync Python.
-- Changing the workspace path causes Electron to clear and recreate the new workspace before syncing Python.
+- Electron derives `db.json` and `workspace/` beside the active `config.json`.
+- Electron clears and recreates that workspace before syncing Python.
 - Packaged Windows builds move the persistent config file under `%LOCALAPPDATA%\Student Productivity Agent\config.json`.
 
 ## Common Commands
@@ -110,10 +108,8 @@ That means:
 
 - Todo data is stored in TinyDB table `todo_list`.
 - Schedule data is stored in TinyDB table `schedule_events`.
-- If `dbPath` is unset, the backend falls back to `db.json` in the current working directory.
-- Uploaded files and generated artifacts live in `workspacePath`, with `inputs/` and `outputs/` recreated on every application start.
-
-For the Electron-managed app flow, that default file is normally the project-root `db.json`.
+- In the Electron-managed app flow, TinyDB lives in `db.json` beside the active `config.json`.
+- Uploaded files and generated artifacts live in `workspace/` beside that same `config.json`, with `inputs/` and `outputs/` recreated on every application start.
 
 ## Documentation Maintenance
 

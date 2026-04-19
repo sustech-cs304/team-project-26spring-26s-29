@@ -39,13 +39,10 @@ python -m pip install -r backend/requirements.txt
 
 4. Edit `config.json` and set the values your environment needs:
 
-- `backendHost`
 - `backendPort`
-- `dbPath`
 - `openaiApiKey`
 - `openaiChatModel`
 - `openaiEndpoint`
-- `workspacePath`
 
 5. Start the desktop app:
 
@@ -55,7 +52,7 @@ npm start
 
 When the backend is reachable and `openaiChatModel` is configured, the app status changes to `ready`.
 
-Uploaded files are copied into the configured workspace under `inputs/<requestId>/...`. The workspace is cleared and recreated on every app start.
+Uploaded files are copied into `workspace/inputs/<requestId>/...` beside `config.json`. The workspace is cleared and recreated on every app start.
 
 ## Running Only The Backend
 
@@ -108,8 +105,8 @@ tests/          Python unittest suites for backend behavior
 ## Notes
 
 - `config.json` is the persistent source of truth for local app settings in development. Packaged Windows builds use `%LOCALAPPDATA%\Student Productivity Agent\config.json`.
-- If `dbPath` is unset, TinyDB defaults to `db.json` in the project root when launched through Electron.
-- `workspacePath` may be absolute or relative. Relative values are resolved against the directory that contains the active `config.json`.
-- If `workspacePath` is unset, Electron defaults it to a `workspace/` directory beside the active `config.json`.
+- Electron always connects to the local backend on `127.0.0.1`; only `backendPort` is configurable.
+- Electron stores TinyDB in `db.json` beside the active `config.json`.
+- Electron stores the workspace in `workspace/` beside the active `config.json`.
 - Schedule is available through the renderer Schedule page and backend `/api/schedules` endpoints.
 - Avoid committing real API keys or environment-specific secrets.
