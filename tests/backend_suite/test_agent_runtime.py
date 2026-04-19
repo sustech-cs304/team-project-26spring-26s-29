@@ -17,6 +17,7 @@ from backend.agent.runtime import (
     _build_user_message,
     _serialize_content,
 )
+from backend.agent.context import PlanningSnapshotProvider
 
 from .support import AsyncBackendTestCase, BackendTestCase
 
@@ -262,6 +263,7 @@ class AdaptiveClientTests(BackendTestCase):
                 "openaiApiKey": "demo-key",
                 "openaiChatModel": "demo-model",
                 "openaiEndpoint": "https://token-plan-cn.xiaomimimo.com/v1",
+                "motdLanguage": "en",
             }
         )
         fake_agent = SimpleNamespace(create_session=lambda: "session-1")
@@ -275,4 +277,8 @@ class AdaptiveClientTests(BackendTestCase):
 
         self.assertIs(agent, fake_agent)
         tools = as_agent.call_args.kwargs["tools"]
+        instructions = as_agent.call_args.kwargs["instructions"]
+        context_providers = as_agent.call_args.kwargs["context_providers"]
         self.assertTrue(any(isinstance(tool, dict) and tool.get("type") == "web_search" for tool in tools))
+        self.assertIn("Reply with a MOTD in English.", instructions)
+        self.assertTrue(any(isinstance(provider, PlanningSnapshotProvider) for provider in context_providers))

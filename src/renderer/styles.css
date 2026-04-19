@@ -237,6 +237,10 @@ button {
   min-height: 92px;
 }
 
+.config-field__select {
+  min-height: 0;
+}
+
 .config-field__checkbox {
   width: 18px;
   height: 18px;

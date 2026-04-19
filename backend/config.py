@@ -3,6 +3,7 @@ _CONFIG = {
     "openaiApiKey": None,
     "openaiChatModel": None,
     "openaiEndpoint": None,
+    "motdLanguage": "zh-CN",
     "workspacePath": None,
 }
 

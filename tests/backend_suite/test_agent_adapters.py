@@ -1,10 +1,15 @@
 """Tests for agent-facing tool and context adapters."""
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from backend.agent.context import CurrentInfoProvider
-from backend.agent.instructions import AGENT_INSTRUCTIONS
+from backend.agent.context import CurrentInfoProvider, PlanningSnapshotProvider
+from backend.agent.instructions import (
+    AGENT_INSTRUCTIONS,
+    MOTD_TRIGGER_PROMPT,
+    build_agent_instructions,
+)
 from backend.agent.tools import (
     SCHEDULE_TOOLS,
     TODO_TOOLS,
@@ -13,6 +18,7 @@ from backend.agent.tools import (
     list_todos,
     update_todo,
 )
+from backend.services import schedule_service, todo_service
 
 from .support import AsyncBackendTestCase, BackendTestCase
 
@@ -65,6 +71,20 @@ class AgentToolTests(BackendTestCase):
         self.assertIn("I saved it for you. Remember to finish it on time.", AGENT_INSTRUCTIONS)
         self.assertIn("Mention a schedule id or todo id only when it is helpful", AGENT_INSTRUCTIONS)
 
+    def test_agent_instructions_define_localized_startup_motd(self) -> None:
+        english_instructions = build_agent_instructions("en")
+        chinese_instructions = build_agent_instructions("zh-CN")
+
+        self.assertIn(MOTD_TRIGGER_PROMPT, AGENT_INSTRUCTIONS)
+        self.assertIn("当前时间：<当前本地时间>", AGENT_INSTRUCTIONS)
+        self.assertIn("Reply with a MOTD in English.", english_instructions)
+        self.assertIn("Nearest schedule: <nearest schedule or none>", english_instructions)
+        self.assertIn("The selected MOTD language is locked to English.", english_instructions)
+        self.assertIn('do not output Chinese words or phrases such as "今天", "下午", "加油", or "暂无"', english_instructions)
+        self.assertIn('render it in English style such as "3:00 PM"', english_instructions)
+        self.assertIn("本次 MOTD 的输出语言锁定为简体中文。", chinese_instructions)
+        self.assertIn("For normal user requests, do not apply the MOTD format", english_instructions)
+
 
 class AgentContextTests(AsyncBackendTestCase):
     async def test_current_info_provider_injects_snapshot(self) -> None:
@@ -113,3 +133,51 @@ class AgentContextTests(AsyncBackendTestCase):
         self.assertIn("Current runtime context:", context.instructions[0][1])
         self.assertIn("Runtime:", context.instructions[0][1])
         self.assertIn("Public IP: 203.0.113.24", context.instructions[0][1])
+
+    async def test_planning_snapshot_provider_injects_nearest_schedule_and_todo(self) -> None:
+        provider = PlanningSnapshotProvider()
+        session = SimpleNamespace(session_id="ctx-8", state={})
+
+        class DummyContext:
+            def __init__(self) -> None:
+                self.metadata: dict[str, object] = {}
+                self.instructions: list[tuple[str, str]] = []
+
+            def extend_instructions(self, source_id: str, text: str) -> None:
+                self.instructions.append((source_id, text))
+
+        schedule_service.create_schedule(
+            title="Algorithms Lecture",
+            detail="Room 101",
+            start_at="2026-04-20T09:00:00+00:00",
+            end_at="2026-04-20T10:30:00+00:00",
+        )
+        todo_service.create_todo(
+            title="Submit lab",
+            detail="Before noon",
+            due_at="2026-04-20T11:00:00+00:00",
+        )
+
+        context = DummyContext()
+        state: dict[str, object] = {}
+
+        with patch(
+            "backend.agent.context.planning_snapshot._now_local",
+            return_value=datetime(2026, 4, 20, 8, 30, tzinfo=timezone.utc),
+        ):
+            await provider.before_run(
+                agent=object(),
+                session=session,
+                context=context,
+                state=state,
+            )
+
+        snapshot = state["planning_snapshot"]
+        self.assertEqual(snapshot["schedule_total"], 1)
+        self.assertEqual(snapshot["todo_total"], 1)
+        self.assertEqual(snapshot["nearest_schedule"]["title"], "Algorithms Lecture")
+        self.assertEqual(snapshot["nearest_todo"]["title"], "Submit lab")
+        self.assertEqual(context.metadata["planning_snapshot"], snapshot)
+        self.assertIn("Planning snapshot for schedule/todo-aware replies:", context.instructions[0][1])
+        self.assertIn("Algorithms Lecture", context.instructions[0][1])
+        self.assertIn("Submit lab", context.instructions[0][1])

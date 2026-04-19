@@ -20,8 +20,8 @@ from agent_framework.openai import OpenAIChatCompletionClient
 
 from ..config import get_config
 from ..services import build_file_reference_text
-from .context import CurrentInfoProvider, WorkspaceInfoProvider
-from .instructions import AGENT_INSTRUCTIONS
+from .context import CurrentInfoProvider, PlanningSnapshotProvider, WorkspaceInfoProvider
+from .instructions import build_agent_instructions
 
 from .tools import SCHEDULE_TOOLS, TODO_TOOLS, WORKSPACE_TOOLS
 
@@ -213,7 +213,7 @@ class AgentRuntime:
     def __init__(self) -> None:
         self._agent: Any | None = None
         self._agent_config: (
-            tuple[str | None, str | None, str | None, str | None] | None
+            tuple[str | None, str | None, str | None, str | None, str | None] | None
         ) = None
         self._session: AgentSession | None = None
 
@@ -222,9 +222,10 @@ class AgentRuntime:
         api_key = config["openaiApiKey"]
         model = config["openaiChatModel"]
         endpoint = config["openaiEndpoint"]
+        motd_language = config.get("motdLanguage")
         workspace_path = config.get("workspacePath")
 
-        next_config = (api_key, model, endpoint, workspace_path)
+        next_config = (api_key, model, endpoint, motd_language, workspace_path)
         if self._agent is None or self._agent_config != next_config:
             tools = _build_agent_tools(endpoint)
             self._agent = _build_chat_completion_client(
@@ -232,12 +233,13 @@ class AgentRuntime:
                 api_key=api_key,
                 endpoint=endpoint,
             ).as_agent(
-                instructions=AGENT_INSTRUCTIONS,
+                instructions=build_agent_instructions(motd_language),
                 tools=tools,
                 default_options={"tool_choice": "auto"},
                 context_providers=[
                     InMemoryHistoryProvider("memory", load_messages=True),
                     CurrentInfoProvider(),
+                    PlanningSnapshotProvider(),
                     WorkspaceInfoProvider(),
                 ],
             )
