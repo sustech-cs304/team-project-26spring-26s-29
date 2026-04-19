@@ -43,7 +43,7 @@ Rules to remember:
 - Changing runtime model settings causes Electron to resync Python.
 - Electron derives `db.json` and `workspace/` beside the active `config.json`.
 - Electron clears and recreates that workspace before syncing Python.
-- Packaged Windows builds move the persistent config file under `%LOCALAPPDATA%\Student Productivity Agent\config.json`.
+- Packaged Windows builds move the persistent config file under `%LOCALAPPDATA%\kao-hsiao\config.json`.
 
 ## Common Commands
 

@@ -1,5 +1,6 @@
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
+const { resolveConfigPath, resolvePackagedStorageRoot } = require("./app-paths");
 const { createBackendProcessController } = require("./backend-process");
 const { createConfigStore } = require("./config-store");
 const { registerAgentIpc } = require("./ipc/agent");
@@ -127,9 +128,18 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  const configPath = app.isPackaged
-    ? path.join(process.env.LOCALAPPDATA || app.getPath("userData"), app.getName(), "config.json")
-    : path.join(app.getAppPath(), "config.json");
+  if (app.isPackaged) {
+    app.setPath("userData", resolvePackagedStorageRoot({
+      localAppDataPath: process.env.LOCALAPPDATA,
+      appDataPath: app.getPath("appData"),
+    }));
+  }
+
+  const configPath = resolveConfigPath({
+    isPackaged: app.isPackaged,
+    appPath: app.getAppPath(),
+    userDataPath: app.getPath("userData"),
+  });
 
   configStore = createConfigStore({
     appPath: app.getAppPath(),

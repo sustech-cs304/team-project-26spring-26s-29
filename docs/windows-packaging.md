@@ -86,17 +86,17 @@ After installing:
 2. Confirm the config file was created at:
 
 ```text
-%LOCALAPPDATA%\Student Productivity Agent\config.json
+%LOCALAPPDATA%\kao-hsiao\config.json
 ```
 
 3. Confirm the database file and workspace exist beside it:
 
 ```text
-%LOCALAPPDATA%\Student Productivity Agent\db.json
+%LOCALAPPDATA%\kao-hsiao\db.json
 ```
 
 ```text
-%LOCALAPPDATA%\Student Productivity Agent\workspace\
+%LOCALAPPDATA%\kao-hsiao\workspace\
   inputs\
   outputs\
 ```

@@ -104,7 +104,7 @@ tests/          Python unittest suites for backend behavior
 
 ## Notes
 
-- `config.json` is the persistent source of truth for local app settings in development. Packaged Windows builds use `%LOCALAPPDATA%\Student Productivity Agent\config.json`.
+- `config.json` is the persistent source of truth for local app settings in development. Packaged Windows builds use `%LOCALAPPDATA%\kao-hsiao\config.json`.
 - Electron always connects to the local backend on `127.0.0.1`; only `backendPort` is configurable.
 - Electron stores TinyDB in `db.json` beside the active `config.json`.
 - Electron stores the workspace in `workspace/` beside the active `config.json`.
