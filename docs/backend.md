@@ -39,7 +39,7 @@ backend/
   Agent session lifecycle, prompt instructions, tool definitions, and runtime context providers.
 
 - `backend/services/`
-  Business-layer entry points. Today this mostly centers on Todo operations and Todo summaries.
+  Business-layer entry points for Todo, Schedule, workspace file operations, and workspace command execution.
 
 - `backend/repositories/`
   Repository contracts plus TinyDB-backed implementations.
@@ -49,28 +49,28 @@ backend/
 
 ## Public API Surface
 
-The backend currently exposes three groups of endpoints.
+The backend currently exposes four groups of endpoints.
 
 ### Health And Runtime Config
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/health` | Liveness check used by Electron startup |
-| `GET` | `/api/config` | Read backend runtime config |
+| Method | Path          | Purpose                                  |
+| ------ | ------------- | ---------------------------------------- |
+| `GET`  | `/health`     | Liveness check used by Electron startup  |
+| `GET`  | `/api/config` | Read backend runtime config              |
 | `POST` | `/api/config` | Replace backend runtime config in memory |
 
 `POST /api/config` does not edit `config.json` directly. Electron remains the owner of the file on disk.
 
 ### Todo API
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/todos` | List all todo items |
-| `GET` | `/api/todos/{todo_id}` | Read one todo item |
-| `POST` | `/api/todos` | Create a todo |
-| `PATCH` | `/api/todos/{todo_id}` | Update one or more fields |
-| `DELETE` | `/api/todos/{todo_id}` | Delete one todo |
-| `DELETE` | `/api/todos?scope=all` | Clear all todos |
+| Method   | Path                         | Purpose                    |
+| -------- | ---------------------------- | -------------------------- |
+| `GET`    | `/api/todos`                 | List all todo items        |
+| `GET`    | `/api/todos/{todo_id}`       | Read one todo item         |
+| `POST`   | `/api/todos`                 | Create a todo              |
+| `PATCH`  | `/api/todos/{todo_id}`       | Update one or more fields  |
+| `DELETE` | `/api/todos/{todo_id}`       | Delete one todo            |
+| `DELETE` | `/api/todos?scope=all`       | Clear all todos            |
 | `DELETE` | `/api/todos?scope=completed` | Clear completed todos only |
 
 Todo validation lives in `backend/api/schemas/todo.py`.
@@ -83,12 +83,26 @@ Key validation rules:
 - `PATCH` must provide at least one field
 - explicit `null` is rejected for `title`, `detail`, and `isDone`
 
+### Schedule API
+
+| Method   | Path                                     | Purpose                               |
+| -------- | ---------------------------------------- | ------------------------------------- |
+| `GET`    | `/api/schedules`                         | List all schedule events              |
+| `GET`    | `/api/schedules/{event_id}`              | Read one schedule event               |
+| `GET`    | `/api/schedules/range?start=...&end=...` | List events overlapping a time window |
+| `POST`   | `/api/schedules`                         | Create a schedule event               |
+| `PATCH`  | `/api/schedules/{event_id}`              | Update one or more fields             |
+| `DELETE` | `/api/schedules/{event_id}`              | Delete one schedule event             |
+| `DELETE` | `/api/schedules?scope=all`               | Clear all schedule events             |
+
+Schedule validation and serialization live in `backend/api/schemas/schedule.py`.
+
 ### Agent API
 
-| Method | Path | Purpose |
-| --- | --- | --- |
+| Method | Path             | Purpose                                                  |
+| ------ | ---------------- | -------------------------------------------------------- |
 | `POST` | `/api/agent/run` | One-shot agent response with structured message contents |
-| `WS` | `/api/agent/run` | Bidirectional streamed agent session used by Electron |
+| `WS`   | `/api/agent/run` | Bidirectional streamed agent session used by Electron    |
 
 The desktop app uses the WebSocket path so chat output, approval requests, and resumed tool runs can all flow through one session.
 
@@ -102,16 +116,16 @@ Current input content types:
 
 The backend exposes Todo items with these fields:
 
-| Field | Meaning |
-| --- | --- |
-| `id` | TinyDB document id |
-| `title` | Required short task title |
-| `detail` | Optional longer notes |
-| `dueAt` | Optional ISO datetime string |
-| `isDone` | Completion state |
+| Field         | Meaning                        |
+| ------------- | ------------------------------ |
+| `id`          | TinyDB document id             |
+| `title`       | Required short task title      |
+| `detail`      | Optional longer notes          |
+| `dueAt`       | Optional ISO datetime string   |
+| `isDone`      | Completion state               |
 | `completedAt` | Completion timestamp or `null` |
-| `createdAt` | Creation timestamp |
-| `updatedAt` | Last update timestamp |
+| `createdAt`   | Creation timestamp             |
+| `updatedAt`   | Last update timestamp          |
 
 The repository implementation stores timestamps in UTC ISO format.
 
@@ -122,10 +136,13 @@ The main service objects are:
 - `todo_service`
   CRUD-style mutations and list/get behavior
 
-- `todo_query_service`
-  Read-oriented summaries for runtime context, including counts such as open, done, overdue, and due today
+- `schedule_service`
+  CRUD-style mutations and list/range behavior for schedule events
 
-This separation keeps write operations and agent-facing summaries from drifting into route handlers.
+- workspace services (`workspace_service.py`, `workspace_command_service.py`)
+  Workspace file reading/writing, preview metadata, text search, and command execution helpers
+
+This separation keeps route handlers thin while preserving clear service ownership per domain.
 
 ## Repository Layer
 
@@ -143,7 +160,7 @@ FastAPI route
   -> TinyDB
 ```
 
-The schedule repository is already implemented and tested, but it is not yet wired into the UI or public API.
+Schedule follows the same path through `schedule_service` and `TinyDbScheduleRepository`, and is wired into both UI and public API.
 
 ## Agent Runtime
 
@@ -168,6 +185,10 @@ The current registered todo tools are:
 
 `list_todos` runs without approval. The write tools require explicit approval before execution.
 
+The current registered schedule tools are:
+
+- `manage_schedule`
+
 The current workspace tools are:
 
 - `list_workspace_files`
@@ -182,11 +203,12 @@ The first three are read-only and do not require approval. File writes and comma
 
 ### Current context providers
 
-`CurrentInfoProvider` injects a short runtime summary before each run, including:
+`CurrentInfoProvider` injects runtime metadata before each run, including:
 
 - local time metadata
 - current session id
-- todo counts and upcoming items when available
+- OS, architecture, and Python version
+- public IP and network metadata from `ipinfo.io` (with session-level caching)
 
 `WorkspaceInfoProvider` injects:
 
@@ -194,7 +216,7 @@ The first three are read-only and do not require approval. File writes and comma
 - `inputs/` and `outputs/` guidance
 - a short list of current workspace files
 
-That gives the model lightweight awareness of the user's current todo state before it decides whether to call a tool.
+That gives the model lightweight runtime context before it decides whether to call a tool.
 
 ## Persistence Details
 

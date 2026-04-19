@@ -28,15 +28,15 @@ The persistent config file is `config.json` in the project root.
 
 Current keys:
 
-| Key | Meaning |
-| --- | --- |
-| `backendHost` | Host Electron uses to reach the local backend |
-| `backendPort` | Port Electron uses to reach the local backend |
-| `dbPath` | Optional TinyDB file path |
-| `openaiApiKey` | API key for the configured chat provider |
-| `openaiChatModel` | Model name used by the backend runtime |
-| `openaiEndpoint` | Optional OpenAI-compatible base URL |
-| `workspacePath` | Workspace root for uploaded files and local agent tools |
+| Key               | Meaning                                                 |
+| ----------------- | ------------------------------------------------------- |
+| `backendHost`     | Host Electron uses to reach the local backend           |
+| `backendPort`     | Port Electron uses to reach the local backend           |
+| `dbPath`          | Optional TinyDB file path                               |
+| `openaiApiKey`    | API key for the configured chat provider                |
+| `openaiChatModel` | Model name used by the backend runtime                  |
+| `openaiEndpoint`  | Optional OpenAI-compatible base URL                     |
+| `workspacePath`   | Workspace root for uploaded files and local agent tools |
 
 Rules to remember:
 
@@ -79,7 +79,7 @@ Run both:
 npm test
 ```
 
-`package.json` does not currently provide a real `npm test` workflow, so backend tests are the main automated safety net.
+`package.json` defines a real `npm test` workflow that runs backend and Electron test suites.
 
 ## Where To Make Changes
 
@@ -109,7 +109,7 @@ That means:
 ## Persistence Notes
 
 - Todo data is stored in TinyDB table `todo_list`.
-- Schedule groundwork is stored in TinyDB table `schedule_events`.
+- Schedule data is stored in TinyDB table `schedule_events`.
 - If `dbPath` is unset, the backend falls back to `db.json` in the current working directory.
 - Uploaded files and generated artifacts live in `workspacePath`, with `inputs/` and `outputs/` recreated on every application start.
 

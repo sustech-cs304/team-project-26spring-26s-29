@@ -4,10 +4,11 @@ Student Productivity Agent is a desktop prototype for a student-facing planning 
 
 This repository already contains a working vertical slice:
 
-- a streamed chat page backed by a Python agent runtime
+- a streamed chat page backed by a Python agent runtime, with run interruption and inline tool approvals
 - a workspace-enabled chat flow that stages uploads into a local workspace on every run
 - approval-gated workspace tools for file editing plus local PowerShell and Python execution
 - a local-first Todo workspace with CRUD, filtering, sorting, and undo
+- a local-first Schedule workspace with calendar navigation plus CRUD over `/api/schedules`
 - a config page that edits local settings and syncs runtime model config to Python
 - local persistence through TinyDB
 
@@ -108,6 +109,7 @@ tests/          Python unittest suites for backend behavior
 
 - `config.json` is the persistent source of truth for local app settings in development. Packaged Windows builds use `%LOCALAPPDATA%\Student Productivity Agent\config.json`.
 - If `dbPath` is unset, TinyDB defaults to `db.json` in the project root when launched through Electron.
+- `workspacePath` may be absolute or relative. Relative values are resolved against the directory that contains the active `config.json`.
 - If `workspacePath` is unset, Electron defaults it to a `workspace/` directory beside the active `config.json`.
-- The schedule domain already has repository groundwork, but there is no schedule UI or public API yet.
+- Schedule is available through the renderer Schedule page and backend `/api/schedules` endpoints.
 - Avoid committing real API keys or environment-specific secrets.

@@ -4,7 +4,7 @@ This repository is the current implementation of the Student Productivity Agent 
 
 ## What Exists Today
 
-The app already provides three working desktop surfaces.
+The app already provides four working desktop surfaces.
 
 ## Chat Workspace
 
@@ -13,6 +13,7 @@ The app already provides three working desktop surfaces.
 - Electron forwards chat requests to the local Python backend.
 - The backend streams structured message snapshots over WebSocket.
 - The UI renders text, tool calls, approvals, images, and files in real time.
+- Users can interrupt an in-flight run and optionally toggle always-approve for tool requests.
 
 This is the main proof that the desktop shell, local backend, and agent runtime can work together.
 
@@ -32,6 +33,19 @@ It supports:
 - local persistence through TinyDB
 
 This page is important because it is both a user-facing feature and the first domain the agent can operate on with a real tool.
+
+## Schedule Workspace
+
+The Schedule page is now part of the shipped desktop UI.
+
+It supports:
+
+- month calendar navigation
+- create, read, update, and delete events
+- range reads through backend API
+- local persistence through TinyDB
+
+This extends the app from task-only tracking to task-plus-calendar workflows.
 
 ## Config Workspace
 
@@ -56,10 +70,11 @@ The current agent integration is intentionally narrow:
 - answer chat prompts through the configured model
 - inspect local todo items
 - create, update, and delete local todo items through approval-gated todo write tools
+- list, create, update, and delete schedule events through `manage_schedule`
 - inspect files inside the local workspace
 - create and update text files inside the local workspace through approval-gated file tools
 - run PowerShell and Python inside the local workspace after approval
-- receive a small runtime summary containing current time and todo counts
+- receive runtime metadata containing current time, host runtime details, and public IP/network info
 - receive workspace guidance that points it to uploaded inputs and generated outputs
 
 This is enough to validate tool calling and context injection without pretending the full product already exists.
@@ -68,7 +83,6 @@ This is enough to validate tool calling and context injection without pretending
 
 Some groundwork already exists in the codebase but is not yet surfaced as a finished product feature.
 
-- schedule repository and schedule storage model
 - backend-friendly domain layering for more routes and tools
 - config sync path that can support more runtime options later
 - Windows packaging path that bundles the backend Python runtime, documented but still manual to prepare
@@ -77,7 +91,6 @@ Some groundwork already exists in the codebase but is not yet surfaced as a fini
 
 Compared with the original project direction, the following items are still future work:
 
-- schedule UI and schedule API
 - campus knowledge retrieval
 - reminders and notifications
 - external integrations such as Microsoft To Do

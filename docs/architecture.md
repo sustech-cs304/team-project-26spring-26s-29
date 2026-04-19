@@ -17,8 +17,8 @@ Renderer UI
 
 ### Layer responsibilities
 
-- `src/renderer/` owns the desktop UI for Chat, Todo, and Config.
-  The renderer is now split by feature under `chat/`, `todo/`, `config/`, plus reusable helpers in `shared/`.
+- `src/renderer/` owns the desktop UI for Chat, Todo, Schedule, and Config.
+  The renderer is now split by feature under `chat/`, `todo/`, `schedule/`, `config/`, plus reusable helpers in `shared/`.
 - `src/electron/preload.js` exposes a narrow bridge into the renderer.
 - `src/electron/main.js` now mostly wires modules together.
 - `src/electron/backend-process.js` owns the Python backend process lifecycle.
@@ -26,7 +26,7 @@ Renderer UI
 - `src/electron/workspace.js` owns workspace path safety checks plus startup cleanup.
 - `src/electron/attachment-staging.js` copies uploads into the workspace and builds attachment metadata.
 - `src/electron/python-runtime.js` resolves the Python executable used in development versus packaged builds.
-- `src/electron/ipc/` owns domain-specific IPC handlers such as `agent`, `todo`, and `config`.
+- `src/electron/ipc/` owns domain-specific IPC handlers such as `agent`, `todo`, `schedule`, and `config`.
 - `backend/` owns HTTP routes, the agent runtime, local business logic, and persistence.
 
 This split keeps the UI simple, keeps Node and process control out of the renderer, and gives the Python backend a clean local API boundary.
@@ -35,10 +35,11 @@ This split keeps the UI simple, keeps Node and process control out of the render
 
 ### Renderer
 
-The renderer is a plain HTML/CSS/JavaScript app with three pages:
+The renderer is a plain HTML/CSS/JavaScript app with four pages:
 
 - `Chat`: sends structured prompts and attachments, then renders rich streamed agent output
 - `Todo`: local task management UI
+- `Schedule`: local calendar event management UI
 - `Config`: edits `config.json` through Electron IPC
 
 Instead of one large renderer controller, the browser code is organized like this:
@@ -47,6 +48,7 @@ Instead of one large renderer controller, the browser code is organized like thi
 renderer.js       bootstrap and page-level orchestration
 chat/             chat controller and streaming UI behavior
 todo/             todo state, rendering, and mutations
+schedule/         schedule state, calendar rendering, and mutations
 config/           config form state and save/discard flow
 shared/           DOM lookup, markdown, date helpers, page manager
 ```
@@ -55,6 +57,7 @@ The renderer never talks to Python directly. It only calls the APIs exposed by t
 
 - `window.agentAPI`
 - `window.todoAPI`
+- `window.scheduleAPI`
 - `window.configAPI`
 
 ### Preload
@@ -68,16 +71,17 @@ The Electron layer is now split into smaller modules:
 - `main.js` wires the app together and creates the browser window
 - `backend-process.js` starts, stops, and health-checks the Python backend
 - `config-store.js` reads and writes `config.json` and pushes runtime config to Python
-- `ipc/agent.js`, `ipc/todo.js`, and `ipc/config.js` register per-domain IPC handlers
+- `ipc/agent.js`, `ipc/todo.js`, `ipc/schedule.js`, and `ipc/config.js` register per-domain IPC handlers
 
 Together they:
 
 - reads and normalizes `config.json`
+- resolves runtime workspace paths from `config.json` (relative path supported)
 - clears and recreates the configured workspace
 - starts `python -m uvicorn backend.app:app` in development or the bundled Python runtime in packaged builds
 - waits for `/health`
 - syncs runtime config to `POST /api/config`
-- registers IPC handlers for agent, todo, and config actions
+- registers IPC handlers for agent, todo, schedule, and config actions
 
 Electron is also responsible for restarting the backend when `backendHost` or `backendPort` changes.
 
@@ -120,10 +124,12 @@ Renderer
   -> FastAPI validates structured run contents
   -> AgentRuntime streams structured message snapshots
   -> Electron forwards update / done / error events back to renderer
-  -> Renderer updates the conversation live and can answer approval requests
+  -> Renderer updates the conversation live, can answer approval requests, and can interrupt in-flight runs
 ```
 
 The WebSocket path is used so the UI can render streaming output, surface tool approvals inline, and resume the same run after the user approves or rejects an action.
+
+When the user interrupts a run, Electron closes the active run socket and the backend persists partial run history before cleanup.
 
 ### Todo Flow
 
@@ -139,6 +145,20 @@ Renderer
 
 The Todo page is a real local workflow, not just demo state. It supports persistence, validation, and round trips through the backend.
 
+### Schedule Flow
+
+```text
+Renderer
+  -> window.scheduleAPI.*
+  -> IPC handlers in src/electron/ipc/schedule.js
+  -> HTTP calls to /api/schedules...
+  -> schedule_service
+  -> TinyDbScheduleRepository
+  -> TinyDB table: schedule_events
+```
+
+The Schedule page is a real local workflow with calendar navigation, event CRUD, and range queries through the backend.
+
 ### Config Flow
 
 There are two config layers:
@@ -150,7 +170,7 @@ The flow is:
 
 1. Renderer edits config through `window.configAPI`.
 2. Electron validates and writes `config.json`.
-3. Electron validates and resets the workspace if the workspace path changed.
+3. Electron normalizes `workspacePath`, resolves it to an absolute runtime path, and resets the workspace if the path changed.
 4. Electron restarts the backend if host or port changed.
 5. Electron syncs runtime values to `POST /api/config`.
 6. Python updates its in-memory runtime config.
@@ -162,12 +182,12 @@ This keeps file ownership in Electron while allowing the backend to react to run
 TinyDB is the current storage layer.
 
 - Todo data is stored in the `todo_list` table.
-- Schedule groundwork is stored in the `schedule_events` table.
+- Schedule data is stored in the `schedule_events` table.
 - The active database path comes from `dbPath` in config, or falls back to `db.json`.
 - Uploaded files and generated artifacts live in the workspace configured by `workspacePath`.
 - Electron recreates `inputs/` and `outputs/` inside that workspace every time the app starts.
 
-Only Todo is currently surfaced through the UI and HTTP API. Schedule storage exists as backend groundwork for future features.
+Both Todo and Schedule are surfaced through the UI and HTTP API.
 
 ## Agent Integration
 
@@ -176,17 +196,20 @@ The Python agent runtime lives in `backend/agent/`.
 - `runtime.py` builds or rebuilds the chat client from runtime config
 - `instructions.py` defines the base behavior prompt
 - `tools/todo_tool.py` exposes `list_todos`, `create_todo`, `update_todo`, and `delete_todo`
+- `tools/schedule_tool.py` exposes `manage_schedule` for listing and mutating schedule events
 - `tools/workspace_tool.py` exposes workspace file tools plus approval-gated shell and Python tools
-- `context/current_info.py` injects time and todo summary context before each run
+- `context/current_info.py` injects runtime environment and network context before each run
 - `context/workspace_info.py` injects workspace root, uploaded input location, and output guidance before each run
 
 The current agent is therefore stateful enough to:
 
 - chat with the configured model
 - inspect local todos without approval and request approval before changing them
+- inspect and manage local schedule events with the schedule tool
 - inspect and edit workspace files with tool approval where appropriate
 - run local PowerShell and Python inside the workspace after approval
-- receive a short summary of current time, todo state, and workspace state on each run
+- receive runtime environment context (time, host runtime info, and public IP metadata) on each run
+- receive workspace state guidance on each run
 
 ## Extension Guidance
 
