@@ -23,11 +23,12 @@ from ..services import build_file_reference_text
 from .context import CurrentInfoProvider, WorkspaceInfoProvider
 from .instructions import AGENT_INSTRUCTIONS
 
-from .tools import TODO_TOOLS, WORKSPACE_TOOLS, SCHEDULE_TOOLS, WORKSPACE_TOOLS
+from .tools import SCHEDULE_TOOLS, TODO_TOOLS, WORKSPACE_TOOLS
 
 
 MessageSnapshot = dict[str, Any]
 InputPart = Mapping[str, Any]
+XIAOMI_WEB_SEARCH_HOST_TOKENS = ("xiaomimimo",)
 
 
 class AgentRunController:
@@ -110,12 +111,61 @@ class AgentRunController:
         return AgentResponse(messages=[])
 
 
+class AdaptiveChatCompletionClient(OpenAIChatCompletionClient):
+    """Adapt Xiaomi's hosted web_search tool inside the tools array."""
+
+    def _prepare_tools_for_openai(self, tools: Any) -> dict[str, Any]:
+        prepared = super()._prepare_tools_for_openai(tools)
+        if _should_register_hosted_web_search_tool(
+            str(self.base_url) if self.base_url is not None else None
+        ):
+            web_search_options = prepared.pop("web_search_options", None)
+            if web_search_options is not None:
+                tool_list = list(prepared.get("tools") or [])
+                tool_list.append({"type": "web_search", **web_search_options})
+                prepared["tools"] = tool_list
+        return prepared
+
+
+def _normalize_base_url(base_url: str | None) -> str:
+    if not isinstance(base_url, str):
+        return ""
+    return base_url.strip().lower()
+
+
+def _should_register_hosted_web_search_tool(base_url: str | None) -> bool:
+    normalized = _normalize_base_url(base_url)
+    return any(token in normalized for token in XIAOMI_WEB_SEARCH_HOST_TOKENS)
+
+
+def _build_agent_tools(base_url: str | None) -> list[Any]:
+    tools: list[Any] = [*TODO_TOOLS, *WORKSPACE_TOOLS, *SCHEDULE_TOOLS]
+    if _should_register_hosted_web_search_tool(base_url):
+        tools.append(AdaptiveChatCompletionClient.get_web_search_tool())
+    return tools
+
+
+def _build_chat_completion_client(
+    *,
+    model: str | None,
+    api_key: str | None,
+    endpoint: str | None,
+) -> AdaptiveChatCompletionClient:
+    return AdaptiveChatCompletionClient(
+        model=model,
+        api_key=api_key or "unused",
+        base_url=endpoint or None,
+    )
+
+
 class AgentRuntime:
     """Owns agent client creation, session reuse, and run-controller creation."""
 
     def __init__(self) -> None:
         self._agent: Any | None = None
-        self._agent_config: tuple[str | None, str | None, str | None, str | None] | None = None
+        self._agent_config: (
+            tuple[str | None, str | None, str | None, str | None] | None
+        ) = None
         self._session: AgentSession | None = None
 
     def get_agent(self) -> Any:
@@ -127,11 +177,11 @@ class AgentRuntime:
 
         next_config = (api_key, model, endpoint, workspace_path)
         if self._agent is None or self._agent_config != next_config:
-            tools: list[Any] = [*TODO_TOOLS, *WORKSPACE_TOOLS, *SCHEDULE_TOOLS, *WORKSPACE_TOOLS]
-            self._agent = OpenAIChatCompletionClient(
+            tools = _build_agent_tools(endpoint)
+            self._agent = _build_chat_completion_client(
                 model=model,
-                api_key=api_key or "unused",
-                base_url=endpoint or None,
+                api_key=api_key,
+                endpoint=endpoint,
             ).as_agent(
                 instructions=AGENT_INSTRUCTIONS,
                 tools=tools,
@@ -306,7 +356,9 @@ def _serialize_binary_content(content: Content, *, part_type: str) -> dict[str, 
     return payload
 
 
-def _dedupe_message_contents(contents: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+def _dedupe_message_contents(
+    contents: Sequence[dict[str, Any]],
+) -> list[dict[str, Any]]:
     seen: set[str] = set()
     deduped: list[dict[str, Any]] = []
     for item in contents:

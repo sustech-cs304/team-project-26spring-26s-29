@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import patch
+
 from agent_framework import AgentResponse, AgentResponseUpdate, Content, Message
 
 from backend.agent.runtime import (
+    AdaptiveChatCompletionClient,
     AgentRunController,
+    AgentRuntime,
+    _build_agent_tools,
     _build_user_message,
     _serialize_content,
 )
 
-from .support import AsyncBackendTestCase
+from .support import AsyncBackendTestCase, BackendTestCase
 
 
 class FakeStream:
@@ -154,3 +160,75 @@ class AgentRuntimeTests(AsyncBackendTestCase):
         self.assertEqual(final_message["contents"][1]["decision"], "approved")
         self.assertEqual(final_message["contents"][-1]["type"], "text")
         self.assertEqual(final_message["contents"][-1]["text"], "Done.")
+
+
+class AdaptiveClientTests(BackendTestCase):
+    def test_adaptive_chat_completion_client_rewrites_web_search_for_xiaomi(self) -> None:
+        client = AdaptiveChatCompletionClient(
+            model="demo-model",
+            api_key="demo-key",
+            base_url="https://token-plan-cn.xiaomimimo.com/v1",
+        )
+
+        prepared = client._prepare_tools_for_openai(
+            [
+                AdaptiveChatCompletionClient.get_web_search_tool(
+                    web_search_options={"search_context_size": "medium"}
+                )
+            ]
+        )
+
+        self.assertNotIn("web_search_options", prepared)
+        self.assertEqual(
+            prepared["tools"],
+            [{"type": "web_search", "search_context_size": "medium"}],
+        )
+
+    def test_adaptive_chat_completion_client_keeps_standard_web_search_shape_elsewhere(self) -> None:
+        client = AdaptiveChatCompletionClient(
+            model="demo-model",
+            api_key="demo-key",
+            base_url="https://api.openai.com/v1",
+        )
+
+        prepared = client._prepare_tools_for_openai(
+            [
+                AdaptiveChatCompletionClient.get_web_search_tool(
+                    web_search_options={"search_context_size": "medium"}
+                )
+            ]
+        )
+
+        self.assertEqual(prepared["web_search_options"], {"search_context_size": "medium"})
+        self.assertIsNone(prepared.get("tools"))
+
+    def test_build_agent_tools_only_adds_hosted_web_search_for_supported_endpoint(self) -> None:
+        xiaomi_tools = _build_agent_tools("https://token-plan-cn.xiaomimimo.com/v1")
+        default_tools = _build_agent_tools(None)
+
+        self.assertTrue(any(isinstance(tool, dict) and tool.get("type") == "web_search" for tool in xiaomi_tools))
+        self.assertFalse(any(isinstance(tool, dict) and tool.get("type") == "web_search" for tool in default_tools))
+
+    def test_agent_runtime_uses_adaptive_client_in_main_workflow(self) -> None:
+        from backend.config import get_config, set_config
+
+        set_config(
+            {
+                **get_config(),
+                "openaiApiKey": "demo-key",
+                "openaiChatModel": "demo-model",
+                "openaiEndpoint": "https://token-plan-cn.xiaomimimo.com/v1",
+            }
+        )
+        fake_agent = SimpleNamespace(create_session=lambda: "session-1")
+        runtime = AgentRuntime()
+
+        with patch(
+            "backend.agent.runtime.AdaptiveChatCompletionClient.as_agent",
+            return_value=fake_agent,
+        ) as as_agent:
+            agent = runtime.get_agent()
+
+        self.assertIs(agent, fake_agent)
+        tools = as_agent.call_args.kwargs["tools"]
+        self.assertTrue(any(isinstance(tool, dict) and tool.get("type") == "web_search" for tool in tools))
