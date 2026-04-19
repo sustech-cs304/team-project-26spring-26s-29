@@ -533,14 +533,18 @@ button {
 .message__tool-line {
   display: flex;
   align-items: center;
+  width: 100%;
+  min-width: 0;
   gap: 8px;
   min-height: 30px;
   padding: 6px 10px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(36, 49, 39, 0.04);
   color: var(--muted);
   font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 .message__tool-line--approved {
@@ -554,7 +558,17 @@ button {
   border-color: rgba(179, 61, 46, 0.18);
 }
 
+.message__tool-line-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(42%, 320px);
+  flex: 0 1 auto;
+}
+
 .message__tool-line-label {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
@@ -567,11 +581,16 @@ button {
 }
 
 .message__tool-line-title {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text);
   font-weight: 700;
+  text-overflow: ellipsis;
 }
 
 .message__tool-line-detail {
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

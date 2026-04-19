@@ -350,8 +350,10 @@ function createChatController({
   function renderToolLine({ label, tone = "neutral", title, detail }) {
     return `
       <div class="message__tool-line message__tool-line--${escapeHtml(tone)}">
-        <span class="message__tool-line-label">${escapeHtml(label)}</span>
-        <span class="message__tool-line-title">${escapeHtml(title)}</span>
+        <span class="message__tool-line-head">
+          <span class="message__tool-line-label">${escapeHtml(label)}</span>
+          <span class="message__tool-line-title">${escapeHtml(title)}</span>
+        </span>
         ${detail ? `<span class="message__tool-line-detail">${escapeHtml(detail)}</span>` : ""}
       </div>
     `;
@@ -361,7 +363,9 @@ function createChatController({
     const toolName = context.toolNames.get(part.callId) || "tool";
     const detail = collectToolResultText(part);
     const richItems = Array.isArray(part.items)
-      ? part.items.filter((item) => item.type !== "text")
+      ? part.items
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.type !== "text")
       : [];
 
     const line = renderToolLine({
@@ -379,7 +383,9 @@ function createChatController({
       <div class="message__tool-stack">
         ${line}
         <div class="message__tool-rich">
-          ${richItems.map((item, index) => renderAssistantPart(item, context, `${ref}.items.${index}`)).join("")}
+          ${richItems
+            .map(({ item, index }) => renderAssistantPart(item, context, `${ref}.items.${index}`))
+            .join("")}
         </div>
       </div>
     `;
@@ -909,11 +915,22 @@ function createChatController({
   function normalizeSavePart(sourcePart, payload) {
     const name = payload?.name || sourcePart?.name || "download";
     const mediaType = payload?.mediaType || sourcePart?.mediaType || "application/octet-stream";
+    const relativePath = payload?.relativePath || sourcePart?.relativePath || null;
+    const previewKind = payload?.kind || getPreviewKind(sourcePart);
+
+    if (relativePath && previewKind !== "text") {
+      return {
+        name,
+        mediaType,
+        relativePath,
+      };
+    }
 
     if (payload?.kind === "text" && typeof payload?.text === "string") {
       return {
         name,
         mediaType,
+        relativePath,
         textContent: payload.text,
       };
     }
@@ -922,6 +939,7 @@ function createChatController({
       return {
         name,
         mediaType,
+        relativePath,
         dataBase64: payload.dataBase64,
       };
     }
@@ -930,6 +948,7 @@ function createChatController({
       return {
         name,
         mediaType,
+        relativePath,
         uri: payload.src,
       };
     }
@@ -937,37 +956,11 @@ function createChatController({
     return {
       name,
       mediaType,
+      relativePath,
       dataBase64: sourcePart?.dataBase64,
       uri: sourcePart?.uri,
       textContent: sourcePart?.textContent,
     };
-  }
-
-  async function copyPreviewPayload(payload) {
-    if (!navigator.clipboard) {
-      throw new Error("Clipboard access is not available.");
-    }
-
-    if (payload?.kind === "text") {
-      await navigator.clipboard.writeText(payload.text || "");
-      return;
-    }
-
-    if (payload?.kind === "image") {
-      const src =
-        payload?.src ||
-        (payload?.dataBase64 && payload?.mediaType
-          ? `data:${payload.mediaType};base64,${payload.dataBase64}`
-          : "");
-      if (src && typeof ClipboardItem !== "undefined" && navigator.clipboard.write) {
-        const response = await fetch(src);
-        const blob = await response.blob();
-        await navigator.clipboard.write([new ClipboardItem({ [blob.type || payload.mediaType || "image/png"]: blob })]);
-        return;
-      }
-    }
-
-    await navigator.clipboard.writeText(payload?.relativePath || payload?.name || "");
   }
 
   function closePreviewModal() {
@@ -1110,13 +1103,15 @@ function createChatController({
     });
 
     previewModalCopy.addEventListener("click", async () => {
-      if (!previewState?.payload) {
+      if (!previewState?.payload || !previewState?.sourcePart) {
         return;
       }
 
       previewModalCopy.disabled = true;
       try {
-        await copyPreviewPayload(previewState.payload);
+        await window.agentAPI.copyPreviewPart(
+          normalizeSavePart(previewState.sourcePart, previewState.payload)
+        );
       } catch (error) {
         status.textContent = "copy error";
         console.error(error);

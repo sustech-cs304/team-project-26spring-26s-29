@@ -1,6 +1,8 @@
 const { randomUUID } = require("node:crypto");
+const fs = require("node:fs/promises");
 const path = require("node:path");
-const { BrowserWindow, dialog, ipcMain } = require("electron");
+const { Buffer } = require("node:buffer");
+const { BrowserWindow, clipboard, dialog, ipcMain, nativeImage } = require("electron");
 
 const {
   extensionFromMediaType: lookupExtensionFromMediaType,
@@ -155,8 +157,13 @@ function registerAgentIpc({ getApi, getConfig }) {
       return { canceled: true };
     }
 
-    await writeOutputPart(result.filePath, part);
+    await writeOutputPart(result.filePath, part, { workspacePath: getConfig().workspacePath });
     return { canceled: false, path: result.filePath };
+  });
+
+  ipcMain.handle("agent:copy-preview-part", async (_event, payload) => {
+    await copyOutputPart(payload || {}, { workspacePath: getConfig().workspacePath });
+    return { ok: true };
   });
 
   ipcMain.handle("agent:load-preview", async (_event, payload) => {
@@ -190,9 +197,12 @@ function extensionFromMediaType(mediaType) {
   return lookupExtensionFromMediaType(mediaType);
 }
 
-async function writeOutputPart(filePath, part) {
-  const fs = require("node:fs/promises");
-  const { Buffer } = require("node:buffer");
+async function writeOutputPart(filePath, part, options = {}) {
+  const sourcePath = await resolveWorkspaceSourcePath(part, options.workspacePath);
+  if (sourcePath) {
+    await fs.copyFile(sourcePath, filePath);
+    return;
+  }
 
   const textContent = typeof part?.textContent === "string" ? part.textContent : "";
   if (textContent) {
@@ -224,6 +234,72 @@ async function writeOutputPart(filePath, part) {
   }
 
   throw new Error("This output does not include downloadable bytes.");
+}
+
+async function copyOutputPart(part, options = {}) {
+  const sourcePath = await resolveWorkspaceSourcePath(part, options.workspacePath);
+  const mediaType = String(part?.mediaType || "").toLowerCase();
+
+  if (sourcePath && mediaType.startsWith("image/")) {
+    const image = nativeImage.createFromPath(sourcePath);
+    if (!image.isEmpty()) {
+      clipboard.writeImage(image);
+      return;
+    }
+  }
+
+  if (typeof part?.dataBase64 === "string" && part.dataBase64 && mediaType.startsWith("image/")) {
+    const image = nativeImage.createFromBuffer(Buffer.from(part.dataBase64, "base64"));
+    if (!image.isEmpty()) {
+      clipboard.writeImage(image);
+      return;
+    }
+  }
+
+  const uri = typeof part?.uri === "string" ? part.uri : "";
+  if (uri.startsWith("data:image/")) {
+    const image = nativeImage.createFromDataURL(uri);
+    if (!image.isEmpty()) {
+      clipboard.writeImage(image);
+      return;
+    }
+  }
+
+  const textContent = typeof part?.textContent === "string" ? part.textContent : "";
+  if (textContent) {
+    clipboard.writeText(textContent);
+    return;
+  }
+
+  if (sourcePath) {
+    clipboard.writeText(sourcePath);
+    return;
+  }
+
+  const fallbackText = String(part?.relativePath || part?.name || "").trim();
+  if (fallbackText) {
+    clipboard.writeText(fallbackText);
+    return;
+  }
+
+  throw new Error("This preview does not include copyable content.");
+}
+
+async function resolveWorkspaceSourcePath(part, workspacePath) {
+  const relativePath = String(part?.relativePath || "").trim();
+  if (!relativePath || !workspacePath) {
+    return null;
+  }
+
+  const root = path.resolve(workspacePath);
+  const candidate = path.resolve(root, relativePath);
+  const normalizedRoot = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
+  if (candidate !== root && !candidate.startsWith(normalizedRoot)) {
+    throw new Error("Output path escapes the workspace root.");
+  }
+
+  const stat = await fs.stat(candidate).catch(() => null);
+  return stat?.isFile() ? candidate : null;
 }
 
 module.exports = { registerAgentIpc };
