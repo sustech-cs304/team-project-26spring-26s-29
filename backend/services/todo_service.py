@@ -3,6 +3,7 @@
 from typing import Literal
 
 from ..repositories import Todo, TodoRepository, TodoUpdate, todo_repository
+from .todo_schedule_binding_service import bind_after_todo_created
 
 
 class TodoService:
@@ -24,7 +25,9 @@ class TodoService:
         detail: str,
         due_at: str | None = None,
     ) -> Todo:
-        return self._repository.add_todo(title=title, detail=detail, due_at=due_at)
+        todo = self._repository.add_todo(title=title, detail=detail, due_at=due_at)
+        bind_after_todo_created(todo)
+        return todo
 
     def update_todo(self, todo_id: int, updates: TodoUpdate) -> Todo:
         return self._repository.update_todo(todo_id, updates)
