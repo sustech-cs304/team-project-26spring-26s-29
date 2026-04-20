@@ -4,7 +4,7 @@ Student Productivity Agent is a desktop prototype for a student-facing planning 
 
 This repository already contains a working vertical slice:
 
-- a streamed chat page backed by a Python agent runtime, with run interruption and inline tool approvals
+- a streamed chat page backed by a Python agent runtime, with Markdown plus KaTeX rendering for assistant text, run interruption, inline tool approvals, and attachment preview
 - a workspace-enabled chat flow that stages uploads into a local workspace on every run
 - approval-gated workspace tools for file editing plus local PowerShell and Python execution
 - a local-first Todo workspace with CRUD, filtering, sorting, and undo
@@ -18,6 +18,7 @@ This repository already contains a working vertical slice:
 
 - Desktop shell: Electron
 - Renderer: HTML, CSS, vanilla JavaScript
+- Chat rich text: `markdown-it` and KaTeX
 - Backend API: FastAPI
 - Agent runtime: `agent-framework` with an OpenAI-compatible chat client
 - Local storage: TinyDB
@@ -81,7 +82,7 @@ python -m unittest discover -s tests -v
 node --test tests/electron/*.test.js
 ```
 
-The current automated tests focus on backend routes, repositories, todo services, and agent-facing adapters.
+The current automated tests focus on backend routes and services, agent-facing adapters, workspace helpers, and Electron packaging/runtime helpers.
 
 ## Repository Map
 
@@ -89,8 +90,8 @@ The current automated tests focus on backend routes, repositories, todo services
 backend/        Python API, agent runtime, services, repositories
 docs/           Implementation-focused project documentation
 src/electron/   Electron main process, preload bridge, IPC, config sync
-src/renderer/   Desktop UI for chat, todo, and config pages
-tests/          Python unittest suites for backend behavior
+src/renderer/   Desktop UI for chat, todo, schedule, and config pages
+tests/          Python and Node test suites for backend and Electron behavior
 ```
 
 ## Documentation

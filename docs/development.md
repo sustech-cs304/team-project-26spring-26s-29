@@ -34,6 +34,7 @@ Current keys:
 | `openaiApiKey`    | API key for the configured chat provider                |
 | `openaiChatModel` | Model name used by the backend runtime                  |
 | `openaiEndpoint`  | Optional OpenAI-compatible base URL                     |
+| `motdLanguage`    | Startup message language for Chat (`zh-CN` or `en`)     |
 
 Rules to remember:
 
@@ -84,6 +85,7 @@ npm test
 ### UI changes
 
 - page structure and behavior: `src/renderer/`
+- assistant Markdown and formula rendering: `src/renderer/shared/markdown.js`
 - safe renderer bridge: `src/electron/preload.js`
 - IPC and process orchestration: `src/electron/`
 

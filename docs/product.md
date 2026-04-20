@@ -12,7 +12,9 @@ The app already provides four working desktop surfaces.
 - Electron stages every upload into the configured workspace before it reaches the backend.
 - Electron forwards chat requests to the local Python backend.
 - The backend streams structured message snapshots over WebSocket.
-- The UI renders text, tool calls, approvals, images, and files in real time.
+- Assistant text is rendered as Markdown with `markdown-it`, with KaTeX handling inline and display math.
+- Tool calls and approval requests stay in structured single-line cards instead of being reinterpreted as Markdown.
+- The UI renders images and files as media tiles with a preview modal for inline inspection and save/copy actions.
 - Users can interrupt an in-flight run and optionally toggle always-approve for tool requests.
 
 This is the main proof that the desktop shell, local backend, and agent runtime can work together.
@@ -57,6 +59,7 @@ The current editable keys are:
 - `openaiApiKey`
 - `openaiChatModel`
 - `openaiEndpoint`
+- `motdLanguage`
 
 Saving config updates the local file and synchronizes runtime values to the Python backend. The backend host is fixed to `127.0.0.1`, and Electron keeps `db.json` plus `workspace/` beside `config.json`.
 
@@ -69,6 +72,7 @@ The current agent integration is intentionally narrow:
 - create, update, and delete local todo items through approval-gated todo write tools
 - list, create, update, and delete schedule events through `manage_schedule`
 - inspect files inside the local workspace
+- prepare previews for text, image, PDF, audio, or video files inside the local workspace
 - create and update text files inside the local workspace through approval-gated file tools
 - run PowerShell and Python inside the local workspace after approval
 - receive runtime metadata containing current time, host runtime details, and public IP/network info

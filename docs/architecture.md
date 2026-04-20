@@ -42,6 +42,8 @@ The renderer is a plain HTML/CSS/JavaScript app with four pages:
 - `Schedule`: local calendar event management UI
 - `Config`: edits `config.json` through Electron IPC
 
+Inside Chat, assistant text parts are rendered through `shared/markdown.js` using `markdown-it`, then KaTeX is applied only to those rendered Markdown blocks. Tool rows, approval cards, and media tiles remain structured UI elements instead of being routed through the Markdown parser.
+
 Instead of one large renderer controller, the browser code is organized like this:
 
 ```text
@@ -50,7 +52,7 @@ chat/             chat controller and streaming UI behavior
 todo/             todo state, rendering, and mutations
 schedule/         schedule state, calendar rendering, and mutations
 config/           config form state and save/discard flow
-shared/           DOM lookup, markdown, date helpers, page manager
+shared/           DOM lookup, markdown/KaTeX helpers, date helpers, page manager
 ```
 
 The renderer never talks to Python directly. It only calls the APIs exposed by the preload script:
@@ -124,7 +126,7 @@ Renderer
   -> FastAPI validates structured run contents
   -> AgentRuntime streams structured message snapshots
   -> Electron forwards update / done / error events back to renderer
-  -> Renderer updates the conversation live, can answer approval requests, and can interrupt in-flight runs
+  -> Renderer updates the conversation live, renders assistant text with markdown-it plus KaTeX, preserves structured tool/media cards, can answer approval requests, and can interrupt in-flight runs
 ```
 
 The WebSocket path is used so the UI can render streaming output, surface tool approvals inline, and resume the same run after the user approves or rejects an action.
@@ -197,7 +199,7 @@ The Python agent runtime lives in `backend/agent/`.
 - `instructions.py` defines the base behavior prompt
 - `tools/todo_tool.py` exposes `list_todos`, `create_todo`, `update_todo`, and `delete_todo`
 - `tools/schedule_tool.py` exposes `manage_schedule` for listing and mutating schedule events
-- `tools/workspace_tool.py` exposes workspace file tools plus approval-gated shell and Python tools
+- `tools/workspace_tool.py` exposes workspace file tools, preview helpers, plus approval-gated shell and Python tools
 - `context/current_info.py` injects runtime environment and network context before each run
 - `context/workspace_info.py` injects workspace root, uploaded input location, and output guidance before each run
 
@@ -207,6 +209,7 @@ The current agent is therefore stateful enough to:
 - inspect local todos without approval and request approval before changing them
 - inspect and manage local schedule events with the schedule tool
 - inspect and edit workspace files with tool approval where appropriate
+- prepare inline previews for text, image, PDF, audio, and video workspace files
 - run local PowerShell and Python inside the workspace after approval
 - receive runtime environment context (time, host runtime info, and public IP metadata) on each run
 - receive workspace state guidance on each run

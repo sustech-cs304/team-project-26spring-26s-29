@@ -25,7 +25,7 @@ The packaged Electron main process will look for:
 
 - `resources/python/python.exe`
 
-and will launch the backend from the packaged resources directory.
+It also accepts `resources/backend-python/python.exe` as a compatibility fallback, but the current packaging config copies the bundled runtime to `resources/python/`. The packaged app then launches the backend from the packaged resources directory.
 
 ## 1. Prepare Dependencies
 

@@ -9,7 +9,7 @@ backend/
   app.py
   config.py
   api/
-    app.py
+    __init__.py
     routes/
     schemas/
     websocket.py
@@ -21,7 +21,6 @@ backend/
   services/
   repositories/
     tinydb/
-  db/
 ```
 
 ## Responsibilities By Area
@@ -33,7 +32,7 @@ backend/
   In-memory runtime config store for derived `dbPath`, derived `workspacePath`, and the OpenAI runtime settings.
 
 - `backend/api/`
-  FastAPI app factory, routes, request models, response models, and WebSocket helpers.
+  FastAPI route modules, request models, response models, and WebSocket helpers.
 
 - `backend/agent/`
   Agent session lifecycle, prompt instructions, tool definitions, and runtime context providers.
@@ -43,9 +42,6 @@ backend/
 
 - `backend/repositories/`
   Repository contracts plus TinyDB-backed implementations.
-
-- `backend/db/`
-  Legacy-style helper module still present in the repo. Current API and service flows use `repositories` directly.
 
 ## Public API Surface
 
@@ -87,15 +83,14 @@ Key validation rules:
 
 | Method   | Path                                     | Purpose                               |
 | -------- | ---------------------------------------- | ------------------------------------- |
-| `GET`    | `/api/schedules`                         | List all schedule events              |
-| `GET`    | `/api/schedules/{event_id}`              | Read one schedule event               |
 | `GET`    | `/api/schedules/range?start=...&end=...` | List events overlapping a time window |
 | `POST`   | `/api/schedules`                         | Create a schedule event               |
 | `PATCH`  | `/api/schedules/{event_id}`              | Update one or more fields             |
 | `DELETE` | `/api/schedules/{event_id}`              | Delete one schedule event             |
-| `DELETE` | `/api/schedules?scope=all`               | Clear all schedule events             |
 
 Schedule validation and serialization live in `backend/api/schemas/schedule.py`.
+
+The shipped Schedule HTTP surface is intentionally range-first: the renderer reads events through `/api/schedules/range` and mutates individual records with create, patch, and delete operations.
 
 ### Agent API
 
@@ -194,12 +189,13 @@ The current workspace tools are:
 - `list_workspace_files`
 - `search_workspace_text`
 - `read_workspace_file`
+- `preview_workspace_file`
 - `create_workspace_file`
 - `update_workspace_file`
 - `run_workspace_shell`
 - `run_workspace_python`
 
-The first three are read-only and do not require approval. File writes and command execution require approval.
+The first four are read-only and do not require approval. File writes and command execution require approval.
 
 ### Current context providers
 
@@ -243,8 +239,9 @@ Backend tests live under `tests/backend_suite/` and cover:
 - config route behavior
 - todo service behavior
 - TinyDB repository round trips
+- workspace tool and preview behavior
 - agent tool behavior
-- agent context provider behavior
+- agent context and adapter behavior
 
 Run them with:
 
