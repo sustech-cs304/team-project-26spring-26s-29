@@ -15,43 +15,6 @@ Renderer UI
   -> services / repositories / TinyDB
 ```
 
-### Visual Architecture Diagram
-
-```mermaid
-flowchart LR
-    subgraph Renderer[Renderer UI]
-      UI[Chat / Todo / Schedule / Config]
-    end
-
-    subgraph Preload[Preload Bridge]
-      Bridge[window.agentAPI / todoAPI / scheduleAPI / configAPI]
-    end
-
-    subgraph Electron[Electron Main Process]
-      IPC[IPC handlers: agent / todo / schedule / config]
-      ConfigStore[Config store + workspace lifecycle]
-      BackendProc[Python backend process controller]
-    end
-
-    subgraph Backend[FastAPI Backend]
-      Routes[HTTP routes + WebSocket route]
-      AgentRuntime[Agent runtime + tools + context]
-      Services[Service layer]
-      Repos[Repository layer]
-      TinyDB[(TinyDB)]
-    end
-
-    UI --> Bridge --> IPC
-    IPC --> Routes
-    ConfigStore --> Routes
-    BackendProc --> Routes
-    Routes --> AgentRuntime
-    Routes --> Services --> Repos --> TinyDB
-    AgentRuntime --> Services
-```
-
-If Mermaid rendering is unavailable in your Markdown viewer, use the text diagram in "System Overview" above as the fallback.
-
 ### Layer responsibilities
 
 - `src/renderer/` owns the desktop UI for Chat, Todo, Schedule, and Config.
