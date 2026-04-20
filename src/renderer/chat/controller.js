@@ -503,6 +503,33 @@ function createChatController({
       .join("");
   }
 
+  function renderMessageStatus(message) {
+    if (message.role !== "assistant") {
+      return "";
+    }
+
+    const rawStatus = String(message.status || "").trim();
+    if (!rawStatus) {
+      return "";
+    }
+
+    const statusLabelMap = {
+      running: "Running",
+      needs_approval: "Needs Approval",
+      completed: "Completed",
+      interrupted: "Interrupted",
+      error: "Error",
+    };
+    const label = statusLabelMap[rawStatus] || rawStatus.replaceAll("_", " ");
+
+    return `
+      <div class="message__statusbar" data-message-status="${escapeHtml(rawStatus)}">
+        <span class="message__statusbar-label">Status</span>
+        <span class="message__statusbar-value">${escapeHtml(label)}</span>
+      </div>
+    `;
+  }
+
   function renderMessageContent(message, messageId, isActive = false) {
     const context = {
       isActive,
@@ -513,7 +540,7 @@ function createChatController({
       return renderUserContents(message, context);
     }
 
-    return renderAssistantContents(message, context);
+    return `${renderMessageStatus(message)}${renderAssistantContents(message, context)}`;
   }
 
   function appendMessage(message, { isActive = false } = {}) {
