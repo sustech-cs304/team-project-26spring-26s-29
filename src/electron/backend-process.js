@@ -9,6 +9,24 @@ function wait(delayMs) {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
+function createBackendSpawnOptions({
+  isPackaged = false,
+  workingDirectory,
+  pythonPathSegments,
+  env = process.env,
+}) {
+  return {
+    cwd: workingDirectory,
+    env: {
+      ...env,
+      PYTHONPATH: pythonPathSegments.join(path.delimiter),
+    },
+    stdio: isPackaged ? "ignore" : "inherit",
+    // Prevent the bundled python.exe from creating a console window for end users.
+    windowsHide: isPackaged,
+  };
+}
+
 function createBackendProcessController({ appPath, isPackaged = false, resourcesPath = process.resourcesPath }) {
   let python = null;
   let ready = null;
@@ -30,14 +48,12 @@ function createBackendProcessController({ appPath, isPackaged = false, resources
       LOCAL_BACKEND_HOST,
       "--port",
       String(targetConfig.backendPort),
-    ], {
-      cwd: workingDirectory,
-      env: {
-        ...process.env,
-        PYTHONPATH: pythonPathSegments.join(path.delimiter),
-      },
-      stdio: "inherit",
-    });
+    ], createBackendSpawnOptions({
+      env: process.env,
+      isPackaged,
+      pythonPathSegments,
+      workingDirectory,
+    }));
 
     child.on("exit", () => {
       if (python === child) {
@@ -146,4 +162,7 @@ function createBackendProcessController({ appPath, isPackaged = false, resources
   };
 }
 
-module.exports = { createBackendProcessController };
+module.exports = {
+  createBackendProcessController,
+  createBackendSpawnOptions,
+};
