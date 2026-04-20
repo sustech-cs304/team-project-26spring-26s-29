@@ -147,7 +147,7 @@ schedule_tool = tool(
         "in a time window, action='create' to add an event, action='update' to change an event, action='delete' "
         f"to remove an event. {SCHEDULE_TOOL_SCOPE}"
     ),
-    approval_mode="never_require",
+    approval_mode="always_require",
 )(manage_schedule)
 
 SCHEDULE_TOOLS = [schedule_tool]
