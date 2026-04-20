@@ -1,5 +1,5 @@
 import { escapeHtml } from "../shared/html.js";
-import { renderMarkdown, renderPlainText } from "../shared/markdown.js";
+import { renderMarkdown, renderMathInMarkdownBlocks, renderPlainText } from "../shared/markdown.js";
 
 const MESSAGE_PREVIEW_MAX_LENGTH = 180;
 const MESSAGE_COLLAPSE_THRESHOLD = 140;
@@ -526,6 +526,7 @@ function createChatController({
     const { article, content: contentNode } = createMessageElement(normalizedMessage.role, messageId);
     messageModels.set(messageId, normalizedMessage);
     contentNode.innerHTML = renderMessageContent(normalizedMessage, messageId, isActive);
+    renderMathInMarkdownBlocks(contentNode);
 
     if (normalizedMessage.role === "user") {
       attachUserMessageToggle(article, contentNode, normalizedMessage.contents);
@@ -545,6 +546,7 @@ function createChatController({
     target.message = normalizedMessage;
     messageModels.set(target.messageId, normalizedMessage);
     target.contentNode.innerHTML = renderMessageContent(normalizedMessage, target.messageId, isActive);
+    renderMathInMarkdownBlocks(target.contentNode);
     scrollMessagesToBottom();
   }
 

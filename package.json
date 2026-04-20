@@ -23,8 +23,8 @@
     "package:win": "electron-builder --win nsis --publish never"
   },
   "devDependencies": {
-    "electron-builder": "^26.0.12",
-    "electron": "^41.0.4"
+    "electron": "^41.0.4",
+    "electron-builder": "^26.0.12"
   },
   "build": {
     "appId": "com.studentproductivity.agent",
@@ -74,5 +74,9 @@
         }
       ]
     }
+  },
+  "dependencies": {
+    "katex": "^0.16.45",
+    "markdown-it": "^14.1.1"
   }
 }
