@@ -1,7 +1,5 @@
 """Schedule CRUD routes."""
 
-from typing import Literal
-
 from fastapi import APIRouter, HTTPException, Query, status
 
 from ...services import schedule_service
@@ -14,11 +12,6 @@ from ..schemas.schedule import (
 
 
 router = APIRouter()
-
-
-@router.get("/api/schedules", response_model=list[ScheduleResponse])
-async def read_schedules(include_cancelled: bool = Query(default=True)) -> list[ScheduleResponse]:
-    return [serialize_schedule(item) for item in schedule_service.list_schedules(include_cancelled=include_cancelled)]
 
 
 @router.get("/api/schedules/range", response_model=list[ScheduleResponse])
@@ -36,14 +29,6 @@ async def read_schedules_range(start: str, end: str, include_cancelled: bool = Q
         raise HTTPException(status_code=500, detail="Internal server error")
 
     return [serialize_schedule(item) for item in items]
-
-
-@router.get("/api/schedules/{event_id}", response_model=ScheduleResponse)
-async def read_schedule(event_id: int) -> ScheduleResponse:
-    sched = schedule_service.get_schedule(event_id)
-    if sched is None:
-        raise HTTPException(status_code=404, detail=f"Schedule event {event_id} does not exist.")
-    return serialize_schedule(sched)
 
 
 @router.post("/api/schedules", response_model=ScheduleResponse, status_code=status.HTTP_201_CREATED)
@@ -78,8 +63,3 @@ async def remove_schedule(event_id: int) -> dict[str, bool]:
 
     schedule_service.delete_schedule(event_id)
     return {"deleted": True}
-
-
-@router.delete("/api/schedules")
-async def clear_schedules(scope: Literal["all"] = Query(default="all")) -> dict[str, int]:
-    return {"deletedCount": schedule_service.clear_schedules()}

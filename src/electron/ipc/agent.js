@@ -5,7 +5,7 @@ const { Buffer } = require("node:buffer");
 const { BrowserWindow, clipboard, dialog, ipcMain, nativeImage } = require("electron");
 
 const {
-  extensionFromMediaType: lookupExtensionFromMediaType,
+  extensionFromMediaType,
   loadWorkspacePreview,
   stageAttachments,
 } = require("../attachment-staging");
@@ -181,7 +181,13 @@ function registerAgentIpc({ getApi, getConfig }) {
     const defaultPath = path.join(
       process.env.USERPROFILE || process.cwd(),
       "Downloads",
-      resolveOutputName(part)
+      (
+        typeof part?.name === "string" && part.name.trim()
+          ? part.name.trim()
+          : typeof part?.fileId === "string" && part.fileId
+            ? `file-${part.fileId}${extensionFromMediaType(part.mediaType)}`
+            : `download${extensionFromMediaType(part?.mediaType)}`
+      )
     );
 
     const result = await dialog.showSaveDialog(window, { defaultPath });
@@ -210,23 +216,6 @@ function registerAgentIpc({ getApi, getConfig }) {
       mediaType: payload?.mediaType,
     });
   });
-}
-
-function resolveOutputName(part) {
-  const explicitName = typeof part?.name === "string" ? part.name.trim() : "";
-  if (explicitName) {
-    return explicitName;
-  }
-
-  if (typeof part?.fileId === "string" && part.fileId) {
-    return `file-${part.fileId}${extensionFromMediaType(part.mediaType)}`;
-  }
-
-  return `download${extensionFromMediaType(part?.mediaType)}`;
-}
-
-function extensionFromMediaType(mediaType) {
-  return lookupExtensionFromMediaType(mediaType);
 }
 
 async function writeOutputPart(filePath, part, options = {}) {

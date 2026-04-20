@@ -29,6 +29,7 @@ def _capture_result(
     env: dict[str, str],
 ) -> dict[str, Any]:
     cwd_path = workspace_service.resolve_workspace_path(cwd_relative)
+    relative_working_directory = workspace_service.to_workspace_relative_path(cwd_path)
     try:
         completed = subprocess.run(
             list(command),
@@ -45,7 +46,7 @@ def _capture_result(
         remaining -= len(stdout.encode("utf-8", errors="replace"))
         stderr, stderr_truncated = _truncate_output(completed.stderr, max(0, remaining))
         return {
-            "relative_working_directory": workspace_service.normalize_relative_path(cwd_relative),
+            "relative_working_directory": relative_working_directory,
             "exit_code": completed.returncode,
             "stdout": stdout,
             "stderr": stderr,
@@ -59,7 +60,7 @@ def _capture_result(
         remaining = COMMAND_OUTPUT_MAX_BYTES - len(stdout.encode("utf-8", errors="replace"))
         stderr, stderr_truncated = _truncate_output(str(stderr), max(0, remaining))
         return {
-            "relative_working_directory": workspace_service.normalize_relative_path(cwd_relative),
+            "relative_working_directory": relative_working_directory,
             "exit_code": None,
             "stdout": stdout,
             "stderr": stderr,

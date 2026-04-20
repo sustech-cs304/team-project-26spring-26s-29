@@ -25,7 +25,7 @@ function createTodoController({
   todoUndoButton,
   todoFilterButtons,
 }) {
-  function readTodoViewState() {
+  const initialTodoViewState = (() => {
     const defaults = {
       filter: "all",
       searchQuery: "",
@@ -47,9 +47,7 @@ function createTodoController({
     } catch {
       return defaults;
     }
-  }
-
-  const initialTodoViewState = readTodoViewState();
+  })();
   const todoState = {
     items: [],
     filter: initialTodoViewState.filter,
@@ -186,15 +184,6 @@ function createTodoController({
         return compareNullableDate(left.updatedAt, right.updatedAt, "desc");
       }
     }
-  }
-
-  function matchesTodoSearch(todo, normalizedQuery) {
-    if (!normalizedQuery) {
-      return true;
-    }
-
-    const haystack = `${todo.title}\n${todo.detail}`.toLowerCase();
-    return haystack.includes(normalizedQuery);
   }
 
   function getTodoGroupKey(todo) {
@@ -351,7 +340,13 @@ function createTodoController({
     }
 
     const normalizedQuery = todoState.searchQuery.trim().toLowerCase();
-    const searchedTodos = filteredTodos.filter((todo) => matchesTodoSearch(todo, normalizedQuery));
+    const searchedTodos = filteredTodos.filter((todo) => {
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return `${todo.title}\n${todo.detail}`.toLowerCase().includes(normalizedQuery);
+    });
     return [...searchedTodos].sort(compareTodos);
   }
 
@@ -472,16 +467,10 @@ function createTodoController({
       return;
     }
 
-    const title = todoTitleInput.value.trim();
-    if (!title) {
-      setTodoFeedback("Title is required.", "error");
-      return;
-    }
-
     const created = await runTodoMutation(
       () =>
         window.todoAPI.create({
-          title,
+          title: todoTitleInput.value.trim(),
           detail: todoDetailInput.value.trim(),
           dueAt: fromDateTimeLocalValue(todoDueInput.value),
         }),

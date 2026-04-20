@@ -43,11 +43,11 @@ class TinyDbScheduleRepository:
         end_dt = self._parse_datetime(end_at)
 
         payload: dict[str, object] = {
-            "title": str(title),
-            "detail": str(detail),
+            "title": title,
+            "detail": detail,
             "all_day": all_day,
             "timezone": timezone_name or _DEFAULT_TIMEZONE,
-            "location": None if location is None else str(location),
+            "location": location,
             "is_cancelled": is_cancelled,
             "reminder_offsets": [] if reminder_offsets is None else list(reminder_offsets),
             "recurrence": recurrence,
@@ -58,7 +58,7 @@ class TinyDbScheduleRepository:
         timestamp = self._utcnow_iso()
         payload["created_at"] = timestamp
         payload["updated_at"] = timestamp
-        payload["is_done"] = bool(is_done)
+        payload["is_done"] = is_done
         payload["completed_at"] = completed_at
 
         with open_table(_TABLE_NAME, db_path) as table:
@@ -133,10 +133,10 @@ class TinyDbScheduleRepository:
         updates: dict[str, object] = {}
 
         if title is not None:
-            updates["title"] = str(title)
+            updates["title"] = title
 
         if detail is not None:
-            updates["detail"] = str(detail)
+            updates["detail"] = detail
 
         if all_day is not None:
             updates["all_day"] = all_day
@@ -153,7 +153,7 @@ class TinyDbScheduleRepository:
         # Handle is_done/completed_at transitions
         if is_done is not None:
             # If marking done, set completed_at if not already present
-            updates["is_done"] = bool(is_done)
+            updates["is_done"] = is_done
             if is_done:
                 updates["completed_at"] = self._utcnow_iso()
             else:

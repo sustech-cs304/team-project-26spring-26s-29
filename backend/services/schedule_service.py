@@ -112,8 +112,5 @@ class ScheduleService:
     def delete_schedule(self, event_id: int, db_path: str | Path | None = None) -> bool:
         return self._repository.delete_schedule_event(event_id, db_path)
 
-    def clear_schedules(self, db_path: str | Path | None = None) -> int:
-        return self._repository.delete_all_schedule_events(db_path)
-
 
 schedule_service = ScheduleService(schedule_repository)

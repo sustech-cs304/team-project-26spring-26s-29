@@ -106,10 +106,6 @@ function createConfigController({
     );
   }
 
-  function toComparableValue(value) {
-    return String(value ?? "").trim();
-  }
-
   function getConfigDraft() {
     return Object.fromEntries(
       configFieldDefinitions.map(({ key, control }) => [
@@ -126,7 +122,7 @@ function createConfigController({
 
     const draft = getConfigDraft();
     return configFieldDefinitions.some(
-      ({ key }) => toComparableValue(draft[key]) !== toComparableValue(savedConfig[key]),
+      ({ key }) => String(draft[key] ?? "").trim() !== String(savedConfig[key] ?? "").trim(),
     );
   }
 

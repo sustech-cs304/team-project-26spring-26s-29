@@ -1,11 +1,53 @@
 import { createChatController } from "./chat/controller.js";
 import { createConfigController } from "./config/controller.js";
 import { elements } from "./shared/dom.js";
-import { createPageManager } from "./shared/page-manager.js";
 import { createTodoController } from "./todo/controller.js";
 import { createScheduleController } from "./schedule/controller.js";
 
 const FOREGROUND_REFRESH_COOLDOWN_MS = 300;
+
+function createPageManager({ navButtons, pages, onPageChange }) {
+  let activePage = null;
+
+  function setActivePage(pageName) {
+    activePage = pageName;
+
+    navButtons.forEach((button) => {
+      const isActive = button.dataset.pageTarget === pageName;
+      button.classList.toggle("is-active", isActive);
+      if (isActive) {
+        button.setAttribute("aria-current", "page");
+        return;
+      }
+
+      button.removeAttribute("aria-current");
+    });
+
+    pages.forEach((page) => {
+      const isActive = page.dataset.page === pageName;
+      page.classList.toggle("is-active", isActive);
+      page.hidden = !isActive;
+    });
+
+    if (typeof onPageChange === "function") {
+      onPageChange(pageName);
+    }
+  }
+
+  return {
+    bind() {
+      navButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setActivePage(button.dataset.pageTarget);
+        });
+      });
+    },
+    getActivePage() {
+      return activePage;
+    },
+    setActivePage,
+  };
+}
 
 const chatController = createChatController({
   attachmentButton: elements.attachmentButton,
@@ -66,7 +108,6 @@ const scheduleController = createScheduleController({
   scheduleStartInput: elements.scheduleStartInput,
   scheduleEndInput: elements.scheduleEndInput,
   scheduleDetailInput: elements.scheduleDetailInput,
-  scheduleCreateButton: elements.scheduleCreateButton,
   scheduleToggleCreateButton: elements.scheduleToggleCreateButton,
   scheduleFeedback: elements.scheduleFeedback,
   scheduleList: elements.scheduleList,

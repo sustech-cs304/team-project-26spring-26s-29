@@ -38,24 +38,16 @@ function createChatController({
   let stagedAttachments = [];
   let draftRequestId = crypto.randomUUID();
   let previewState = null;
-  let alwaysApproveTools = readAlwaysApproveToolsPreference();
-  let lastReadyState = false;
-  let readyMotdInFlight = false;
-  const approvalRequestsInFlight = new Set();
-
-  function readAlwaysApproveToolsPreference() {
+  let alwaysApproveTools = (() => {
     try {
       return window.localStorage.getItem(ALWAYS_APPROVE_STORAGE_KEY) === "true";
     } catch {
       return false;
     }
-  }
-
-  function persistAlwaysApproveToolsPreference(nextValue) {
-    try {
-      window.localStorage.setItem(ALWAYS_APPROVE_STORAGE_KEY, nextValue ? "true" : "false");
-    } catch { }
-  }
+  })();
+  let lastReadyState = false;
+  let readyMotdInFlight = false;
+  const approvalRequestsInFlight = new Set();
 
   function cloneData(value) {
     return JSON.parse(JSON.stringify(value));
@@ -151,14 +143,6 @@ function createChatController({
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  function compactMeta(part) {
-    return [formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
-  }
-
-  function fullMeta(part) {
-    return [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
-  }
-
   function isTextLikeMediaType(mediaType) {
     const normalized = String(mediaType || "").toLowerCase();
     return (
@@ -234,23 +218,16 @@ function createChatController({
     `;
   }
 
-  function buildUserPreview(contents) {
-    return contents
-      .filter((part) => part.type === "text")
-      .map((part) => String(part.text || ""))
-      .join("\n");
-  }
-
-  function messageHasAttachmentPreview(contents) {
-    return contents.some((part) => part.type === "image" || part.type === "file");
-  }
-
-  function attachUserMessageToggle(article, contentNode, previewText, contents) {
-    if (messageHasAttachmentPreview(contents)) {
+  function attachUserMessageToggle(article, contentNode, contents) {
+    if (contents.some((part) => part.type === "image" || part.type === "file")) {
       return;
     }
 
-    const normalized = String(previewText ?? "").trim();
+    const normalized = contents
+      .filter((part) => part.type === "text")
+      .map((part) => String(part.text || ""))
+      .join("\n")
+      .trim();
     const shouldCollapse =
       normalized.length > MESSAGE_COLLAPSE_THRESHOLD || normalized.includes("\n");
 
@@ -285,7 +262,7 @@ function createChatController({
   }
 
   function renderMediaTile(part, context, ref, label = null) {
-    const meta = compactMeta(part);
+    const meta = [formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
     return `
       <button
         class="message__media-tile"
@@ -353,22 +330,6 @@ function createChatController({
     return truncateText(part?.argumentsText || "No arguments", TOOL_DETAIL_MAX_LENGTH);
   }
 
-  function collectToolResultText(part) {
-    const textItems = Array.isArray(part?.items)
-      ? part.items.filter((item) => item.type === "text" && String(item.text || "").trim())
-      : [];
-
-    if (textItems.length) {
-      return truncateText(textItems[0].text, TOOL_DETAIL_MAX_LENGTH);
-    }
-
-    if (typeof part?.result === "string" && part.result.trim()) {
-      return truncateText(part.result, TOOL_DETAIL_MAX_LENGTH);
-    }
-
-    return "Completed";
-  }
-
   function renderToolLine({ label, tone = "neutral", title, detail }) {
     return `
       <div class="message__tool-line message__tool-line--${escapeHtml(tone)}">
@@ -383,7 +344,14 @@ function createChatController({
 
   function renderToolResult(part, context, ref) {
     const toolName = context.toolNames.get(part.callId) || "tool";
-    const detail = collectToolResultText(part);
+    const textItems = Array.isArray(part?.items)
+      ? part.items.filter((item) => item.type === "text" && String(item.text || "").trim())
+      : [];
+    const detail = textItems.length
+      ? truncateText(textItems[0].text, TOOL_DETAIL_MAX_LENGTH)
+      : typeof part?.result === "string" && part.result.trim()
+        ? truncateText(part.result, TOOL_DETAIL_MAX_LENGTH)
+        : "Completed";
     const richItems = Array.isArray(part.items)
       ? part.items
         .map((item, index) => ({ item, index }))
@@ -460,12 +428,6 @@ function createChatController({
     `;
   }
 
-  function renderJsonCard(part) {
-    return `
-      <pre class="message__card message__card--json">${escapeHtml(JSON.stringify(part.data || {}, null, 2))}</pre>
-    `;
-  }
-
   function renderAssistantPart(part, context, ref) {
     if (part.type === "text") {
       return renderMarkdown(part.text || "");
@@ -495,7 +457,9 @@ function createChatController({
     if (part.type === "image" || part.type === "file") {
       return renderMediaTile(part, context, ref, null);
     }
-    return renderJsonCard(part);
+    return `
+      <pre class="message__card message__card--json">${escapeHtml(JSON.stringify(part.data || {}, null, 2))}</pre>
+    `;
   }
 
   function renderAssistantContents(message, context) {
@@ -564,12 +528,7 @@ function createChatController({
     contentNode.innerHTML = renderMessageContent(normalizedMessage, messageId, isActive);
 
     if (normalizedMessage.role === "user") {
-      attachUserMessageToggle(
-        article,
-        contentNode,
-        buildUserPreview(normalizedMessage.contents),
-        normalizedMessage.contents
-      );
+      attachUserMessageToggle(article, contentNode, normalizedMessage.contents);
     }
 
     messages.append(article);
@@ -589,23 +548,12 @@ function createChatController({
     scrollMessagesToBottom();
   }
 
-  function createAssistantPlaceholder() {
-    const placeholder = appendMessage(
-      { role: "assistant", status: "running", contents: [] },
-      { isActive: true }
-    );
-    if (!placeholder) {
-      activeAssistantMessage = null;
-      return null;
-    }
-
-    activeAssistantMessage = placeholder;
-    return activeAssistantMessage;
-  }
-
   function updateAssistantMessage(message) {
     if (!activeAssistantMessage) {
-      createAssistantPlaceholder();
+      activeAssistantMessage = appendMessage(
+        { role: "assistant", status: "running", contents: [] },
+        { isActive: true }
+      );
     }
 
     if (!activeAssistantMessage) {
@@ -614,38 +562,6 @@ function createChatController({
 
     updateExistingMessage(activeAssistantMessage, message, { isActive: true });
     maybeAutoApprovePendingRequests();
-  }
-
-  function renderComposerAttachmentCard(attachment, index) {
-    const label = attachment.type === "image" ? "Image" : "File";
-    const meta = compactMeta(attachment);
-
-    return `
-      <div class="composer-attachment">
-        <button
-          class="composer-attachment__preview"
-          type="button"
-          data-composer-preview-index="${index}"
-        >
-          <div class="composer-attachment__art">
-            ${renderInlinePreview(attachment)}
-          </div>
-          <div class="composer-attachment__main">
-            <p class="composer-attachment__label">${escapeHtml(label)}</p>
-            <p class="composer-attachment__name">${escapeHtml(attachment.name || label.toLowerCase())}</p>
-            ${meta ? `<p class="composer-attachment__meta">${escapeHtml(meta)}</p>` : ""}
-          </div>
-        </button>
-        <button
-          class="composer-attachment__remove"
-          type="button"
-          aria-label="Remove attachment"
-          data-remove-attachment="${index}"
-        >
-          ×
-        </button>
-      </div>
-    `;
   }
 
   function renderAttachmentList() {
@@ -661,7 +577,37 @@ function createChatController({
 
     attachments.hidden = false;
     attachments.innerHTML = stagedAttachments
-      .map((attachment, index) => renderComposerAttachmentCard(attachment, index))
+      .map((attachment, index) => {
+        const label = attachment.type === "image" ? "Image" : "File";
+        const meta = [formatBytes(attachment.sizeBytes), attachment.relativePath].filter(Boolean).join(" · ");
+
+        return `
+          <div class="composer-attachment">
+            <button
+              class="composer-attachment__preview"
+              type="button"
+              data-composer-preview-index="${index}"
+            >
+              <div class="composer-attachment__art">
+                ${renderInlinePreview(attachment)}
+              </div>
+              <div class="composer-attachment__main">
+                <p class="composer-attachment__label">${escapeHtml(label)}</p>
+                <p class="composer-attachment__name">${escapeHtml(attachment.name || label.toLowerCase())}</p>
+                ${meta ? `<p class="composer-attachment__meta">${escapeHtml(meta)}</p>` : ""}
+              </div>
+            </button>
+            <button
+              class="composer-attachment__remove"
+              type="button"
+              aria-label="Remove attachment"
+              data-remove-attachment="${index}"
+            >
+              ×
+            </button>
+          </div>
+        `;
+      })
       .join("");
   }
 
@@ -684,15 +630,6 @@ function createChatController({
     alwaysApproveToolsButton.textContent = alwaysApproveTools
       ? "Always Approve Tools: On"
       : "Always Approve Tools: Off";
-  }
-
-  function setAlwaysApproveTools(nextValue) {
-    alwaysApproveTools = Boolean(nextValue);
-    persistAlwaysApproveToolsPreference(alwaysApproveTools);
-    syncAlwaysApproveToolsButton();
-    if (alwaysApproveTools) {
-      maybeAutoApprovePendingRequests();
-    }
   }
 
   function updateComposerAvailability(ready) {
@@ -722,15 +659,6 @@ function createChatController({
     if (becameReady) {
       void runReadyMotd();
     }
-  }
-
-  function buildRunContents() {
-    const text = prompt.value.trim();
-    const contents = stagedAttachments.map((attachment) => cloneData(attachment));
-    if (text) {
-      contents.push({ type: "text", text });
-    }
-    return contents;
   }
 
   function ensureDraftRequestId() {
@@ -796,7 +724,10 @@ function createChatController({
         contents: cloneData(contents),
       });
     }
-    createAssistantPlaceholder();
+    activeAssistantMessage = appendMessage(
+      { role: "assistant", status: "running", contents: [] },
+      { isActive: true }
+    );
     if (clearComposerOnStart) {
       clearComposer();
     }
@@ -830,7 +761,11 @@ function createChatController({
   }
 
   async function run() {
-    const contents = buildRunContents();
+    const text = prompt.value.trim();
+    const contents = stagedAttachments.map((attachment) => cloneData(attachment));
+    if (text) {
+      contents.push({ type: "text", text });
+    }
     if (!contents.length || send.disabled) {
       return;
     }
@@ -878,27 +813,6 @@ function createChatController({
     }
   }
 
-  function resolvePartByRef(contents, ref) {
-    const segments = String(ref || "").split(".");
-    let current = contents;
-    for (const segment of segments) {
-      if (Array.isArray(current)) {
-        const index = Number.parseInt(segment, 10);
-        if (!Number.isInteger(index)) {
-          return null;
-        }
-        current = current[index];
-        continue;
-      }
-
-      if (!current || typeof current !== "object") {
-        return null;
-      }
-      current = current[segment];
-    }
-    return current || null;
-  }
-
   function applyLocalApprovalDecision(message, approvalId, decision) {
     if (!message || !Array.isArray(message.contents)) {
       return message;
@@ -935,21 +849,6 @@ function createChatController({
     }
 
     return nextMessage;
-  }
-
-  function listPendingApprovalIds(message) {
-    if (!message || !Array.isArray(message.contents)) {
-      return [];
-    }
-
-    return message.contents
-      .filter(
-        (part) =>
-          part.type === "function_approval_request" &&
-          part.approvalId &&
-          (part.decision || "pending") === "pending"
-      )
-      .map((part) => part.approvalId);
   }
 
   async function submitApprovalDecision(approvalId, approved) {
@@ -996,44 +895,22 @@ function createChatController({
       return;
     }
 
-    const pendingApprovalId = listPendingApprovalIds(activeAssistantMessage.message).find(
+    const pendingApprovalId = activeAssistantMessage.message?.contents
+      ?.filter(
+        (part) =>
+          part.type === "function_approval_request" &&
+          part.approvalId &&
+          (part.decision || "pending") === "pending"
+      )
+      .map((part) => part.approvalId)
+      .find(
       (approvalId) => !approvalRequestsInFlight.has(approvalId)
-    );
+      );
     if (!pendingApprovalId) {
       return;
     }
 
     void submitApprovalDecision(pendingApprovalId, true);
-  }
-
-  function previewSourceFromPart(part) {
-    const src = buildDataUri(part);
-    const kind = getPreviewKind(part);
-
-    if (kind === "text" && part?.summaryText) {
-      return {
-        kind: "text",
-        name: part.name,
-        mediaType: part.mediaType,
-        relativePath: part.relativePath,
-        text: part.summaryText,
-        truncated: false,
-      };
-    }
-
-    if (src && ["image", "pdf", "audio", "video"].includes(kind)) {
-      return {
-        kind,
-        name: part.name,
-        mediaType: part.mediaType,
-        relativePath: part.relativePath,
-        dataBase64: part.dataBase64 || null,
-        src,
-        sizeBytes: part.sizeBytes,
-      };
-    }
-
-    return null;
   }
 
   async function resolvePreviewPayload(part) {
@@ -1050,7 +927,28 @@ function createChatController({
       return localPreviewCache.get(cacheKey);
     }
 
-    const directPreview = previewSourceFromPart(part);
+    const src = buildDataUri(part);
+    const kind = getPreviewKind(part);
+    const directPreview = kind === "text" && part?.summaryText
+      ? {
+        kind: "text",
+        name: part.name,
+        mediaType: part.mediaType,
+        relativePath: part.relativePath,
+        text: part.summaryText,
+        truncated: false,
+      }
+      : src && ["image", "pdf", "audio", "video"].includes(kind)
+        ? {
+          kind,
+          name: part.name,
+          mediaType: part.mediaType,
+          relativePath: part.relativePath,
+          dataBase64: part.dataBase64 || null,
+          src,
+          sizeBytes: part.sizeBytes,
+        }
+        : null;
     if (directPreview) {
       localPreviewCache.set(cacheKey, directPreview);
       return directPreview;
@@ -1108,57 +1006,6 @@ function createChatController({
     }
   }
 
-  function normalizeSavePart(sourcePart, payload) {
-    const name = payload?.name || sourcePart?.name || "download";
-    const mediaType = payload?.mediaType || sourcePart?.mediaType || "application/octet-stream";
-    const relativePath = payload?.relativePath || sourcePart?.relativePath || null;
-    const previewKind = payload?.kind || getPreviewKind(sourcePart);
-
-    if (relativePath && previewKind !== "text") {
-      return {
-        name,
-        mediaType,
-        relativePath,
-      };
-    }
-
-    if (payload?.kind === "text" && typeof payload?.text === "string") {
-      return {
-        name,
-        mediaType,
-        relativePath,
-        textContent: payload.text,
-      };
-    }
-
-    if (typeof payload?.dataBase64 === "string" && payload.dataBase64) {
-      return {
-        name,
-        mediaType,
-        relativePath,
-        dataBase64: payload.dataBase64,
-      };
-    }
-
-    if (typeof payload?.src === "string" && payload.src) {
-      return {
-        name,
-        mediaType,
-        relativePath,
-        uri: payload.src,
-      };
-    }
-
-    return {
-      name,
-      mediaType,
-      relativePath,
-      dataBase64: sourcePart?.dataBase64,
-      uri: sourcePart?.uri,
-      textContent: sourcePart?.textContent,
-    };
-  }
-
   function closePreviewModal() {
     previewState = null;
     if (!previewModal || !previewModalBody || !previewModalSave || !previewModalCopy) {
@@ -1185,13 +1032,12 @@ function createChatController({
     }
 
     previewState = {
-      sourcePart: cloneData(part),
-      payload: null,
+      outputPart: null,
     };
     previewModal.hidden = false;
     previewModalLabel.textContent = getPreviewKind(part) === "image" ? "Image Preview" : "File Preview";
     previewModalTitle.textContent = part?.name || "Attachment";
-    previewModalMeta.textContent = fullMeta(part);
+    previewModalMeta.textContent = [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
     previewModalBody.innerHTML = '<p class="preview-modal__hint">Loading preview...</p>';
     previewModalSave.hidden = true;
     previewModalCopy.hidden = true;
@@ -1201,7 +1047,23 @@ function createChatController({
       if (!previewState || previewModal.hidden) {
         return;
       }
-      previewState.payload = payload;
+      const outputPart = {
+        name: payload?.name || part?.name || "download",
+        mediaType: payload?.mediaType || part?.mediaType || "application/octet-stream",
+        relativePath: payload?.relativePath || part?.relativePath || null,
+      };
+      if ((payload?.kind || getPreviewKind(part)) === "text" && typeof payload?.text === "string") {
+        outputPart.textContent = payload.text;
+      } else if (typeof payload?.dataBase64 === "string" && payload.dataBase64) {
+        outputPart.dataBase64 = payload.dataBase64;
+      } else if (typeof payload?.src === "string" && payload.src) {
+        outputPart.uri = payload.src;
+      } else {
+        outputPart.dataBase64 = part?.dataBase64;
+        outputPart.uri = part?.uri;
+        outputPart.textContent = part?.textContent;
+      }
+      previewState.outputPart = outputPart;
       previewModalTitle.textContent = payload?.name || part?.name || "Attachment";
       previewModalMeta.textContent = [payload?.mediaType || part?.mediaType, formatBytes(payload?.sizeBytes || part?.sizeBytes), payload?.relativePath || part?.relativePath].filter(Boolean).join(" · ");
       previewModalBody.innerHTML = buildPreviewBody(payload, part);
@@ -1222,7 +1084,24 @@ function createChatController({
       const messageId = previewButton.dataset.messageId;
       const partRef = previewButton.dataset.previewRef;
       const message = messageModels.get(messageId);
-      const part = resolvePartByRef(message?.contents, partRef);
+      let part = message?.contents;
+      for (const segment of String(partRef || "").split(".")) {
+        if (Array.isArray(part)) {
+          const index = Number.parseInt(segment, 10);
+          if (!Number.isInteger(index)) {
+            part = null;
+            break;
+          }
+          part = part[index];
+          continue;
+        }
+
+        if (!part || typeof part !== "object") {
+          part = null;
+          break;
+        }
+        part = part[segment];
+      }
       if (!part) {
         return;
       }
@@ -1283,15 +1162,13 @@ function createChatController({
     });
 
     previewModalCopy.addEventListener("click", async () => {
-      if (!previewState?.payload || !previewState?.sourcePart) {
+      if (!previewState?.outputPart) {
         return;
       }
 
       previewModalCopy.disabled = true;
       try {
-        await window.agentAPI.copyPreviewPart(
-          normalizeSavePart(previewState.sourcePart, previewState.payload)
-        );
+        await window.agentAPI.copyPreviewPart(previewState.outputPart);
       } catch (error) {
         status.textContent = "copy error";
         console.error(error);
@@ -1301,13 +1178,13 @@ function createChatController({
     });
 
     previewModalSave.addEventListener("click", async () => {
-      if (!previewState?.payload || !previewState?.sourcePart) {
+      if (!previewState?.outputPart) {
         return;
       }
 
       previewModalSave.disabled = true;
       try {
-        await window.agentAPI.saveOutputPart(normalizeSavePart(previewState.sourcePart, previewState.payload));
+        await window.agentAPI.saveOutputPart(previewState.outputPart);
       } catch (error) {
         status.textContent = "save error";
         console.error(error);
@@ -1375,7 +1252,14 @@ function createChatController({
     }
     if (alwaysApproveToolsButton) {
       alwaysApproveToolsButton.addEventListener("click", () => {
-        setAlwaysApproveTools(!alwaysApproveTools);
+        alwaysApproveTools = !alwaysApproveTools;
+        try {
+          window.localStorage.setItem(ALWAYS_APPROVE_STORAGE_KEY, alwaysApproveTools ? "true" : "false");
+        } catch { }
+        syncAlwaysApproveToolsButton();
+        if (alwaysApproveTools) {
+          maybeAutoApprovePendingRequests();
+        }
       });
     }
     prompt.addEventListener("keydown", (event) => {

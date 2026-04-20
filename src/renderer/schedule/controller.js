@@ -15,7 +15,6 @@ function createScheduleController({
   scheduleStartInput,
   scheduleEndInput,
   scheduleDetailInput,
-  scheduleCreateButton,
   scheduleToggleCreateButton,
   scheduleFeedback,
   scheduleList,
@@ -29,7 +28,12 @@ function createScheduleController({
     isCreatePanelOpen: false,
   };
 
-  function syncCreatePanelToggleButton() {
+  function syncCreatePanelVisibility() {
+    if (!scheduleCreateForm) {
+      return;
+    }
+
+    scheduleCreateForm.hidden = !scheduleState.isCreatePanelOpen;
     if (!scheduleToggleCreateButton) {
       return;
     }
@@ -44,57 +48,41 @@ function createScheduleController({
     );
   }
 
-  function syncCreatePanelVisibility() {
-    if (!scheduleCreateForm) {
-      return;
-    }
-
-    scheduleCreateForm.hidden = !scheduleState.isCreatePanelOpen;
-    syncCreatePanelToggleButton();
-  }
-
   function parseScheduleId(rawId) {
     const parsed = Number.parseInt(String(rawId), 10);
     return Number.isInteger(parsed) ? parsed : null;
-  }
-
-  function normalizeScheduleItem(raw) {
-    const parsedId = parseScheduleId(raw?.id);
-    if (parsedId === null) {
-      throw new Error("Invalid schedule id returned from backend.");
-    }
-
-    return {
-      id: parsedId,
-      title: String(raw?.title ?? ""),
-      detail: String(raw?.detail ?? ""),
-      start_at: raw?.startAt ?? raw?.start_at,
-      end_at: raw?.endAt ?? raw?.end_at,
-      all_day: Boolean(raw?.allDay ?? raw?.all_day),
-      is_done: Boolean(raw?.isDone ?? raw?.is_done ?? false),
-      completed_at: raw?.completedAt ?? raw?.completed_at ?? null,
-      recurrence: raw?.recurrence ?? null,
-      location: raw?.location ?? null,
-      created_at: String(raw?.createdAt ?? raw?.created_at ?? ""),
-      updated_at: String(raw?.updatedAt ?? raw?.updated_at ?? ""),
-    };
-  }
-
-  function monthRangeFor(date) {
-    const y = date.getFullYear();
-    const m = date.getMonth();
-    const start = new Date(Date.UTC(y, m, 1, 0, 0, 0));
-    const end = new Date(Date.UTC(y, m + 1, 1, 0, 0, 0));
-    return { start: start.toISOString(), end: end.toISOString() };
   }
 
   async function loadSchedulesForMonth(date) {
     scheduleState.isBusy = true;
     renderScheduleFeedback("Loading events...", "pending");
     try {
-      const range = monthRangeFor(date);
-      const payload = await window.scheduleAPI.listRange(range.start, range.end);
-      scheduleState.items = Array.isArray(payload) ? payload.map(normalizeScheduleItem) : [];
+      const rangeStart = new Date(Date.UTC(date.getFullYear(), date.getMonth(), 1, 0, 0, 0));
+      const rangeEnd = new Date(Date.UTC(date.getFullYear(), date.getMonth() + 1, 1, 0, 0, 0));
+      const payload = await window.scheduleAPI.listRange(rangeStart.toISOString(), rangeEnd.toISOString());
+      scheduleState.items = Array.isArray(payload)
+        ? payload.map((raw) => {
+          const parsedId = parseScheduleId(raw?.id);
+          if (parsedId === null) {
+            throw new Error("Invalid schedule id returned from backend.");
+          }
+
+          return {
+            id: parsedId,
+            title: String(raw?.title ?? ""),
+            detail: String(raw?.detail ?? ""),
+            start_at: raw?.startAt ?? raw?.start_at,
+            end_at: raw?.endAt ?? raw?.end_at,
+            all_day: Boolean(raw?.allDay ?? raw?.all_day),
+            is_done: Boolean(raw?.isDone ?? raw?.is_done ?? false),
+            completed_at: raw?.completedAt ?? raw?.completed_at ?? null,
+            recurrence: raw?.recurrence ?? null,
+            location: raw?.location ?? null,
+            created_at: String(raw?.createdAt ?? raw?.created_at ?? ""),
+            updated_at: String(raw?.updatedAt ?? raw?.updated_at ?? ""),
+          };
+        })
+        : [];
       scheduleState.currentMonth = new Date(date.getFullYear(), date.getMonth(), 1);
       renderScheduleCalendar();
       if (scheduleState.selectedDate) {
@@ -245,18 +233,12 @@ function createScheduleController({
     event.preventDefault();
     if (scheduleState.isBusy) return;
 
-    const title = scheduleTitleInput.value.trim();
-    if (!title) {
-      renderScheduleFeedback("Title is required.", "error");
-      return;
-    }
-
     const start = fromDateTimeLocalValue(scheduleStartInput.value);
     const end = fromDateTimeLocalValue(scheduleEndInput.value);
 
     try {
       await window.scheduleAPI.create({
-        title,
+        title: scheduleTitleInput.value.trim(),
         detail: scheduleDetailInput.value.trim(),
         startAt: start,
         endAt: end,
