@@ -6,14 +6,22 @@ from datetime import datetime
 from pathlib import Path
 
 from ..repositories import ScheduleEvent, ScheduleRepository, schedule_repository
+from ..repositories.binding_repository import BindingRepository, binding_repository
 from ..repositories.schedule_repository import UNSET
+from .todo_schedule_binding_service import cleanup_after_schedule_deleted
 
 
 class ScheduleService:
     """Owns schedule mutations and domain-facing CRUD behavior."""
 
-    def __init__(self, repository: ScheduleRepository) -> None:
+    def __init__(
+        self,
+        repository: ScheduleRepository,
+        *,
+        binding_repo: BindingRepository = binding_repository,
+    ) -> None:
         self._repository = repository
+        self._binding_repo = binding_repo
 
     def initialize_database(self, db_path: str | Path | None = None) -> Path:
         return self._repository.initialize_database(db_path)
@@ -110,7 +118,10 @@ class ScheduleService:
         )
 
     def delete_schedule(self, event_id: int, db_path: str | Path | None = None) -> bool:
-        return self._repository.delete_schedule_event(event_id, db_path)
+        deleted = self._repository.delete_schedule_event(event_id, db_path)
+        if deleted:
+            cleanup_after_schedule_deleted(event_id, binding_repo=self._binding_repo)
+        return deleted
 
 
 schedule_service = ScheduleService(schedule_repository)

@@ -56,6 +56,65 @@ class ApiTests(BackendTestCase):
         self.assertEqual(patched.status_code, 404)
         self.assertEqual(deleted.status_code, 404)
 
+    def test_schedule_crud_routes(self) -> None:
+        created = self.client.post(
+            "/api/schedules",
+            json={
+                "title": "Algorithms Lecture",
+                "detail": "Room 101",
+                "startAt": "2026-04-20T09:00:00+00:00",
+                "endAt": "2026-04-20T10:30:00+00:00",
+                "allDay": True,
+                "location": "Room 101",
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        event_id = created.json()["id"]
+
+        listed = self.client.get(
+            "/api/schedules/range",
+            params={
+                "start": "2026-04-20T08:00:00+00:00",
+                "end": "2026-04-20T11:00:00+00:00",
+            },
+        )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(len(listed.json()), 1)
+
+        patched = self.client.patch(
+            f"/api/schedules/{event_id}",
+            json={"detail": "Room 202", "location": None},
+        )
+        self.assertEqual(patched.status_code, 200)
+        self.assertEqual(patched.json()["detail"], "Room 202")
+        self.assertTrue(patched.json()["allDay"])
+        self.assertIsNone(patched.json()["location"])
+
+        deleted = self.client.delete(f"/api/schedules/{event_id}")
+        self.assertEqual(deleted.status_code, 200)
+        self.assertTrue(deleted.json()["deleted"])
+
+    def test_schedule_patch_rejects_explicit_null_non_nullable_fields(self) -> None:
+        created = self.client.post(
+            "/api/schedules",
+            json={
+                "title": "Algorithms Lecture",
+                "detail": "Room 101",
+                "startAt": "2026-04-20T09:00:00+00:00",
+                "endAt": "2026-04-20T10:30:00+00:00",
+            },
+        )
+        event_id = created.json()["id"]
+
+        for payload in (
+            {"title": None},
+            {"detail": None},
+            {"allDay": None},
+            {"isDone": None},
+        ):
+            patched = self.client.patch(f"/api/schedules/{event_id}", json=payload)
+            self.assertEqual(patched.status_code, 422)
+
     def test_runtime_config_routes(self) -> None:
         current = self.client.get("/api/config")
         self.assertEqual(current.status_code, 200)

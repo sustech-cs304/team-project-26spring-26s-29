@@ -13,9 +13,14 @@ from backend.agent.instructions import (
 from backend.agent.tools import (
     SCHEDULE_TOOLS,
     TODO_TOOLS,
+    create_schedule,
+    delete_schedule,
     create_todo,
+    list_schedules,
+    list_schedules_in_range,
     delete_todo,
     list_todos,
+    update_schedule,
     update_todo,
 )
 from backend.services import schedule_service, todo_service
@@ -24,6 +29,36 @@ from .support import AsyncBackendTestCase, BackendTestCase
 
 
 class AgentToolTests(BackendTestCase):
+    def test_schedule_tools_round_trip(self) -> None:
+        created = create_schedule(
+            title="Algorithms Lecture",
+            detail="Room 101",
+            start_at="2026-04-20T09:00:00+00:00",
+            end_at="2026-04-20T10:30:00+00:00",
+            all_day=True,
+            location="Room 101",
+        )
+        listed = list_schedules()
+        ranged = list_schedules_in_range(
+            range_start="2026-04-20T08:00:00+00:00",
+            range_end="2026-04-20T11:00:00+00:00",
+        )
+        updated = update_schedule(
+            event_id=created["event"]["id"],
+            detail="Room 202",
+            clear_location=True,
+        )
+        deleted = delete_schedule(event_id=created["event"]["id"])
+
+        self.assertEqual(len(SCHEDULE_TOOLS), 5)
+        self.assertEqual(created["action"], "create")
+        self.assertEqual(listed["count"], 1)
+        self.assertEqual(ranged["count"], 1)
+        self.assertEqual(updated["event"]["detail"], "Room 202")
+        self.assertTrue(updated["event"]["all_day"])
+        self.assertIsNone(updated["event"]["location"])
+        self.assertTrue(deleted["deleted"])
+
     def test_todo_tools_round_trip(self) -> None:
         created = create_todo(title="Call teammate", detail="sync on PR")
         listed = list_todos()
@@ -49,15 +84,25 @@ class AgentToolTests(BackendTestCase):
         self.assertEqual(tool_modes["update_todo"], "always_require")
         self.assertEqual(tool_modes["delete_todo"], "always_require")
 
+        schedule_tool_modes = {tool.name: tool.approval_mode for tool in SCHEDULE_TOOLS}
+        self.assertEqual(schedule_tool_modes["list_schedules"], "never_require")
+        self.assertEqual(schedule_tool_modes["list_schedules_in_range"], "never_require")
+        self.assertEqual(schedule_tool_modes["create_schedule"], "always_require")
+        self.assertEqual(schedule_tool_modes["update_schedule"], "always_require")
+        self.assertEqual(schedule_tool_modes["delete_schedule"], "always_require")
+
     def test_todo_tool_descriptions_warn_against_internal_planning(self) -> None:
         for tool in TODO_TOOLS:
             self.assertIn("Never use it to track the assistant's own plan", tool.description)
 
     def test_schedule_and_todo_tool_descriptions_define_their_boundary(self) -> None:
-        self.assertIn("homework, assignments, projects", SCHEDULE_TOOLS[0].description)
-        self.assertIn("remind me tomorrow about my exam", SCHEDULE_TOOLS[0].description)
-        self.assertIn("those belong in schedule", TODO_TOOLS[0].description)
-        self.assertIn("short-term AI-executed work", TODO_TOOLS[0].description)
+        schedule_description = " ".join(tool.description for tool in SCHEDULE_TOOLS)
+        todo_description = " ".join(tool.description for tool in TODO_TOOLS)
+
+        self.assertIn("homework, assignments, projects", schedule_description)
+        self.assertIn("remind me tomorrow about my exam", schedule_description)
+        self.assertIn("those belong in schedule", todo_description)
+        self.assertIn("short-term AI-executed work", todo_description)
 
     def test_agent_instructions_define_schedule_todo_split(self) -> None:
         self.assertIn("schedule stores real-world events the user must attend on time", AGENT_INSTRUCTIONS)
@@ -173,7 +218,7 @@ class AgentContextTests(AsyncBackendTestCase):
             )
 
         snapshot = state["planning_snapshot"]
-        self.assertEqual(snapshot["schedule_total"], 1)
+        self.assertEqual(snapshot["schedule_total"], 2)
         self.assertEqual(snapshot["todo_total"], 1)
         self.assertEqual(snapshot["nearest_schedule"]["title"], "Algorithms Lecture")
         self.assertEqual(snapshot["nearest_todo"]["title"], "Submit lab")

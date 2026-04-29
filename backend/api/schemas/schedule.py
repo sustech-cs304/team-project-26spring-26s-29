@@ -55,11 +55,7 @@ class ScheduleCreateRequest(BaseModel):
     @field_validator("startAt", "endAt")
     @classmethod
     def validate_iso_datetime(cls, value: str) -> str:
-        try:
-            datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except Exception as exc:
-            raise ValueError("startAt/endAt must be an ISO datetime string.") from exc
-        return value
+        return normalize_schedule_datetime(value)
 
 
 class ScheduleUpdateRequest(BaseModel):
@@ -86,10 +82,31 @@ class ScheduleUpdateRequest(BaseModel):
             raise ValueError("Title is empty.")
         return value
 
+    @field_validator("startAt", "endAt")
+    @classmethod
+    def normalize_optional_schedule_datetime(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_schedule_datetime(value)
+
     @model_validator(mode="after")
     def ensure_valid_update(self) -> "ScheduleUpdateRequest":
         if not self.model_fields_set:
             raise ValueError("At least one field must be provided for update.")
+        if "title" in self.model_fields_set and self.title is None:
+            raise ValueError("title cannot be null.")
+        if "detail" in self.model_fields_set and self.detail is None:
+            raise ValueError("detail cannot be null.")
+        if "startAt" in self.model_fields_set and self.startAt is None:
+            raise ValueError("startAt cannot be null.")
+        if "endAt" in self.model_fields_set and self.endAt is None:
+            raise ValueError("endAt cannot be null.")
+        if "allDay" in self.model_fields_set and self.allDay is None:
+            raise ValueError("allDay cannot be null.")
+        if "timezone" in self.model_fields_set and self.timezone is None:
+            raise ValueError("timezone cannot be null.")
+        if "isDone" in self.model_fields_set and self.isDone is None:
+            raise ValueError("isDone cannot be null.")
         return self
 
     def to_updates(self) -> dict[str, object]:
@@ -115,8 +132,21 @@ class ScheduleUpdateRequest(BaseModel):
         if "recurrenceEnd" in self.model_fields_set:
             updates["recurrence_end"] = self.recurrenceEnd
         if "isDone" in self.model_fields_set:
-            updates["is_done"] = bool(self.isDone)
+            updates["is_done"] = cast(bool, self.isDone)
         return updates
+
+
+def normalize_schedule_datetime(value: str) -> str:
+    text = value.strip()
+    if not text:
+        raise ValueError("startAt/endAt must be an ISO datetime string.")
+
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("startAt/endAt must be an ISO datetime string.") from exc
+
+    return text
 
 
 def serialize_schedule(schedule: ScheduleEvent) -> ScheduleResponse:
