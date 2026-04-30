@@ -1,44 +1,35 @@
 # Student Productivity Agent
 
-Student Productivity Agent is a desktop prototype for a student-facing planning assistant. The current implementation combines an Electron shell, a plain JavaScript renderer, and a Python FastAPI backend into one local app.
+A local desktop app for student planning. The app focuses on three practical workflows:
 
-This repository already contains a working vertical slice:
+- chat with a local Python-backed assistant
+- manage tasks and due dates
+- manage schedule events
 
-- a streamed chat page backed by a Python agent runtime, with Markdown plus KaTeX rendering for assistant text, run interruption, inline tool approvals, and attachment preview
-- a workspace-enabled chat flow that stages uploads into a local workspace on every run
-- approval-gated workspace tools for file editing plus local PowerShell and Python execution
-- a local-first Todo workspace with CRUD, filtering, sorting, and undo
-- a local-first Schedule workspace with calendar navigation plus CRUD over `/api/schedules`
-- a config page that edits local settings and syncs runtime model config to Python
-- local persistence through TinyDB
+The project is intentionally a small local prototype. It uses Electron for the desktop shell, vanilla JavaScript for the UI, FastAPI for the backend, and TinyDB for local persistence.
 
-`docs/presentation/proposal-26s-29.md` is the original project proposal and should be treated as historical context. The rest of the documentation describes the codebase as it exists today.
+`docs/presentation/proposal-26s-29.md` is historical context. The current project scope is documented in `docs/`.
 
-## Current Stack
+## Stack
 
 - Desktop shell: Electron
 - Renderer: HTML, CSS, vanilla JavaScript
-- Chat rich text: `markdown-it` and KaTeX
 - Backend API: FastAPI
 - Agent runtime: `agent-framework` with an OpenAI-compatible chat client
 - Local storage: TinyDB
+- Rich chat text: `markdown-it` and KaTeX
 
 ## Quick Start
 
 1. Install Node.js and a recent `python` interpreter.
-2. Install frontend dependencies:
+2. Install dependencies:
 
 ```powershell
 npm install
-```
-
-3. Install backend dependencies:
-
-```powershell
 python -m pip install -r backend/requirements.txt
 ```
 
-4. Edit `config.json` and set the values your environment needs:
+3. Edit `config.json`:
 
 - `backendPort`
 - `openaiApiKey`
@@ -46,72 +37,59 @@ python -m pip install -r backend/requirements.txt
 - `openaiEndpoint`
 - `motdLanguage` (`zh-CN` or `en`)
 
-5. Start the desktop app:
+4. Start the app:
 
 ```powershell
 npm start
 ```
 
-When the backend is reachable and `openaiChatModel` is configured, the app status changes to `ready`.
+Electron starts the Python backend automatically. When the backend is reachable and a chat model is configured, the app status changes to `ready`.
 
-Uploaded files are copied into `workspace/inputs/<requestId>/...` beside `config.json`. The workspace is cleared and recreated on every app start.
-
-## Running Only The Backend
+## Backend Only
 
 ```powershell
 python -m uvicorn backend.app:app --host 127.0.0.1 --port 8765
 ```
 
-Electron normally starts the backend for you, but this command is useful when testing the API in isolation.
+Use this when testing the API without Electron.
 
 ## Tests
-
-Run everything:
 
 ```powershell
 npm test
 ```
 
-Or run suites separately:
+This runs both suites:
 
 ```powershell
 python -m unittest discover -s tests -v
-```
-
-```powershell
 node --test tests/electron/*.test.js
 ```
-
-The current automated tests focus on backend routes and services, agent-facing adapters, workspace helpers, and Electron packaging/runtime helpers.
 
 ## Repository Map
 
 ```text
-backend/        Python API, agent runtime, services, repositories
-docs/           Implementation-focused project documentation
-src/electron/   Electron main process, preload bridge, IPC, config sync
-src/renderer/   Desktop UI for chat, todo, schedule, and config pages
-tests/          Python and Node test suites for backend and Electron behavior
+backend/        FastAPI routes, services, repositories, and agent runtime
+src/electron/   Electron main process, preload bridge, IPC, and config sync
+src/renderer/   Chat, Todo, Schedule, and Config UI
+tests/          Backend and Electron tests
+docs/           Current documentation and presentation materials
 ```
-
-## Documentation
-
-- Agents should read [docs/CLAUDE.md](./docs/CLAUDE.md) before making code changes in this repository.
-- [docs/README.md](./docs/README.md): documentation index
-- [docs/CLAUDE.md](./docs/CLAUDE.md): shared coding-agent behavioral prompt
-- [docs/product.md](./docs/product.md): current product scope and implemented features
-- [docs/feature.md](./docs/feature.md): working functional requirements
-- [docs/architecture.md](./docs/architecture.md): runtime boundaries and request flows
-- [docs/backend.md](./docs/backend.md): backend modules, API surface, persistence, and agent runtime
-- [docs/development.md](./docs/development.md): setup, config, testing, and contributor guidance
-- [docs/windows-packaging.md](./docs/windows-packaging.md): Windows installer build flow with a bundled Python runtime
-- [docs/presentation/](./docs/presentation/): course presentation deliverables and historical proposal material
 
 ## Notes
 
-- `config.json` is the persistent source of truth for local app settings in development. Packaged Windows builds use `%LOCALAPPDATA%\kao-hsiao\config.json`.
-- Electron always connects to the local backend on `127.0.0.1`; only `backendPort` is configurable.
-- Electron stores TinyDB in `db.json` beside the active `config.json`.
-- Electron stores the workspace in `workspace/` beside the active `config.json`.
-- Schedule is available through the renderer Schedule page and backend `/api/schedules` endpoints.
+- `config.json` is the development source of truth for local settings.
+- TinyDB data lives in `db.json` beside the active config file.
+- Uploaded files are staged into `workspace/inputs/<requestId>/...`.
+- The workspace is cleared and recreated on every app start.
 - Avoid committing real API keys or environment-specific secrets.
+
+## Docs
+
+- [docs/README.md](./docs/README.md): documentation index
+- [docs/product.md](./docs/product.md): simplified product scope
+- [docs/feature.md](./docs/feature.md): Release 1 requirements
+- [docs/architecture.md](./docs/architecture.md): runtime boundaries and request flows
+- [docs/backend.md](./docs/backend.md): backend modules and API details
+- [docs/development.md](./docs/development.md): setup, config, and testing
+- [docs/windows-packaging.md](./docs/windows-packaging.md): Windows installer flow

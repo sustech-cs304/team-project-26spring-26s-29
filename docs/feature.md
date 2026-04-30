@@ -1,50 +1,53 @@
-# Feature Requirements (Working Draft)
+# Feature Requirements
 
-This document records the revised functional requirements used for implementation planning and review.
-`docs/presentation/proposal-26s-29.md` remains an archive of the original proposal text.
+This document defines the simplified Release 1 scope. The goal is a small local desktop planner, not a full campus platform.
 
-## FR1. Chat-Centered Workspace
+`docs/presentation/proposal-26s-29.md` remains the original proposal archive.
 
-The system shall provide a chat interface as the primary user entry point for agent interaction.
+## FR1. Local Chat Assistant
 
-- Users shall be able to submit natural-language requests and receive assistant responses in the same conversation view.
-- Each conversation turn shall show a visible execution state (`running`, `needs_approval`, `completed`, `error`, or `interrupted`).
-- The chat UI shall display tool calls, tool outcomes, and approval requests inline with the related assistant turn.
-- For each pending approval request, the user shall be able to explicitly approve or reject from the GUI.
+The app shall provide a chat page backed by the local Python backend.
 
-## FR2. Unified Schedule and Task Management
+- Users can submit messages and receive streamed assistant responses.
+- Assistant text can render Markdown and math.
+- Users can attach files for a chat run.
+- Tool calls that may change local state require user approval.
+- Users can interrupt an in-progress run.
 
-The system shall provide one workspace that manages both tasks and schedule events.
+## FR2. Task Management
 
-- The system shall provide task CRUD operations, completion state updates, and due-time tracking.
-- The system shall provide schedule-event CRUD operations with start/end time fields.
-- The agent shall be able to read and modify both tasks and schedule events through approved backend tools.
-- The workspace shall persist tasks and schedule events in local storage.
-- External sync (for example Microsoft To Do) is an optional extension and is out of Release-1 scope.
+The app shall provide local task management.
 
-## FR3. Campus Knowledge Assistant
+- Users can create, read, update, delete, complete, and reopen tasks.
+- Tasks can have optional due times and details.
+- Users can search, sort, filter, bulk clear, and undo a recent delete.
+- Tasks persist locally through TinyDB.
+- The assistant can read tasks and can request approval to change tasks.
 
-The system shall answer campus-related questions using trusted SUSTech sources.
+## FR3. Schedule Management
 
-- The initial source set shall include the official academic calendar and selected public campus documents.
-- For campus-information answers, the system shall return source references (document name or URL) in the response.
-- If the requested answer is not available in configured sources, the system shall explicitly report "not found in available sources" instead of fabricating facts.
-- Blackboard data integration is optional and out of Release-1 scope unless policy and integration access are available.
+The app shall provide local schedule-event management.
 
-## FR4. Personal Planning and Notifications
+- Users can create, read, update, and delete schedule events.
+- Events have title, optional details, and start/end time fields.
+- Users can browse events through a month calendar.
+- Schedule events persist locally through TinyDB.
+- The assistant can read schedule events and can request approval to change them.
 
-The system shall provide planning support and reminder notifications based on user tasks and schedule events.
+## FR4. Local Configuration
 
-- The agent shall generate planning suggestions (for example daily or weekly priorities) from existing task and schedule data.
-- The user shall be able to create a reminder for a task or schedule event with a specified trigger time.
-- The system shall issue local notifications when a reminder trigger is reached.
-- If user preference settings are configured (for example quiet hours or reminder lead time), reminder behavior shall follow those settings.
+The app shall let users edit development-time runtime settings without leaving the desktop app.
 
-## FR5. Safe Automation
+- Users can edit backend port, model settings, endpoint, API key, and message language.
+- Electron stores config on disk.
+- Electron syncs runtime settings to the Python backend.
+- Electron restarts the backend when the backend port changes.
 
-The system shall support bounded automation through a permissioned tool model.
+## Out Of Scope For Release 1
 
-- The system shall distinguish read-only actions from side-effect actions (file writes, command execution, or external updates).
-- Any side-effect action shall require explicit user approval before execution.
-- The user shall be able to interrupt an in-progress agent run.
-- The system shall keep an action trace containing at least: timestamp, action name, approval decision, and execution outcome.
+- campus knowledge retrieval
+- reminders and notifications
+- Blackboard or Microsoft To Do integration
+- multi-device sync
+- cloud accounts
+- fully automated actions without user approval
