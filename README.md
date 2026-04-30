@@ -12,7 +12,7 @@ This repository already contains a working vertical slice:
 - a config page that edits local settings and syncs runtime model config to Python
 - local persistence through TinyDB
 
-`docs/PROPOSAL.md` is the original project proposal and should be treated as historical context. The rest of the documentation describes the codebase as it exists today.
+`docs/presentation/proposal-26s-29.md` is the original project proposal and should be treated as historical context. The rest of the documentation describes the codebase as it exists today.
 
 ## Current Stack
 
@@ -96,13 +96,16 @@ tests/          Python and Node test suites for backend and Electron behavior
 
 ## Documentation
 
+- Agents should read [docs/CLAUDE.md](./docs/CLAUDE.md) before making code changes in this repository.
 - [docs/README.md](./docs/README.md): documentation index
+- [docs/CLAUDE.md](./docs/CLAUDE.md): shared coding-agent behavioral prompt
 - [docs/product.md](./docs/product.md): current product scope and implemented features
+- [docs/feature.md](./docs/feature.md): working functional requirements
 - [docs/architecture.md](./docs/architecture.md): runtime boundaries and request flows
 - [docs/backend.md](./docs/backend.md): backend modules, API surface, persistence, and agent runtime
 - [docs/development.md](./docs/development.md): setup, config, testing, and contributor guidance
 - [docs/windows-packaging.md](./docs/windows-packaging.md): Windows installer build flow with a bundled Python runtime
-- [docs/PROPOSAL.md](./docs/PROPOSAL.md): original proposal kept for historical reference
+- [docs/presentation/](./docs/presentation/): course presentation deliverables and historical proposal material
 
 ## Notes
 

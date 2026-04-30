@@ -106,4 +106,4 @@ The main change is technical shape:
 - the proposal described `Tauri + React + Python`
 - the current implementation is `Electron + vanilla renderer + Python`
 
-Use `docs/PROPOSAL.md` to understand the original intent. Use the rest of this documentation set to understand the current repository.
+Use `docs/presentation/proposal-26s-29.md` to understand the original intent. Use the rest of this documentation set to understand the current repository.

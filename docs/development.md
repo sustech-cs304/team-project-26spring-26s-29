@@ -122,5 +122,6 @@ If you change the repo in a meaningful way, update the docs in the same branch:
 - update `docs/backend.md` for endpoint, data model, or backend structure changes
 - update `docs/product.md` when the shipped scope changes
 - update `docs/windows-packaging.md` when the Windows build/runtime bundling workflow changes
+- update `docs/presentation/` when course deliverables or historical planning docs change
 
-`docs/PROPOSAL.md` should stay unchanged as the original planning document.
+`docs/presentation/proposal-26s-29.md` should stay unchanged as the original planning document.

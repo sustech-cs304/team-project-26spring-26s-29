@@ -1,7 +1,7 @@
 # Feature Requirements (Working Draft)
 
 This document records the revised functional requirements used for implementation planning and review.
-`docs/PROPOSAL.md` remains an archive of the original proposal text.
+`docs/presentation/proposal-26s-29.md` remains an archive of the original proposal text.
 
 ## FR1. Chat-Centered Workspace
 
