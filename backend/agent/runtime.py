@@ -163,17 +163,50 @@ class AgentRunController:
 class AdaptiveChatCompletionClient(OpenAIChatCompletionClient):
     """Adapt Xiaomi's hosted web_search tool inside the tools array."""
 
+    def _uses_xiaomi_compatibility(self) -> bool:
+        return _should_register_hosted_web_search_tool(
+            str(self.base_url) if self.base_url is not None else None
+        )
+
     def _prepare_tools_for_openai(self, tools: Any) -> dict[str, Any]:
         prepared = super()._prepare_tools_for_openai(tools)
-        if _should_register_hosted_web_search_tool(
-            str(self.base_url) if self.base_url is not None else None
-        ):
+        if self._uses_xiaomi_compatibility():
             web_search_options = prepared.pop("web_search_options", None)
             if web_search_options is not None:
                 tool_list = list(prepared.get("tools") or [])
                 tool_list.append({"type": "web_search", **web_search_options})
                 prepared["tools"] = tool_list
         return prepared
+
+    def _prepare_message_for_openai(self, message: Message) -> list[dict[str, Any]]:
+        prepared_messages = super()._prepare_message_for_openai(message)
+        if not self._uses_xiaomi_compatibility():
+            return prepared_messages
+
+        for prepared in prepared_messages:
+            if "reasoning_details" not in prepared:
+                continue
+            reasoning_details = prepared.pop("reasoning_details")
+            reasoning_content = _coerce_reasoning_content(reasoning_details)
+            if reasoning_content:
+                prepared["reasoning_content"] = reasoning_content
+        return prepared_messages
+
+    def _parse_response_update_from_openai(self, chunk: Any) -> Any:
+        parsed = super()._parse_response_update_from_openai(chunk)
+        if self._uses_xiaomi_compatibility():
+            for choice in chunk.choices:
+                reasoning_content = _extract_reasoning_content(getattr(choice, "delta", None))
+                if reasoning_content:
+                    parsed.contents.append(
+                        Content.from_text_reasoning(
+                            protected_data=json.dumps(
+                                {"reasoning_content": reasoning_content},
+                                ensure_ascii=False,
+                            )
+                        )
+                    )
+        return parsed
 
 
 def _normalize_base_url(base_url: str | None) -> str:
@@ -185,6 +218,38 @@ def _normalize_base_url(base_url: str | None) -> str:
 def _should_register_hosted_web_search_tool(base_url: str | None) -> bool:
     normalized = _normalize_base_url(base_url)
     return any(token in normalized for token in XIAOMI_WEB_SEARCH_HOST_TOKENS)
+
+
+def _extract_reasoning_content(value: Any) -> Any:
+    if value is None:
+        return None
+
+    reasoning_content = getattr(value, "reasoning_content", None)
+    if reasoning_content:
+        return reasoning_content
+
+    if isinstance(value, Mapping):
+        return value.get("reasoning_content")
+
+    for extra_name in ("model_extra", "__pydantic_extra__"):
+        extra = getattr(value, extra_name, None)
+        if isinstance(extra, Mapping) and extra.get("reasoning_content"):
+            return extra["reasoning_content"]
+
+    return None
+
+
+def _coerce_reasoning_content(reasoning_details: Any) -> str | None:
+    if isinstance(reasoning_details, Mapping) and "reasoning_content" in reasoning_details:
+        reasoning_details = reasoning_details["reasoning_content"]
+
+    if reasoning_details is None:
+        return None
+
+    if isinstance(reasoning_details, str):
+        return reasoning_details
+
+    return json.dumps(reasoning_details, ensure_ascii=False)
 
 
 def _build_agent_tools(base_url: str | None) -> list[Any]:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -246,6 +247,28 @@ class AdaptiveClientTests(BackendTestCase):
 
         self.assertEqual(prepared["web_search_options"], {"search_context_size": "medium"})
         self.assertIsNone(prepared.get("tools"))
+
+    def test_adaptive_chat_completion_client_replays_xiaomi_reasoning_content(self) -> None:
+        client = AdaptiveChatCompletionClient(
+            model="demo-model",
+            api_key="demo-key",
+            base_url="https://token-plan-cn.xiaomimimo.com/v1",
+        )
+
+        prepared = client._prepare_message_for_openai(
+            Message(
+                "assistant",
+                [
+                    Content.from_text("Done."),
+                    Content.from_text_reasoning(
+                        protected_data=json.dumps({"reasoning_content": "internal trace"})
+                    ),
+                ],
+            )
+        )
+
+        self.assertEqual(prepared[0]["reasoning_content"], "internal trace")
+        self.assertNotIn("reasoning_details", prepared[0])
 
     def test_build_agent_tools_only_adds_hosted_web_search_for_supported_endpoint(self) -> None:
         xiaomi_tools = _build_agent_tools("https://token-plan-cn.xiaomimimo.com/v1")
