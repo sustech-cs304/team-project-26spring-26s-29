@@ -79,6 +79,10 @@ jobs:
           & "vendor/windows-python/python.exe" -m pip install `
             --disable-pip-version-check `
             --no-cache-dir `
+            setuptools wheel
+          & "vendor/windows-python/python.exe" -m pip install `
+            --disable-pip-version-check `
+            --no-cache-dir `
             --no-compile `
             -r backend/requirements.txt
 

@@ -6,6 +6,10 @@ const test = require("node:test");
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf8")
 );
+const windowsInstallerWorkflow = fs.readFileSync(
+  path.join(__dirname, "..", "..", ".github", "workflows", "build-windows-installer.yml"),
+  "utf8"
+);
 
 test("electron-builder only packages runtime files into app.asar", () => {
   const files = packageJson.build.files;
@@ -48,4 +52,13 @@ test("electron-builder packages generated SUSTech corpus but not the full submod
 
   assert.ok(backendResource.filter.includes("**/*"));
   assert.ok(!extraResources.some((entry) => String(entry.from).includes("vendor/sustech-online-ng")));
+});
+
+test("bundled Python runtime installs build tools before requirements", () => {
+  const buildToolsIndex = windowsInstallerWorkflow.indexOf("setuptools wheel");
+  const requirementsIndex = windowsInstallerWorkflow.lastIndexOf("-r backend/requirements.txt");
+
+  assert.ok(buildToolsIndex > -1);
+  assert.ok(requirementsIndex > -1);
+  assert.ok(buildToolsIndex < requirementsIndex);
 });
