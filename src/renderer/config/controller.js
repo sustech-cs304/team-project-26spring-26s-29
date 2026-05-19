@@ -1,32 +1,32 @@
 const configFieldDefinitions = [
   {
     key: "backendPort",
-    label: "Backend Port",
-    hint: "Port used for the local Python backend process on 127.0.0.1.",
+    labelKey: "config.field.backendPort.label",
+    hintKey: "config.field.backendPort.hint",
   },
   {
     key: "openaiApiKey",
-    label: "OpenAI API Key",
-    hint: "Stored locally and forwarded to the backend runtime config.",
+    labelKey: "config.field.openaiApiKey.label",
+    hintKey: "config.field.openaiApiKey.hint",
   },
   {
     key: "openaiChatModel",
-    label: "OpenAI Chat Model",
-    hint: "The model name used for chat requests.",
+    labelKey: "config.field.openaiChatModel.label",
+    hintKey: "config.field.openaiChatModel.hint",
   },
   {
     key: "openaiEndpoint",
-    label: "OpenAI Endpoint",
-    hint: "Optional custom base URL for the chat provider.",
+    labelKey: "config.field.openaiEndpoint.label",
+    hintKey: "config.field.openaiEndpoint.hint",
   },
   {
-    key: "motdLanguage",
-    label: "MOTD Language",
-    hint: "Language used for the startup message in Chat.",
+    key: "appLanguage",
+    labelKey: "config.field.appLanguage.label",
+    hintKey: "config.field.appLanguage.hint",
     control: "select",
     options: [
-      { value: "zh-CN", label: "简体中文" },
-      { value: "en", label: "English" },
+      { value: "zh-CN", labelKey: "config.language.zhCN" },
+      { value: "en", labelKey: "config.language.en" },
     ],
   },
 ];
@@ -38,14 +38,19 @@ function createConfigController({
   discard,
   saveConfigButton,
   onSaved,
+  i18n,
 }) {
   let savedConfig = null;
   let configInputs = {};
   let isConfigSaving = false;
 
+  function t(key, params) {
+    return i18n.t(key, params);
+  }
+
   function buildConfigFields() {
     configFields.replaceChildren(
-      ...configFieldDefinitions.map(({ key, label, hint, control }) => {
+      ...configFieldDefinitions.map(({ key, labelKey, hintKey, control }) => {
         const wrapper = document.createElement("label");
         const inputId = `config-${key}`;
         wrapper.className = `config-field${control === "checkbox" ? " config-field--checkbox" : ""}`;
@@ -54,8 +59,8 @@ function createConfigController({
           ? `
             <div class="config-field__toggle-row">
               <div>
-                <span class="config-field__label">${label}</span>
-                <span class="config-field__hint">${hint}</span>
+                <span class="config-field__label">${t(labelKey)}</span>
+                <span class="config-field__hint">${t(hintKey)}</span>
               </div>
               <input
                 id="${inputId}"
@@ -67,8 +72,8 @@ function createConfigController({
           `
           : control === "select"
             ? `
-            <span class="config-field__label">${label}</span>
-            <span class="config-field__hint">${hint}</span>
+            <span class="config-field__label">${t(labelKey)}</span>
+            <span class="config-field__hint">${t(hintKey)}</span>
             <select
               id="${inputId}"
               class="config-field__input config-field__select"
@@ -77,15 +82,15 @@ function createConfigController({
               ${configFieldDefinitions
                 .find((field) => field.key === key)
                 .options.map(
-                  ({ value, label: optionLabel }) =>
-                    `<option value="${value}">${optionLabel}</option>`
+                  ({ value, labelKey: optionLabelKey }) =>
+                    `<option value="${value}">${t(optionLabelKey)}</option>`
                 )
                 .join("")}
             </select>
           `
           : `
-            <span class="config-field__label">${label}</span>
-            <span class="config-field__hint">${hint}</span>
+            <span class="config-field__label">${t(labelKey)}</span>
+            <span class="config-field__hint">${t(hintKey)}</span>
             <textarea
               id="${inputId}"
               class="config-field__input"
@@ -141,7 +146,7 @@ function createConfigController({
     const dirty = hasConfigChanges();
     discard.disabled = !dirty || isConfigSaving;
     saveConfigButton.disabled = !dirty || isConfigSaving;
-    saveConfigButton.textContent = isConfigSaving ? "Saving..." : "Save";
+    saveConfigButton.textContent = isConfigSaving ? t("config.saving") : t("config.save");
   }
 
   function populateConfigForm(config) {
@@ -186,12 +191,12 @@ function createConfigController({
 
     isConfigSaving = true;
     updateConfigActions();
-    setConfigFeedback("Saving config...", "pending");
+    setConfigFeedback(t("config.feedback.saving"), "pending");
 
     try {
       const saved = await window.configAPI.save(getConfigDraft());
       populateConfigForm(saved);
-      setConfigFeedback("Config saved.", "success");
+      setConfigFeedback(t("config.feedback.saved"), "success");
       if (typeof onSaved === "function") {
         await onSaved(saved);
       }
@@ -205,7 +210,7 @@ function createConfigController({
 
   async function handleConfigDiscard() {
     await loadConfig();
-    setConfigFeedback("Discarded local edits.", "success");
+    setConfigFeedback(t("config.feedback.discarded"), "success");
   }
 
   function handleConfigInput(event) {
@@ -214,7 +219,27 @@ function createConfigController({
     }
 
     const dirty = hasConfigChanges();
-    setConfigFeedback(dirty ? "Unsaved changes." : "", dirty ? "pending" : "");
+    setConfigFeedback(dirty ? t("config.feedback.unsaved") : "", dirty ? "pending" : "");
+    updateConfigActions();
+  }
+
+  function refreshTranslations() {
+    const draft = savedConfig ? getConfigDraft() : null;
+    const baseline = savedConfig ? { ...savedConfig } : null;
+    buildConfigFields();
+    if (baseline) {
+      populateConfigForm(baseline);
+      if (draft) {
+        configFieldDefinitions.forEach(({ key, control }) => {
+          if (control === "checkbox") {
+            configInputs[key].checked = Boolean(draft[key]);
+            return;
+          }
+          configInputs[key].value = draft[key] == null ? "" : String(draft[key]);
+        });
+      }
+      savedConfig = baseline;
+    }
     updateConfigActions();
   }
 
@@ -230,6 +255,7 @@ function createConfigController({
     init,
     loadConfig,
     refreshOnForeground,
+    refreshTranslations,
   };
 }
 

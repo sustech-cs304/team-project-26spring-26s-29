@@ -197,7 +197,7 @@ Design intent:
 
 ```mermaid
 flowchart TB
-    Fields[Editable Fields\nbackendPort/openai settings/motdLanguage]
+    Fields[Editable Fields\nbackendPort/openai settings/appLanguage]
     Feedback[Validation + Save Status]
     Actions[Save / Discard]
 

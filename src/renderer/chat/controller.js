@@ -28,6 +28,7 @@ function createChatController({
   previewModalMeta,
   previewModalSave,
   previewModalTitle,
+  i18n,
 }) {
   let isRunning = false;
   let activeRequestId = null;
@@ -48,6 +49,10 @@ function createChatController({
   let lastReadyState = false;
   let readyMotdInFlight = false;
   const approvalRequestsInFlight = new Set();
+
+  function t(key, params) {
+    return i18n.t(key, params);
+  }
 
   function cloneData(value) {
     return JSON.parse(JSON.stringify(value));
@@ -92,7 +97,7 @@ function createChatController({
 
     const meta = document.createElement("div");
     meta.className = "message__meta";
-    meta.textContent = role === "user" ? "You" : "Assistant";
+    meta.textContent = role === "user" ? t("chat.you") : t("chat.assistant");
 
     const bubble = document.createElement("div");
     bubble.className = "message__bubble";
@@ -179,11 +184,11 @@ function createChatController({
   function getPreviewBadge(kind) {
     switch (kind) {
       case "document":
-        return "DOC";
+        return t("preview.badge.document");
       case "text":
-        return "TEXT";
+        return t("preview.badge.text");
       default:
-        return "FILE";
+        return t("preview.badge.file");
     }
   }
 
@@ -192,14 +197,14 @@ function createChatController({
     const src = buildDataUri(part);
 
     if (kind === "image" && src) {
-      return `<img class="message__image message__image--thumb" src="${escapeHtml(src)}" alt="${escapeHtml(part.name || "image")}" />`;
+      return `<img class="message__image message__image--thumb" src="${escapeHtml(src)}" alt="${escapeHtml(part.name || t("chat.image"))}" />`;
     }
 
     if (kind === "text") {
       return `
         <div class="message__filethumb message__filethumb--text">
           <span class="message__filethumb-badge">${escapeHtml(getPreviewBadge(kind))}</span>
-          <p class="message__filethumb-copy">${escapeHtml(truncateText(part.summaryText || "Open preview", FILE_TILE_TEXT_MAX_LENGTH))}</p>
+          <p class="message__filethumb-copy">${escapeHtml(truncateText(part.summaryText || t("chat.openPreview"), FILE_TILE_TEXT_MAX_LENGTH))}</p>
         </div>
       `;
     }
@@ -235,7 +240,7 @@ function createChatController({
     toggle.type = "button";
     toggle.className = "message__toggle";
     toggle.setAttribute("aria-expanded", "false");
-    toggle.setAttribute("aria-label", "Expand message");
+    toggle.setAttribute("aria-label", t("chat.expandMessage"));
     toggle.innerHTML = '<span class="message__toggle-icon" aria-hidden="true">▾</span>';
 
     const preview = document.createElement("div");
@@ -250,7 +255,7 @@ function createChatController({
       article.classList.toggle("is-collapsed", !nextExpanded);
       article.classList.toggle("is-expanded", nextExpanded);
       toggle.setAttribute("aria-expanded", String(nextExpanded));
-      toggle.setAttribute("aria-label", nextExpanded ? "Collapse message" : "Expand message");
+      toggle.setAttribute("aria-label", nextExpanded ? t("chat.collapseMessage") : t("chat.expandMessage"));
     });
   }
 
@@ -268,7 +273,7 @@ function createChatController({
         </div>
         <div class="message__media-copy">
           ${label ? `<p class="message__card-label">${escapeHtml(label)}</p>` : ""}
-          <p class="message__filename">${escapeHtml(part.name || "attachment")}</p>
+          <p class="message__filename">${escapeHtml(part.name || t("chat.attachment"))}</p>
           ${meta ? `<p class="message__filemeta">${escapeHtml(meta)}</p>` : ""}
         </div>
       </button>
@@ -283,7 +288,7 @@ function createChatController({
         continue;
       }
       if (part.type === "image" || part.type === "file") {
-        blocks.push(renderMediaTile(part, context, String(index), part.type === "image" ? "Image" : "File"));
+        blocks.push(renderMediaTile(part, context, String(index), part.type === "image" ? t("chat.image") : t("chat.file")));
       }
     }
     return blocks.join("") || "<p></p>";
@@ -320,7 +325,7 @@ function createChatController({
       }
     }
 
-    return truncateText(part?.argumentsText || "No arguments", TOOL_DETAIL_MAX_LENGTH);
+    return truncateText(part?.argumentsText || t("chat.noArguments"), TOOL_DETAIL_MAX_LENGTH);
   }
 
   function renderToolLine({ label, tone = "neutral", title, detail }) {
@@ -336,7 +341,7 @@ function createChatController({
   }
 
   function renderToolResult(part, context, ref) {
-    const toolName = context.toolNames.get(part.callId) || "tool";
+    const toolName = context.toolNames.get(part.callId) || t("chat.tool");
     const textItems = Array.isArray(part?.items)
       ? part.items.filter((item) => item.type === "text" && String(item.text || "").trim())
       : [];
@@ -344,7 +349,7 @@ function createChatController({
       ? truncateText(textItems[0].text, TOOL_DETAIL_MAX_LENGTH)
       : typeof part?.result === "string" && part.result.trim()
         ? truncateText(part.result, TOOL_DETAIL_MAX_LENGTH)
-        : "Completed";
+        : t("chat.completed");
     const richItems = Array.isArray(part.items)
       ? part.items
         .map((item, index) => ({ item, index }))
@@ -352,7 +357,7 @@ function createChatController({
       : [];
 
     const line = renderToolLine({
-      label: "Tool",
+      label: t("chat.tool"),
       tone: part.exception ? "error" : "neutral",
       title: toolName,
       detail: part.exception ? truncateText(part.exception, TOOL_DETAIL_MAX_LENGTH) : detail,
@@ -383,9 +388,9 @@ function createChatController({
       const isApproved = decision === "approved";
       const isInterrupted = decision === "interrupted";
       return renderToolLine({
-        label: isApproved ? "Approved" : isInterrupted ? "Interrupted" : "Rejected",
+        label: isApproved ? t("chat.approved") : isInterrupted ? t("chat.status.interrupted") : t("chat.rejected"),
         tone: isApproved ? "approved" : isInterrupted ? "interrupted" : "rejected",
-        title: functionCall.name || "Tool action",
+        title: functionCall.name || t("chat.toolAction"),
         detail: summarizeToolArguments(functionCall),
       });
     }
@@ -393,8 +398,8 @@ function createChatController({
     return `
       <div class="message__approval-card">
         <div class="message__approval-row">
-          <span class="message__badge message__badge--pending">Approval needed</span>
-          <span class="message__approval-name">${escapeHtml(functionCall.name || "Tool action")}</span>
+          <span class="message__badge message__badge--pending">${escapeHtml(t("chat.approvalNeeded"))}</span>
+          <span class="message__approval-name">${escapeHtml(functionCall.name || t("chat.toolAction"))}</span>
         </div>
         <p class="message__approval-summary">${escapeHtml(summarizeToolArguments(functionCall))}</p>
         ${context.isActive ? `
@@ -405,7 +410,7 @@ function createChatController({
               data-approval-action="approve"
               data-approval-id="${escapeHtml(part.approvalId || "")}"
             >
-              Approve
+              ${escapeHtml(t("chat.approve"))}
             </button>
             <button
               class="button button--secondary"
@@ -413,7 +418,7 @@ function createChatController({
               data-approval-action="reject"
               data-approval-id="${escapeHtml(part.approvalId || "")}"
             >
-              Reject
+              ${escapeHtml(t("chat.reject"))}
             </button>
           </div>
         ` : ""}
@@ -428,16 +433,16 @@ function createChatController({
     if (part.type === "error") {
       return `
         <div class="message__card message__card--error">
-          <p class="message__card-label">Error</p>
-          <p>${escapeHtml(part.message || "Agent request failed.")}</p>
+          <p class="message__card-label">${escapeHtml(t("chat.error"))}</p>
+          <p>${escapeHtml(part.message || t("chat.agentFailed"))}</p>
         </div>
       `;
     }
     if (part.type === "function_call") {
       return renderToolLine({
-        label: "Tool",
+        label: t("chat.tool"),
         tone: "neutral",
-        title: part.name || "tool",
+        title: part.name || t("chat.tool"),
         detail: summarizeToolArguments(part),
       });
     }
@@ -457,7 +462,7 @@ function createChatController({
 
   function renderAssistantContents(message, context) {
     if (!message.contents.length) {
-      return '<p class="message__placeholder">Thinking...</p>';
+      return `<p class="message__placeholder">${escapeHtml(t("chat.thinking"))}</p>`;
     }
 
     const toolNames = new Map();
@@ -466,14 +471,14 @@ function createChatController({
 
     for (const part of message.contents) {
       if (part.type === "function_call" && part.callId) {
-        toolNames.set(part.callId, part.name || "tool");
+        toolNames.set(part.callId, part.name || t("chat.tool"));
       }
       if (part.type === "function_result" && part.callId) {
         resultCallIds.add(part.callId);
       }
       if (part.type === "function_approval_request" && part.functionCall?.callId) {
         approvalCallIds.add(part.functionCall.callId);
-        toolNames.set(part.functionCall.callId, part.functionCall.name || "tool");
+        toolNames.set(part.functionCall.callId, part.functionCall.name || t("chat.tool"));
       }
     }
 
@@ -507,17 +512,17 @@ function createChatController({
     }
 
     const statusLabelMap = {
-      running: "Running",
-      needs_approval: "Needs Approval",
-      completed: "Completed",
-      interrupted: "Interrupted",
-      error: "Error",
+      running: t("chat.status.running"),
+      needs_approval: t("chat.status.needs_approval"),
+      completed: t("chat.status.completed"),
+      interrupted: t("chat.status.interrupted"),
+      error: t("chat.status.error"),
     };
     const label = statusLabelMap[rawStatus] || rawStatus.replaceAll("_", " ");
 
     return `
       <div class="message__statusbar" data-message-status="${escapeHtml(rawStatus)}">
-        <span class="message__statusbar-label">Status</span>
+        <span class="message__statusbar-label">${escapeHtml(t("chat.status"))}</span>
         <span class="message__statusbar-value">${escapeHtml(label)}</span>
       </div>
     `;
@@ -600,7 +605,7 @@ function createChatController({
     attachments.hidden = false;
     attachments.innerHTML = stagedAttachments
       .map((attachment, index) => {
-        const label = attachment.type === "image" ? "Image" : "File";
+        const label = attachment.type === "image" ? t("chat.image") : t("chat.file");
         const meta = [formatBytes(attachment.sizeBytes), attachment.relativePath].filter(Boolean).join(" · ");
 
         return `
@@ -622,7 +627,7 @@ function createChatController({
             <button
               class="composer-attachment__remove"
               type="button"
-              aria-label="Remove attachment"
+              aria-label="${escapeHtml(t("chat.removeAttachment"))}"
               data-remove-attachment="${index}"
             >
               ×
@@ -650,8 +655,8 @@ function createChatController({
     alwaysApproveToolsButton.setAttribute("aria-pressed", String(alwaysApproveTools));
     alwaysApproveToolsButton.classList.toggle("button--toggled", alwaysApproveTools);
     alwaysApproveToolsButton.textContent = alwaysApproveTools
-      ? "Always Approve Tools: On"
-      : "Always Approve Tools: Off";
+      ? t("chat.alwaysApproveOn")
+      : t("chat.alwaysApproveOff");
   }
 
   function updateComposerAvailability(ready) {
@@ -675,7 +680,7 @@ function createChatController({
     const becameReady = ready && !lastReadyState;
     lastReadyState = ready;
 
-    status.textContent = isRunning ? "running" : !ok ? "starting" : ready ? "ready" : "config needed";
+    status.textContent = isRunning ? t("status.running") : !ok ? t("status.starting") : ready ? t("status.ready") : t("status.configNeeded");
     updateComposerAvailability(ready);
 
     if (becameReady) {
@@ -704,7 +709,7 @@ function createChatController({
       renderAttachmentList();
       resizePromptToFit();
     } catch (error) {
-      status.textContent = "attachment error";
+      status.textContent = t("status.attachmentError");
       console.error(error);
     }
   }
@@ -736,7 +741,7 @@ function createChatController({
     activeRequestId = nextRequestId;
     activeAssistantMessage = null;
     shouldAutoScroll = true;
-    status.textContent = "running";
+    status.textContent = t("status.running");
     updateComposerAvailability(true);
 
     if (showUserMessage) {
@@ -759,19 +764,19 @@ function createChatController({
       if (activeRequestId === nextRequestId && result?.message) {
         updateAssistantMessage(result.message);
       }
-      status.textContent = "ready";
+      status.textContent = t("status.ready");
     } catch (error) {
       const errorText = error?.message || String(error);
       if (errorText === "Agent run interrupted.") {
         updateAssistantMessage(buildInterruptedMessage(activeAssistantMessage?.message));
-        status.textContent = "interrupted";
+        status.textContent = t("status.interrupted");
       } else {
         updateAssistantMessage({
           role: "assistant",
           status: "error",
           contents: [{ type: "error", message: errorText }],
         });
-        status.textContent = "error";
+        status.textContent = t("status.error");
       }
     } finally {
       approvalRequestsInFlight.clear();
@@ -824,12 +829,12 @@ function createChatController({
     }
 
     interruptRunButton.disabled = true;
-    status.textContent = "interrupting";
+    status.textContent = t("status.interrupting");
 
     try {
       await window.agentAPI.interruptRun({ requestId: activeRequestId });
     } catch (error) {
-      status.textContent = "error";
+      status.textContent = t("status.error");
       console.error(error);
       updateComposerAvailability(true);
     }
@@ -861,13 +866,16 @@ function createChatController({
       ) {
         part.decision = "interrupted";
       }
-      if (part.type === "text" && String(part.text || "").trim() === "_Run interrupted._") {
+      if (
+        part.type === "text" &&
+        [t("chat.runInterruptedMarkdown"), "_Run interrupted._"].includes(String(part.text || "").trim())
+      ) {
         hasInterruptionNote = true;
       }
     }
 
     if (!hasInterruptionNote) {
-      nextMessage.contents.push({ type: "text", text: "_Run interrupted._" });
+      nextMessage.contents.push({ type: "text", text: t("chat.runInterruptedMarkdown") });
     }
 
     return nextMessage;
@@ -905,7 +913,7 @@ function createChatController({
         "pending"
       );
       updateExistingMessage(activeAssistantMessage, revertedMessage, { isActive: true });
-      status.textContent = "error";
+      status.textContent = t("status.error");
       console.error(error);
     } finally {
       approvalRequestsInFlight.delete(approvalId);
@@ -989,10 +997,10 @@ function createChatController({
 
     const fallback = {
       kind: "file",
-      name: part?.name || "attachment",
+      name: part?.name || t("chat.attachment"),
       mediaType: part?.mediaType,
       relativePath: part?.relativePath,
-      message: "Preview unavailable for this attachment.",
+      message: t("preview.unavailableAttachment"),
     };
     localPreviewCache.set(cacheKey, fallback);
     return fallback;
@@ -1007,18 +1015,18 @@ function createChatController({
 
     switch (payload?.kind) {
       case "image":
-        return `<img class="preview-modal__image" src="${escapeHtml(src)}" alt="${escapeHtml(payload?.name || part?.name || "Preview image")}" />`;
+        return `<img class="preview-modal__image" src="${escapeHtml(src)}" alt="${escapeHtml(payload?.name || part?.name || t("preview.imageAlt"))}" />`;
       case "text":
         return `
           <div class="preview-modal__text-wrap">
-            <pre class="preview-modal__text">${escapeHtml(payload.text || "(empty file)")}</pre>
-            ${payload.truncated ? '<p class="preview-modal__hint">Preview truncated for readability.</p>' : ""}
+            <pre class="preview-modal__text">${escapeHtml(payload.text || t("preview.emptyFile"))}</pre>
+            ${payload.truncated ? `<p class="preview-modal__hint">${escapeHtml(t("preview.truncated"))}</p>` : ""}
           </div>
         `;
       default:
         return `
           <div class="preview-modal__empty">
-            <p>${escapeHtml(payload?.message || "Preview unavailable.")}</p>
+            <p>${escapeHtml(payload?.message || t("preview.unavailable"))}</p>
           </div>
         `;
     }
@@ -1053,10 +1061,10 @@ function createChatController({
       outputPart: null,
     };
     previewModal.hidden = false;
-    previewModalLabel.textContent = getPreviewKind(part) === "image" ? "Image Preview" : "File Preview";
-    previewModalTitle.textContent = part?.name || "Attachment";
+    previewModalLabel.textContent = getPreviewKind(part) === "image" ? t("preview.image") : t("preview.file");
+    previewModalTitle.textContent = part?.name || t("preview.attachment");
     previewModalMeta.textContent = [part.mediaType, formatBytes(part.sizeBytes), part.relativePath].filter(Boolean).join(" · ");
-    previewModalBody.innerHTML = '<p class="preview-modal__hint">Loading preview...</p>';
+    previewModalBody.innerHTML = `<p class="preview-modal__hint">${escapeHtml(t("preview.loading"))}</p>`;
     previewModalSave.hidden = true;
     previewModalCopy.hidden = true;
 
@@ -1066,7 +1074,7 @@ function createChatController({
         return;
       }
       const outputPart = {
-        name: payload?.name || part?.name || "download",
+        name: payload?.name || part?.name || t("preview.download"),
         mediaType: payload?.mediaType || part?.mediaType || "application/octet-stream",
         relativePath: payload?.relativePath || part?.relativePath || null,
       };
@@ -1082,7 +1090,7 @@ function createChatController({
         outputPart.textContent = part?.textContent;
       }
       previewState.outputPart = outputPart;
-      previewModalTitle.textContent = payload?.name || part?.name || "Attachment";
+      previewModalTitle.textContent = payload?.name || part?.name || t("preview.attachment");
       previewModalMeta.textContent = [payload?.mediaType || part?.mediaType, formatBytes(payload?.sizeBytes || part?.sizeBytes), payload?.relativePath || part?.relativePath].filter(Boolean).join(" · ");
       previewModalBody.innerHTML = buildPreviewBody(payload, part);
       previewModalSave.hidden = false;
@@ -1090,7 +1098,7 @@ function createChatController({
     } catch (error) {
       previewModalBody.innerHTML = `
         <div class="preview-modal__empty">
-          <p>${escapeHtml(error?.message || "Failed to load preview.")}</p>
+          <p>${escapeHtml(error?.message || t("preview.failed"))}</p>
         </div>
       `;
     }
@@ -1188,7 +1196,7 @@ function createChatController({
       try {
         await window.agentAPI.copyPreviewPart(previewState.outputPart);
       } catch (error) {
-        status.textContent = "copy error";
+        status.textContent = t("status.copyError");
         console.error(error);
       } finally {
         previewModalCopy.disabled = false;
@@ -1204,7 +1212,7 @@ function createChatController({
       try {
         await window.agentAPI.saveOutputPart(previewState.outputPart);
       } catch (error) {
-        status.textContent = "save error";
+        status.textContent = t("status.saveError");
         console.error(error);
       } finally {
         previewModalSave.disabled = false;
@@ -1216,6 +1224,27 @@ function createChatController({
         closePreviewModal();
       }
     });
+  }
+
+  function refreshTranslations() {
+    syncAlwaysApproveToolsButton();
+    renderAttachmentList();
+    for (const [messageId, message] of messageModels.entries()) {
+      const article = Array.from(messages?.querySelectorAll("[data-message-id]") || [])
+        .find((node) => node.dataset.messageId === messageId);
+      const contentNode = article?.querySelector(".message__content");
+      const meta = article?.querySelector(".message__meta");
+      if (meta) {
+        meta.textContent = message.role === "user" ? t("chat.you") : t("chat.assistant");
+      }
+      if (contentNode) {
+        contentNode.innerHTML = renderMessageContent(message, messageId, activeAssistantMessage?.messageId === messageId);
+        renderMathInMarkdownBlocks(contentNode);
+      }
+    }
+    if (previewModal && !previewModal.hidden && previewModalLabel && previewState) {
+      previewModalLabel.textContent = t("preview.label");
+    }
   }
 
   function init() {
@@ -1291,6 +1320,7 @@ function createChatController({
   return {
     init,
     refreshStatus,
+    refreshTranslations,
     scrollToBottom: scrollMessagesToBottom,
   };
 }

@@ -26,7 +26,7 @@ The Config page edits local runtime settings:
 - `openaiApiKey`
 - `openaiChatModel`
 - `openaiEndpoint`
-- `motdLanguage`
+- `appLanguage`
 
 Electron owns the persistent config file. The Python backend receives a synced runtime copy.
 

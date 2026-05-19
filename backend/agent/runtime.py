@@ -293,10 +293,10 @@ class AgentRuntime:
         api_key = config["openaiApiKey"]
         model = config["openaiChatModel"]
         endpoint = config["openaiEndpoint"]
-        motd_language = config.get("motdLanguage")
+        app_language = config.get("appLanguage")
         workspace_path = config.get("workspacePath")
 
-        next_config = (api_key, model, endpoint, motd_language, workspace_path)
+        next_config = (api_key, model, endpoint, app_language, workspace_path)
         if self._agent is None or self._agent_config != next_config:
             tools = _build_agent_tools(endpoint)
             self._agent = _build_chat_completion_client(
@@ -304,7 +304,7 @@ class AgentRuntime:
                 api_key=api_key,
                 endpoint=endpoint,
             ).as_agent(
-                instructions=build_agent_instructions(motd_language),
+                instructions=build_agent_instructions(app_language),
                 tools=tools,
                 default_options={"tool_choice": "auto"},
                 context_providers=[

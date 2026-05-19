@@ -34,7 +34,7 @@ Current keys:
 | `openaiApiKey`    | API key for the configured chat provider                |
 | `openaiChatModel` | Model name used by the backend runtime                  |
 | `openaiEndpoint`  | Optional OpenAI-compatible base URL                     |
-| `motdLanguage`    | Startup message language for Chat (`zh-CN` or `en`)     |
+| `appLanguage`     | App UI, startup message, and default assistant language (`zh-CN` or `en`) |
 
 Rules to remember:
 

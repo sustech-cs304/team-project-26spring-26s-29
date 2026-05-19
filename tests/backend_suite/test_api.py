@@ -127,13 +127,13 @@ class ApiTests(BackendTestCase):
                 "openaiApiKey": None,
                 "openaiChatModel": "demo-model",
                 "openaiEndpoint": None,
-                "motdLanguage": "en",
+                "appLanguage": "en",
                 "workspacePath": self.workspace_path,
             },
         )
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.json()["openaiChatModel"], "demo-model")
-        self.assertEqual(updated.json()["motdLanguage"], "en")
+        self.assertEqual(updated.json()["appLanguage"], "en")
         self.assertEqual(updated.json()["workspacePath"], self.workspace_path)
 
         set_config({**get_config(), "openaiChatModel": None})

@@ -18,49 +18,49 @@
         <h1>Kao Hsiao</h1>
       </div>
 
-      <nav class="sidebar__nav" aria-label="Page navigation">
-        <button class="sidebar__link is-active" data-page-target="chat" type="button">Chat</button>
-        <button class="sidebar__link" data-page-target="todo" type="button">Todo</button>
-        <button class="sidebar__link" data-page-target="schedule" type="button">Schedule</button>
-        <button class="sidebar__link" data-page-target="config" type="button">Config</button>
+      <nav class="sidebar__nav" aria-label="Page navigation" data-i18n-aria-label="nav.aria">
+        <button class="sidebar__link is-active" data-page-target="chat" data-i18n="nav.chat" type="button">Chat</button>
+        <button class="sidebar__link" data-page-target="todo" data-i18n="nav.todo" type="button">Todo</button>
+        <button class="sidebar__link" data-page-target="schedule" data-i18n="nav.schedule" type="button">Schedule</button>
+        <button class="sidebar__link" data-page-target="config" data-i18n="nav.config" type="button">Config</button>
       </nav>
-      <p id="status" aria-live="polite" hidden>starting</p>
+      <p id="status" aria-live="polite" data-i18n="status.starting" hidden>starting</p>
     </aside>
 
     <main class="content">
       <section class="page is-active" data-page="chat" aria-labelledby="chat-title">
         <header class="page__header">
-          <h2 id="chat-title">Chat</h2>
-          <p class="page__copy">Ask questions and get help with your work.</p>
+          <h2 id="chat-title" data-i18n="chat.title">Chat</h2>
+          <p class="page__copy" data-i18n="chat.copy">Ask questions and get help with your work.</p>
         </header>
 
         <div class="chat-layout">
-          <section id="messages" class="messages" aria-label="Conversation"></section>
-          <button id="scroll-to-bottom" class="scroll-to-bottom" type="button" aria-label="Scroll to bottom" hidden>
+          <section id="messages" class="messages" aria-label="Conversation" data-i18n-aria-label="chat.conversation"></section>
+          <button id="scroll-to-bottom" class="scroll-to-bottom" type="button" aria-label="Scroll to bottom" data-i18n-aria-label="chat.scrollToBottom" hidden>
             <span class="scroll-to-bottom__icon" aria-hidden="true">&#8595;</span>
           </button>
 
-          <section class="chat-composer" aria-label="Message composer">
+          <section class="chat-composer" aria-label="Message composer" data-i18n-aria-label="chat.composer">
             <label class="field" for="prompt">
-              <span class="field__label">Message</span>
+              <span class="field__label" data-i18n="chat.message">Message</span>
             </label>
-            <textarea id="prompt" rows="4" placeholder="Type a message"></textarea>
+            <textarea id="prompt" rows="4" placeholder="Type a message" data-i18n-placeholder="chat.placeholder"></textarea>
             <div id="attachments" class="composer-attachments" hidden></div>
 
             <div class="chat-toolbar">
               <div class="chat-toolbar__actions">
                 <button id="attach-file" class="button button--secondary button--icon" type="button"
-                  aria-label="Add attachment">+</button>
-                <p class="chat-toolbar__hint">Attach images or text files. Use Ctrl/Cmd + Enter to send quickly.</p>
+                  aria-label="Add attachment" data-i18n-aria-label="chat.addAttachment">+</button>
+                <p class="chat-toolbar__hint" data-i18n="chat.toolbarHint">Attach images or text files. Use Ctrl/Cmd + Enter to send quickly.</p>
               </div>
               <div class="chat-toolbar__controls">
                 <button id="always-approve-tools" class="button button--secondary" type="button" aria-pressed="false">
-                  Always Approve Tools
+                  <span data-i18n="chat.alwaysApprove">Always Approve Tools</span>
                 </button>
-                <button id="interrupt-run" class="button button--secondary" type="button" disabled>
+                <button id="interrupt-run" class="button button--secondary" type="button" data-i18n="chat.interrupt" disabled>
                   Interrupt
                 </button>
-                <button id="send" type="button">Send</button>
+                <button id="send" type="button" data-i18n="chat.send">Send</button>
               </div>
             </div>
           </section>
@@ -69,80 +69,80 @@
 
       <section class="page" data-page="todo" hidden aria-labelledby="todo-title">
         <header class="page__header">
-          <h2 id="todo-title">Todo</h2>
-          <p class="page__copy">Keep track of tasks and deadlines.</p>
+          <h2 id="todo-title" data-i18n="todo.title">Todo</h2>
+          <p class="page__copy" data-i18n="todo.copy">Keep track of tasks and deadlines.</p>
         </header>
 
         <form id="todo-create-form" class="todo-create-form">
           <div class="todo-create-grid">
             <label class="field" for="todo-title-input">
-              <span class="field__label">Title</span>
-              <input id="todo-title-input" class="todo-input" type="text" placeholder="Write a task" required />
+              <span class="field__label" data-i18n="todo.field.title">Title</span>
+              <input id="todo-title-input" class="todo-input" type="text" placeholder="Write a task" data-i18n-placeholder="todo.placeholder.title" required />
             </label>
 
             <label class="field" for="todo-due-input">
-              <span class="field__label">Due At</span>
+              <span class="field__label" data-i18n="todo.field.dueAt">Due At</span>
               <input id="todo-due-input" class="todo-input" type="datetime-local" />
             </label>
           </div>
 
           <label class="field" for="todo-detail-input">
-            <span class="field__label">Detail</span>
+            <span class="field__label" data-i18n="todo.field.detail">Detail</span>
             <textarea id="todo-detail-input" class="todo-input todo-input--textarea" rows="3"
-              placeholder="Optional notes"></textarea>
+              placeholder="Optional notes" data-i18n-placeholder="todo.placeholder.detail"></textarea>
           </label>
 
           <div class="todo-create-actions">
-            <button id="todo-create-button" class="button" type="submit">Add Task</button>
+            <button id="todo-create-button" class="button" type="submit" data-i18n="todo.add">Add Task</button>
           </div>
         </form>
 
         <div class="todo-toolbar">
           <div class="todo-querybar">
             <label class="todo-search" for="todo-search-input">
-              <span class="todo-search__label">Search</span>
-              <input id="todo-search-input" class="todo-input" type="search" placeholder="Search title or detail" />
+              <span class="todo-search__label" data-i18n="todo.search">Search</span>
+              <input id="todo-search-input" class="todo-input" type="search" placeholder="Search title or detail" data-i18n-placeholder="todo.searchPlaceholder" />
             </label>
 
             <label class="todo-sort" for="todo-sort-select">
-              <span class="todo-sort__label">Sort</span>
+              <span class="todo-sort__label" data-i18n="todo.sort">Sort</span>
               <select id="todo-sort-select" class="todo-select">
-                <option value="due-asc">Due Soonest</option>
-                <option value="due-desc">Due Latest</option>
-                <option value="updated-desc">Recently Updated</option>
-                <option value="title-asc">Title A-Z</option>
+                <option value="due-asc" data-i18n="todo.sort.dueAsc">Due Soonest</option>
+                <option value="due-desc" data-i18n="todo.sort.dueDesc">Due Latest</option>
+                <option value="updated-desc" data-i18n="todo.sort.updatedDesc">Recently Updated</option>
+                <option value="title-asc" data-i18n="todo.sort.titleAsc">Title A-Z</option>
               </select>
             </label>
           </div>
 
-          <div class="todo-filters" role="tablist" aria-label="Todo filters">
-            <button class="todo-filter is-active" data-todo-filter="all" type="button">All</button>
-            <button class="todo-filter" data-todo-filter="active" type="button">Active</button>
-            <button class="todo-filter" data-todo-filter="done" type="button">Done</button>
-            <button class="todo-filter" data-todo-filter="overdue" type="button">Overdue</button>
+          <div class="todo-filters" role="tablist" aria-label="Todo filters" data-i18n-aria-label="todo.filters">
+            <button class="todo-filter is-active" data-todo-filter="all" data-i18n="todo.filter.all" type="button">All</button>
+            <button class="todo-filter" data-todo-filter="active" data-i18n="todo.filter.active" type="button">Active</button>
+            <button class="todo-filter" data-todo-filter="done" data-i18n="todo.filter.done" type="button">Done</button>
+            <button class="todo-filter" data-todo-filter="overdue" data-i18n="todo.filter.overdue" type="button">Overdue</button>
           </div>
 
           <div class="todo-bulk-actions">
-            <button id="todo-clear-completed" class="button button--secondary" type="button">Clear Completed</button>
-            <button id="todo-clear-all" class="button button--secondary" type="button">Clear All</button>
+            <button id="todo-clear-completed" class="button button--secondary" type="button" data-i18n="todo.clearCompleted">Clear Completed</button>
+            <button id="todo-clear-all" class="button button--secondary" type="button" data-i18n="todo.clearAll">Clear All</button>
           </div>
         </div>
 
         <p id="todo-feedback" class="form-feedback" aria-live="polite"></p>
 
         <div id="todo-undo-bar" class="todo-undo" hidden>
-          <p id="todo-undo-text" class="todo-undo__text">Task deleted.</p>
-          <button id="todo-undo-button" class="button button--secondary" type="button">Undo</button>
+          <p id="todo-undo-text" class="todo-undo__text" data-i18n="todo.deleted">Task deleted.</p>
+          <button id="todo-undo-button" class="button button--secondary" type="button" data-i18n="todo.undo">Undo</button>
         </div>
 
         <div id="todo-list" class="todo-list" aria-live="polite"></div>
-        <p id="todo-empty" class="todo-empty" hidden>No tasks in this view.</p>
+        <p id="todo-empty" class="todo-empty" data-i18n="todo.empty" hidden>No tasks in this view.</p>
       </section>
 
       <section class="page" data-page="schedule" hidden aria-labelledby="schedule-title">
         <header class="page__header">
-          <h2 id="schedule-title">Schedule</h2>
-          <p class="page__copy">Plan upcoming events.</p>
+          <h2 id="schedule-title" data-i18n="schedule.title">Schedule</h2>
+          <p class="page__copy" data-i18n="schedule.copy">Plan upcoming events.</p>
         </header>
 
         <div class="schedule-grid">
@@ -158,33 +158,33 @@
           <div class="schedule-right">
             <button id="schedule-toggle-create" class="button button--secondary schedule-right__toggle" type="button"
               aria-expanded="false" hidden>
-              Add Event
+              <span data-i18n="schedule.add">Add Event</span>
             </button>
 
             <form id="schedule-create-form" class="schedule-create-form">
               <label class="field" for="schedule-title-input">
-                <span class="field__label">Title</span>
-                <input id="schedule-title-input" class="todo-input" type="text" placeholder="Event title" required />
+                <span class="field__label" data-i18n="schedule.field.title">Title</span>
+                <input id="schedule-title-input" class="todo-input" type="text" placeholder="Event title" data-i18n-placeholder="schedule.placeholder.title" required />
               </label>
 
               <label class="field" for="schedule-start-input">
-                <span class="field__label">Start</span>
+                <span class="field__label" data-i18n="schedule.field.start">Start</span>
                 <input id="schedule-start-input" class="todo-input" type="datetime-local" />
               </label>
 
               <label class="field" for="schedule-end-input">
-                <span class="field__label">End</span>
+                <span class="field__label" data-i18n="schedule.field.end">End</span>
                 <input id="schedule-end-input" class="todo-input" type="datetime-local" />
               </label>
 
               <label class="field" for="schedule-detail-input">
-                <span class="field__label">Detail</span>
+                <span class="field__label" data-i18n="schedule.field.detail">Detail</span>
                 <textarea id="schedule-detail-input" class="todo-input todo-input--textarea" rows="3"
-                  placeholder="Optional notes"></textarea>
+                  placeholder="Optional notes" data-i18n-placeholder="schedule.placeholder.detail"></textarea>
               </label>
 
               <div class="form-actions">
-                <button id="schedule-create-button" class="button" type="submit">Add Event</button>
+                <button id="schedule-create-button" class="button" type="submit" data-i18n="schedule.add">Add Event</button>
               </div>
             </form>
 
@@ -196,8 +196,8 @@
 
       <section class="page" data-page="config" hidden aria-labelledby="config-title">
         <header class="page__header">
-          <h2 id="config-title">Config</h2>
-          <p class="page__copy">Manage app settings.</p>
+          <h2 id="config-title" data-i18n="config.title">Config</h2>
+          <p class="page__copy" data-i18n="config.copy">Manage app settings.</p>
         </header>
 
         <form id="config-form" class="config-form">
@@ -206,7 +206,7 @@
           <p id="config-feedback" class="form-feedback" aria-live="polite"></p>
 
           <div class="form-actions">
-            <button id="discard" class="button button--secondary" type="button">Discard</button>
+            <button id="discard" class="button button--secondary" type="button" data-i18n="config.discard">Discard</button>
             <button id="save-config" class="button" type="submit">Save</button>
           </div>
         </form>
@@ -219,14 +219,14 @@
     <section class="preview-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
       <header class="preview-modal__header">
         <div class="preview-modal__heading">
-          <p id="preview-modal-label" class="preview-modal__label">Preview</p>
-          <h3 id="preview-modal-title" class="preview-modal__title">Attachment</h3>
+          <p id="preview-modal-label" class="preview-modal__label" data-i18n="preview.label">Preview</p>
+          <h3 id="preview-modal-title" class="preview-modal__title" data-i18n="preview.attachment">Attachment</h3>
           <p id="preview-modal-meta" class="preview-modal__meta"></p>
         </div>
         <div class="preview-modal__actions">
-          <button id="preview-modal-copy" class="button button--secondary" type="button" hidden>Copy</button>
-          <button id="preview-modal-save" class="button button--secondary" type="button" hidden>Save</button>
-          <button id="preview-modal-close" class="button button--secondary" type="button">Close</button>
+          <button id="preview-modal-copy" class="button button--secondary" type="button" data-i18n="preview.copy" hidden>Copy</button>
+          <button id="preview-modal-save" class="button button--secondary" type="button" data-i18n="preview.save" hidden>Save</button>
+          <button id="preview-modal-close" class="button button--secondary" type="button" data-i18n="preview.close">Close</button>
         </div>
       </header>
       <div id="preview-modal-body" class="preview-modal__body"></div>

@@ -28,7 +28,7 @@ test("config store strips removed config fields and keeps supported values", asy
   });
 
   assert.equal(normalized.backendPort, 9000);
-  assert.equal(normalized.motdLanguage, "zh-CN");
+  assert.equal(normalized.appLanguage, "zh-CN");
   assert.equal("backendHost" in normalized, false);
   assert.equal("dbPath" in normalized, false);
   assert.equal("legacySearchToggle" in normalized, false);
@@ -47,11 +47,11 @@ test("config store derives runtime db and workspace paths beside config.json", a
   const runtimeConfig = configStore.getRuntimeConfig(normalized);
 
   assert.equal(runtimeConfig.dbPath, path.join(tempRoot, "db.json"));
-  assert.equal(runtimeConfig.motdLanguage, "zh-CN");
+  assert.equal(runtimeConfig.appLanguage, "zh-CN");
   assert.equal(runtimeConfig.workspacePath, path.join(tempRoot, "workspace"));
 });
 
-test("config store read rewrites legacy config.json keys", async () => {
+test("config store read rewrites removed config.json keys", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "config-store-legacy-"));
   const configPath = path.join(tempRoot, "config.json");
   await fs.writeFile(
@@ -62,6 +62,7 @@ test("config store read rewrites legacy config.json keys", async () => {
       dbPath: "legacy-db.json",
       openaiApiKey: "demo-key",
       workspacePath: "legacy-workspace",
+      appLanguage: "en",
     }),
   );
   const configStore = createConfigStore({
@@ -77,9 +78,17 @@ test("config store read rewrites legacy config.json keys", async () => {
     openaiApiKey: "demo-key",
     openaiChatModel: null,
     openaiEndpoint: null,
-    motdLanguage: "zh-CN",
+    appLanguage: "en",
   });
   assert.deepEqual(saved, config);
+});
+
+test("config store normalizes app language and falls back to zh-CN", () => {
+  const configStore = createConfigStore();
+
+  assert.equal(configStore.normalizeConfig({ appLanguage: "en" }).appLanguage, "en");
+  assert.equal(configStore.normalizeConfig({ appLanguage: "English" }).appLanguage, "en");
+  assert.equal(configStore.normalizeConfig({ appLanguage: "fr" }).appLanguage, "zh-CN");
 });
 
 test("resolveDefaultWorkspacePath resolves the default workspace next to config.json", async () => {

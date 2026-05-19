@@ -24,6 +24,7 @@ function createTodoController({
   todoUndoText,
   todoUndoButton,
   todoFilterButtons,
+  i18n,
 }) {
   const initialTodoViewState = (() => {
     const defaults = {
@@ -57,6 +58,10 @@ function createTodoController({
     isBusy: false,
     undoTodo: null,
   };
+
+  function t(key, params) {
+    return i18n.t(key, params);
+  }
 
   function isOverdue(todo) {
     if (todo.isDone || !todo.dueAt) {
@@ -102,11 +107,11 @@ function createTodoController({
     todoUndoButton.disabled = todoState.isBusy || !hasUndo;
 
     if (!hasUndo) {
-      todoUndoText.textContent = "Task deleted.";
+      todoUndoText.textContent = t("todo.deleted");
       return;
     }
 
-    todoUndoText.textContent = `Deleted "${todoState.undoTodo.title}". You can undo before your next action.`;
+    todoUndoText.textContent = t("todo.undoText", { title: todoState.undoTodo.title });
   }
 
   function clearTodoUndo() {
@@ -174,7 +179,7 @@ function createTodoController({
         return compareNullableDate(left.dueAt, right.dueAt, "asc");
       }
       case "title-asc":
-        return left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+        return left.title.localeCompare(right.title, i18n.locale, { sensitivity: "base" });
       case "due-asc":
       default: {
         const dueCompare = compareNullableDate(left.dueAt, right.dueAt, "asc");
@@ -228,11 +233,11 @@ function createTodoController({
 
     const ordered = ["overdue", "today", "upcoming", "no-due", "done"];
     const labels = {
-      overdue: "Overdue",
-      today: "Today",
-      upcoming: "Upcoming",
-      "no-due": "No Due Date",
-      done: "Done",
+      overdue: t("todo.group.overdue"),
+      today: t("todo.group.today"),
+      upcoming: t("todo.group.upcoming"),
+      "no-due": t("todo.group.noDue"),
+      done: t("todo.group.done"),
     };
 
     return ordered
@@ -245,7 +250,7 @@ function createTodoController({
   }
 
   function getTodoErrorMessage(error) {
-    const rawMessage = error?.message || String(error) || "Todo request failed.";
+    const rawMessage = error?.message || String(error) || t("todo.error.default");
 
     if (rawMessage.startsWith(TODO_ERROR_PREFIX)) {
       const encoded = rawMessage.slice(TODO_ERROR_PREFIX.length);
@@ -254,25 +259,25 @@ function createTodoController({
       const detail = separatorIndex < 0 ? "" : encoded.slice(separatorIndex + 1);
 
       if (category === "network") {
-        return "Network error: cannot connect to backend service. Check the local backend port setting.";
+        return t("todo.error.network");
       }
       if (category === "not-found") {
-        return "Task not found. It may have been deleted in another operation. Please refresh and retry.";
+        return t("todo.error.notFound");
       }
       if (category === "validation") {
-        return detail ? `Invalid input: ${detail}` : "Invalid input. Please check required fields and try again.";
+        return detail ? t("todo.error.validationDetail", { detail }) : t("todo.error.validation");
       }
       if (category === "server") {
-        return detail ? `Server error: ${detail}` : "Server error. Please retry in a moment.";
+        return detail ? t("todo.error.serverDetail", { detail }) : t("todo.error.server");
       }
     }
 
     if (rawMessage.includes("Cannot reach backend service") || rawMessage.includes("Failed to fetch")) {
-      return "Network error: cannot connect to backend service. Check the local backend port setting.";
+      return t("todo.error.network");
     }
 
     if (rawMessage.includes("does not exist")) {
-      return "Task not found. It may have been deleted in another operation. Please refresh and retry.";
+      return t("todo.error.notFound");
     }
 
     return rawMessage;
@@ -390,8 +395,8 @@ function createTodoController({
           <input class="todo-input" data-todo-edit="dueAt" type="datetime-local" value="${toDateTimeLocalValue(todo.dueAt)}" ${disabledAttr} />
           <textarea class="todo-input todo-input--textarea" data-todo-edit="detail" rows="2" ${disabledAttr}>${escapeHtml(todo.detail || "")}</textarea>
           <div class="todo-item__actions">
-            <button class="button" data-todo-action="save-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Save</button>
-            <button class="button button--secondary" data-todo-action="cancel-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Cancel</button>
+            <button class="button" data-todo-action="save-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>${escapeHtml(t("todo.save"))}</button>
+            <button class="button button--secondary" data-todo-action="cancel-edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>${escapeHtml(t("todo.cancel"))}</button>
           </div>
         </div>
       `;
@@ -400,19 +405,19 @@ function createTodoController({
 
     item.innerHTML = `
       <div class="todo-item__main">
-        <label class="todo-check ${todo.isDone ? "is-done" : ""}" aria-label="Mark todo done">
+        <label class="todo-check ${todo.isDone ? "is-done" : ""}" aria-label="${escapeHtml(t("todo.markDone"))}">
           <input data-todo-action="toggle" data-todo-id="${todo.id}" type="checkbox" ${todo.isDone ? "checked" : ""} ${disabledAttr} />
-          <span class="todo-check__text">Done</span>
+          <span class="todo-check__text">${escapeHtml(t("todo.done"))}</span>
         </label>
         <div class="todo-item__content">
           <p class="todo-item__title">${escapeHtml(todo.title)}</p>
-          <p class="todo-item__detail">${escapeHtml(todo.detail || "No detail")}</p>
-          <p class="todo-item__meta">Due: ${escapeHtml(formatDateTime(todo.dueAt))} | Updated: ${escapeHtml(formatDateTime(todo.updatedAt))}</p>
+          <p class="todo-item__detail">${escapeHtml(todo.detail || t("todo.noDetail"))}</p>
+          <p class="todo-item__meta">${escapeHtml(t("todo.dueUpdated", { due: formatDateTime(todo.dueAt, i18n.locale), updated: formatDateTime(todo.updatedAt, i18n.locale) }))}</p>
         </div>
       </div>
       <div class="todo-item__actions todo-item__actions--stacked">
-        <button class="button button--secondary" data-todo-action="edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Edit</button>
-        <button class="button button--secondary" data-todo-action="delete" data-todo-id="${todo.id}" type="button" ${disabledAttr}>Delete</button>
+        <button class="button button--secondary" data-todo-action="edit" data-todo-id="${todo.id}" type="button" ${disabledAttr}>${escapeHtml(t("todo.edit"))}</button>
+        <button class="button button--secondary" data-todo-action="delete" data-todo-id="${todo.id}" type="button" ${disabledAttr}>${escapeHtml(t("todo.delete"))}</button>
       </div>
     `;
 
@@ -474,8 +479,8 @@ function createTodoController({
           detail: todoDetailInput.value.trim(),
           dueAt: fromDateTimeLocalValue(todoDueInput.value),
         }),
-      "Adding task...",
-      () => setTodoFeedback("Task added.", "success"),
+      t("todo.feedback.adding"),
+      () => setTodoFeedback(t("todo.feedback.added"), "success"),
     );
 
     if (created) {
@@ -494,8 +499,8 @@ function createTodoController({
 
     await runTodoMutation(
       () => window.todoAPI.update(todoId, { isDone: checked }),
-      checked ? "Marking task done..." : "Marking task active...",
-      () => setTodoFeedback(checked ? "Task marked done." : "Task marked active.", "success"),
+      checked ? t("todo.feedback.markingDone") : t("todo.feedback.markingActive"),
+      () => setTodoFeedback(checked ? t("todo.feedback.markedDone") : t("todo.feedback.markedActive"), "success"),
     );
   }
 
@@ -513,12 +518,12 @@ function createTodoController({
 
       await runTodoMutation(
         () => window.todoAPI.remove(todoId),
-        "Deleting task...",
+        t("todo.feedback.deleting"),
         () => {
           if (deletedTodo) {
             armTodoUndo(deletedTodo);
           }
-          setTodoFeedback("Task deleted. Undo is available until your next action.", "success");
+          setTodoFeedback(t("todo.feedback.deletedUndo"), "success");
         },
       );
       return;
@@ -530,14 +535,14 @@ function createTodoController({
 
     if (action === "edit") {
       todoState.editingId = todoId;
-      setTodoFeedback("Editing task...", "pending");
+      setTodoFeedback(t("todo.feedback.editing"), "pending");
       renderTodoList();
       return;
     }
 
     if (action === "cancel-edit") {
       todoState.editingId = null;
-      setTodoFeedback("Edit cancelled.", "");
+      setTodoFeedback(t("todo.feedback.editCancelled"), "");
       renderTodoList();
       return;
     }
@@ -554,7 +559,7 @@ function createTodoController({
 
       const nextTitle = titleInput?.value.trim() || "";
       if (!nextTitle) {
-        setTodoFeedback("Title is required.", "error");
+        setTodoFeedback(t("todo.feedback.titleRequired"), "error");
         return;
       }
 
@@ -568,8 +573,8 @@ function createTodoController({
             detail: nextDetail,
             dueAt: nextDueAt,
           }),
-        "Updating task...",
-        () => setTodoFeedback("Task updated.", "success"),
+        t("todo.feedback.updating"),
+        () => setTodoFeedback(t("todo.feedback.updated"), "success"),
       );
     }
   }
@@ -636,9 +641,9 @@ function createTodoController({
           await window.todoAPI.update(created.id, { isDone: true });
         }
       },
-      "Restoring task...",
+      t("todo.feedback.restoring"),
       () => {
-        setTodoFeedback("Task restored.", "success");
+        setTodoFeedback(t("todo.feedback.restored"), "success");
       },
       { consumeUndo: false },
     );
@@ -651,10 +656,10 @@ function createTodoController({
   async function clearCompletedTodos() {
     await runTodoMutation(
       () => window.todoAPI.clear("completed"),
-      "Clearing completed tasks...",
+      t("todo.feedback.clearingCompleted"),
       (result) => {
         const deletedCount = Number(result?.deletedCount ?? 0);
-        setTodoFeedback(deletedCount ? `Cleared ${deletedCount} completed task(s).` : "No completed tasks.", "success");
+        setTodoFeedback(deletedCount ? t("todo.feedback.clearedCompleted", { count: deletedCount }) : t("todo.feedback.noCompleted"), "success");
       },
     );
   }
@@ -662,17 +667,17 @@ function createTodoController({
   async function clearAllTodos() {
     await runTodoMutation(
       () => window.todoAPI.clear("all"),
-      "Clearing all tasks...",
+      t("todo.feedback.clearingAll"),
       (result) => {
         const deletedCount = Number(result?.deletedCount ?? 0);
-        setTodoFeedback(deletedCount ? "Cleared all tasks." : "Task list is already empty.", "success");
+        setTodoFeedback(deletedCount ? t("todo.feedback.clearedAll") : t("todo.feedback.alreadyEmpty"), "success");
       },
     );
   }
 
   async function loadOnStartup() {
     setTodoBusy(true);
-    setTodoFeedback("Loading tasks...", "pending");
+    setTodoFeedback(t("todo.feedback.loading"), "pending");
 
     try {
       await reloadTodos();
@@ -699,6 +704,10 @@ function createTodoController({
     }
   }
 
+  function refreshTranslations() {
+    renderTodoList();
+  }
+
   function init() {
     renderTodoList();
     todoCreateForm.addEventListener("submit", handleTodoCreate);
@@ -718,6 +727,7 @@ function createTodoController({
     init,
     loadOnStartup,
     refreshOnForeground,
+    refreshTranslations,
   };
 }
 

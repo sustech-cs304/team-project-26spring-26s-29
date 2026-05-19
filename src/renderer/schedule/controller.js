@@ -18,6 +18,7 @@ function createScheduleController({
   scheduleToggleCreateButton,
   scheduleFeedback,
   scheduleList,
+  i18n,
 }) {
   const scheduleState = {
     items: [],
@@ -27,6 +28,10 @@ function createScheduleController({
     isBusy: false,
     isCreatePanelOpen: false,
   };
+
+  function t(key, params) {
+    return i18n.t(key, params);
+  }
 
   function syncCreatePanelVisibility() {
     if (!scheduleCreateForm) {
@@ -40,8 +45,8 @@ function createScheduleController({
 
     scheduleToggleCreateButton.hidden = false;
     scheduleToggleCreateButton.textContent = scheduleState.isCreatePanelOpen
-      ? "Hide Add Event"
-      : "Add Event";
+      ? t("schedule.hideAdd")
+      : t("schedule.add");
     scheduleToggleCreateButton.setAttribute(
       "aria-expanded",
       String(scheduleState.isCreatePanelOpen)
@@ -55,7 +60,7 @@ function createScheduleController({
 
   async function loadSchedulesForMonth(date) {
     scheduleState.isBusy = true;
-    renderScheduleFeedback("Loading events...", "pending");
+    renderScheduleFeedback(t("schedule.feedback.loading"), "pending");
     try {
       const rangeStart = new Date(Date.UTC(date.getFullYear(), date.getMonth(), 1, 0, 0, 0));
       const rangeEnd = new Date(Date.UTC(date.getFullYear(), date.getMonth() + 1, 1, 0, 0, 0));
@@ -64,22 +69,22 @@ function createScheduleController({
         ? payload.map((raw) => {
           const parsedId = parseScheduleId(raw?.id);
           if (parsedId === null) {
-            throw new Error("Invalid schedule id returned from backend.");
+            throw new Error(t("schedule.error.invalidReturnedId"));
           }
 
           return {
             id: parsedId,
             title: String(raw?.title ?? ""),
             detail: String(raw?.detail ?? ""),
-            start_at: raw?.startAt ?? raw?.start_at,
-            end_at: raw?.endAt ?? raw?.end_at,
-            all_day: Boolean(raw?.allDay ?? raw?.all_day),
-            is_done: Boolean(raw?.isDone ?? raw?.is_done ?? false),
-            completed_at: raw?.completedAt ?? raw?.completed_at ?? null,
+            start_at: raw?.startAt,
+            end_at: raw?.endAt,
+            all_day: Boolean(raw?.allDay),
+            is_done: Boolean(raw?.isDone ?? false),
+            completed_at: raw?.completedAt ?? null,
             recurrence: raw?.recurrence ?? null,
             location: raw?.location ?? null,
-            created_at: String(raw?.createdAt ?? raw?.created_at ?? ""),
-            updated_at: String(raw?.updatedAt ?? raw?.updated_at ?? ""),
+            created_at: String(raw?.createdAt ?? ""),
+            updated_at: String(raw?.updatedAt ?? ""),
           };
         })
         : [];
@@ -135,7 +140,7 @@ function createScheduleController({
       btn.type = "button";
       btn.className = "calendar-day-btn";
       btn.dataset.day = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, "0")}-${String(cellDate.getDate()).padStart(2, "0")}`;
-      btn.setAttribute("aria-label", cellDate.toLocaleDateString());
+      btn.setAttribute("aria-label", cellDate.toLocaleDateString(i18n.locale));
 
       if (!inMonth) {
         btn.disabled = true;
@@ -173,7 +178,7 @@ function createScheduleController({
 
     scheduleCalendar.replaceChildren(...cells);
     if (scheduleCurrentMonth) {
-      scheduleCurrentMonth.textContent = scheduleState.currentMonth.toLocaleString(undefined, { month: "long", year: "numeric" });
+      scheduleCurrentMonth.textContent = scheduleState.currentMonth.toLocaleString(i18n.locale, { month: "long", year: "numeric" });
     }
   }
 
@@ -194,8 +199,8 @@ function createScheduleController({
           <input class="todo-input" data-schedule-edit="endAt" type="datetime-local" value="${toDateTimeLocalValue(ev.end_at)}" />
           <textarea class="todo-input todo-input--textarea" data-schedule-edit="detail" rows="2">${escapeHtml(ev.detail || "")}</textarea>
           <div class="todo-item__actions">
-            <button class="button" data-schedule-action="save-edit" data-schedule-id="${ev.id}" type="button">Save</button>
-            <button class="button button--secondary" data-schedule-action="cancel-edit" data-schedule-id="${ev.id}" type="button">Cancel</button>
+            <button class="button" data-schedule-action="save-edit" data-schedule-id="${ev.id}" type="button">${escapeHtml(t("schedule.save"))}</button>
+            <button class="button button--secondary" data-schedule-action="cancel-edit" data-schedule-id="${ev.id}" type="button">${escapeHtml(t("schedule.cancel"))}</button>
           </div>
         </div>
       `;
@@ -207,19 +212,19 @@ function createScheduleController({
 
       item.innerHTML = `
       <div class="todo-item__main">
-        <label class="todo-check ${doneClass}" aria-label="Mark done">
+        <label class="todo-check ${doneClass}" aria-label="${escapeHtml(t("schedule.markDone"))}">
           <input data-schedule-action="toggle" data-schedule-id="${ev.id}" type="checkbox" ${checked} />
-          <span class="todo-check__text">Done</span>
+          <span class="todo-check__text">${escapeHtml(t("schedule.done"))}</span>
         </label>
         <div class="todo-item__content">
           <p class="todo-item__title">${escapeHtml(ev.title)}</p>
-          <p class="todo-item__detail">${escapeHtml(ev.detail || "No detail")}</p>
-          <p class="todo-item__meta">${escapeHtml(formatDateTime(ev.start_at))} — ${escapeHtml(formatDateTime(ev.end_at))}</p>
+          <p class="todo-item__detail">${escapeHtml(ev.detail || t("schedule.noDetail"))}</p>
+          <p class="todo-item__meta">${escapeHtml(formatDateTime(ev.start_at, i18n.locale))} — ${escapeHtml(formatDateTime(ev.end_at, i18n.locale))}</p>
         </div>
       </div>
       <div class="todo-item__actions todo-item__actions--stacked">
-        <button class="button button--secondary" data-schedule-action="edit" data-schedule-id="${ev.id}" type="button">Edit</button>
-        <button class="button button--secondary" data-schedule-action="delete" data-schedule-id="${ev.id}" type="button">Delete</button>
+        <button class="button button--secondary" data-schedule-action="edit" data-schedule-id="${ev.id}" type="button">${escapeHtml(t("schedule.edit"))}</button>
+        <button class="button button--secondary" data-schedule-action="delete" data-schedule-id="${ev.id}" type="button">${escapeHtml(t("schedule.delete"))}</button>
       </div>
     `;
 
@@ -246,7 +251,7 @@ function createScheduleController({
       });
       scheduleCreateForm.reset();
       await loadSchedulesForMonth(scheduleState.currentMonth);
-      renderScheduleFeedback("Event added.", "success");
+      renderScheduleFeedback(t("schedule.feedback.added"), "success");
     } catch (error) {
       renderScheduleFeedback(error?.message || String(error), "error");
     }
@@ -260,14 +265,14 @@ function createScheduleController({
     const id = parseScheduleId(actionTarget.dataset.scheduleId);
     if (action === "delete") {
       if (id === null) {
-        renderScheduleFeedback("Invalid schedule id.", "error");
+        renderScheduleFeedback(t("schedule.error.invalidId"), "error");
         return;
       }
 
       try {
         await window.scheduleAPI.remove(id);
         await loadSchedulesForMonth(scheduleState.currentMonth);
-        renderScheduleFeedback("Event deleted.", "success");
+        renderScheduleFeedback(t("schedule.feedback.deleted"), "success");
       } catch (error) {
         renderScheduleFeedback(error?.message || String(error), "error");
       }
@@ -278,25 +283,25 @@ function createScheduleController({
 
     if (action === "edit") {
       if (id === null) {
-        renderScheduleFeedback("Invalid schedule id.", "error");
+        renderScheduleFeedback(t("schedule.error.invalidId"), "error");
         return;
       }
       scheduleState.editingId = id;
-      renderScheduleFeedback("Editing event...", "pending");
+      renderScheduleFeedback(t("schedule.feedback.editing"), "pending");
       renderScheduleDay(scheduleState.selectedDate || scheduleState.currentMonth);
       return;
     }
 
     if (action === "cancel-edit") {
       scheduleState.editingId = null;
-      renderScheduleFeedback("Edit cancelled.", "");
+      renderScheduleFeedback(t("schedule.feedback.editCancelled"), "");
       renderScheduleDay(scheduleState.selectedDate || scheduleState.currentMonth);
       return;
     }
 
     if (action === "save-edit") {
       if (id === null) {
-        renderScheduleFeedback("Invalid schedule id.", "error");
+        renderScheduleFeedback(t("schedule.error.invalidId"), "error");
         return;
       }
 
@@ -310,7 +315,7 @@ function createScheduleController({
 
       const nextTitle = titleInput?.value.trim() || "";
       if (!nextTitle) {
-        renderScheduleFeedback("Title is required.", "error");
+        renderScheduleFeedback(t("schedule.feedback.titleRequired"), "error");
         return;
       }
 
@@ -327,7 +332,7 @@ function createScheduleController({
         });
         scheduleState.editingId = null;
         await loadSchedulesForMonth(scheduleState.currentMonth);
-        renderScheduleFeedback("Event updated.", "success");
+        renderScheduleFeedback(t("schedule.feedback.updated"), "success");
       } catch (error) {
         renderScheduleFeedback(error?.message || String(error), "error");
       }
@@ -341,7 +346,7 @@ function createScheduleController({
 
     const id = parseScheduleId(toggle.dataset.scheduleId);
     if (id === null) {
-      renderScheduleFeedback("Invalid schedule id.", "error");
+      renderScheduleFeedback(t("schedule.error.invalidId"), "error");
       return;
     }
 
@@ -350,7 +355,7 @@ function createScheduleController({
     try {
       await window.scheduleAPI.update(id, { isDone: checked });
       await loadSchedulesForMonth(scheduleState.currentMonth);
-      renderScheduleFeedback(checked ? "Event marked done." : "Event marked active.", "success");
+      renderScheduleFeedback(checked ? t("schedule.feedback.markedDone") : t("schedule.feedback.markedActive"), "success");
     } catch (error) {
       renderScheduleFeedback(error?.message || String(error), "error");
     }
@@ -394,10 +399,17 @@ function createScheduleController({
     }
   }
 
+  function refreshTranslations() {
+    syncCreatePanelVisibility();
+    renderScheduleCalendar();
+    renderScheduleDay(scheduleState.selectedDate || scheduleState.currentMonth);
+  }
+
   return {
     init,
     loadOnStartup,
     refreshOnForeground,
+    refreshTranslations,
   };
 }
 

@@ -103,7 +103,7 @@ class RuntimeConfigRequest(BaseModel):
     openaiApiKey: str | None = None
     openaiChatModel: str | None = None
     openaiEndpoint: str | None = None
-    motdLanguage: Literal["zh-CN", "en"] = "zh-CN"
+    appLanguage: Literal["zh-CN", "en"] = "zh-CN"
     workspacePath: str | None = None
 
 

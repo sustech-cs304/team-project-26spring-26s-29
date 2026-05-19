@@ -311,7 +311,7 @@ class AdaptiveClientTests(BackendTestCase):
                 "openaiApiKey": "demo-key",
                 "openaiChatModel": "demo-model",
                 "openaiEndpoint": "https://token-plan-cn.xiaomimimo.com/v1",
-                "motdLanguage": "en",
+                "appLanguage": "en",
             }
         )
         fake_agent = SimpleNamespace(create_session=lambda: "session-1")

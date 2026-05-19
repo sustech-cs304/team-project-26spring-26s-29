@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any
 
 from agent_framework import tool
 from pydantic import Field
@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from ...repositories import ScheduleEvent
 
 
-ScheduleAction = Literal["list", "list_range", "create", "update", "delete"]
 SCHEDULE_TOOL_SCOPE = (
     "Use this tool for real-world events the user must attend on time, such as classes, meetings, exams, "
     "appointments, interviews, departures, and travel. If the user asks to remember or remind them about a timed "
@@ -213,121 +212,6 @@ def delete_schedule(
     }
 
 
-def manage_schedule(
-    action: Annotated[
-        ScheduleAction,
-        Field(description="Which schedule action to run: list, list_range, create, update, or delete."),
-    ],
-    event_id: Annotated[
-        int | None,
-        Field(description="Existing schedule id. Required for update and delete."),
-    ] = None,
-    title: Annotated[
-        str | None,
-        Field(description="Event title. Required for create and optional for update."),
-    ] = None,
-    detail: Annotated[
-        str | None,
-        Field(description="Event detail or notes. Optional for create and update."),
-    ] = None,
-    start_at: Annotated[
-        str | None,
-        Field(description="Start time in ISO 8601 format, e.g. 2026-04-20T09:00:00+08:00. Required for create."),
-    ] = None,
-    end_at: Annotated[
-        str | None,
-        Field(description="End time in ISO 8601 format. Required for create."),
-    ] = None,
-    all_day: Annotated[
-        bool | None,
-        Field(description="Set true for all-day events."),
-    ] = None,
-    recurrence: Annotated[
-        str | None,
-        Field(description="Optional recurrence: 'daily', 'weekly', 'monthly', or null."),
-    ] = None,
-    recurrence_end: Annotated[
-        str | None,
-        Field(description="Optional ISO 8601 end date for recurrence."),
-    ] = None,
-    is_done: Annotated[
-        bool | None,
-        Field(description="Optional: mark event as done (true/false)."),
-    ] = None,
-    location: Annotated[
-        str | None,
-        Field(description="Optional location for the event."),
-    ] = None,
-    clear_location: Annotated[
-        bool,
-        Field(description="Set true to remove the current event location during update."),
-    ] = False,
-    range_start: Annotated[
-        str | None,
-        Field(description="Start ISO datetime for range queries (used with action='list_range')."),
-    ] = None,
-    range_end: Annotated[
-        str | None,
-        Field(description="End ISO datetime for range queries (used with action='list_range')."),
-    ] = None,
-    include_cancelled: Annotated[
-        bool,
-        Field(description="Set true to include cancelled events in list outputs."),
-    ] = True,
-) -> dict[str, Any]:
-    """Backward-compatible schedule dispatcher for legacy callers."""
-    if action == "list":
-        return list_schedules(include_cancelled=include_cancelled)
-
-    if action == "list_range":
-        if not range_start or not range_end:
-            raise ValueError("range_start and range_end are required for list_range action.")
-        return list_schedules_in_range(
-            range_start=range_start,
-            range_end=range_end,
-            include_cancelled=include_cancelled,
-        )
-
-    if action == "create":
-        if not title or not start_at or not end_at:
-            raise ValueError("title, start_at, and end_at are required for create action.")
-        return create_schedule(
-            title=title,
-            detail=detail,
-            start_at=start_at,
-            end_at=end_at,
-            all_day=bool(all_day) if all_day is not None else False,
-            recurrence=recurrence,
-            recurrence_end=recurrence_end,
-            is_done=is_done,
-            location=location,
-        )
-
-    if action == "update":
-        if event_id is None:
-            raise ValueError("event_id is required for update action.")
-        return update_schedule(
-            event_id=event_id,
-            title=title,
-            detail=detail,
-            start_at=start_at,
-            end_at=end_at,
-            all_day=all_day,
-            recurrence=recurrence,
-            recurrence_end=recurrence_end,
-            is_done=is_done,
-            location=location,
-            clear_location=clear_location,
-        )
-
-    if action == "delete":
-        if event_id is None:
-            raise ValueError("event_id is required for delete action.")
-        return delete_schedule(event_id=event_id)
-
-    return {"action": action, "message": f"Unsupported schedule action: {action}.", "deleted": False}
-
-
 list_schedules_tool = tool(
     name="list_schedules",
     description=(
@@ -372,19 +256,6 @@ delete_schedule_tool = tool(
     ),
     approval_mode="always_require",
 )(delete_schedule)
-
-# Keep the original combined tool available for legacy imports, but the runtime
-# now exposes action-specific tools so read-only access does not require approval.
-schedule_tool = tool(
-    name="manage_schedule",
-    description=(
-        "Read, create, update, and delete schedule events for the user's fixed-time commitments. "
-        "Use action='list' to inspect events, action='list_range' with range_start and range_end to fetch events "
-        "in a time window, action='create' to add an event, action='update' to change an event, action='delete' "
-        f"to remove an event. {SCHEDULE_TOOL_SCOPE}"
-    ),
-    approval_mode="always_require",
-)(manage_schedule)
 
 SCHEDULE_TOOLS = [
     list_schedules_tool,

@@ -10,7 +10,7 @@ const DEFAULTS = {
   openaiApiKey: null,
   openaiChatModel: null,
   openaiEndpoint: null,
-  motdLanguage: "zh-CN",
+  appLanguage: "zh-CN",
 };
 
 function createConfigStore({
@@ -34,8 +34,8 @@ function createConfigStore({
     return text || null;
   }
 
-  function normalizeMotdLanguage(value) {
-    const normalized = String(value ?? DEFAULTS.motdLanguage).trim().toLowerCase();
+  function normalizeAppLanguage(value) {
+    const normalized = String(value ?? DEFAULTS.appLanguage).trim().toLowerCase();
     if (normalized === "en" || normalized === "english") {
       return "en";
     }
@@ -50,7 +50,7 @@ function createConfigStore({
       openaiApiKey: normalizeOptionalString(raw.openaiApiKey),
       openaiChatModel: normalizeOptionalString(raw.openaiChatModel),
       openaiEndpoint: normalizeOptionalString(raw.openaiEndpoint),
-      motdLanguage: normalizeMotdLanguage(raw.motdLanguage),
+      appLanguage: normalizeAppLanguage(raw.appLanguage),
     };
   }
 
@@ -66,7 +66,7 @@ function createConfigStore({
       openaiApiKey: config.openaiApiKey,
       openaiChatModel: config.openaiChatModel,
       openaiEndpoint: config.openaiEndpoint,
-      motdLanguage: config.motdLanguage,
+      appLanguage: config.appLanguage,
       workspacePath: resolveDefaultWorkspacePath({ configPath }),
     };
   }

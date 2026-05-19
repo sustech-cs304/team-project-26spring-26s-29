@@ -1,10 +1,12 @@
 import { createChatController } from "./chat/controller.js";
 import { createConfigController } from "./config/controller.js";
 import { elements } from "./shared/dom.js";
+import { applyDocumentTranslations, createI18n } from "./shared/i18n.mjs";
 import { createTodoController } from "./todo/controller.js";
 import { createScheduleController } from "./schedule/controller.js";
 
 const FOREGROUND_REFRESH_COOLDOWN_MS = 300;
+const i18n = createI18n("zh-CN");
 
 function createPageManager({ navButtons, pages, onPageChange }) {
   let activePage = null;
@@ -67,6 +69,7 @@ const chatController = createChatController({
   previewModalSave: elements.previewModalSave,
   previewModalTitle: elements.previewModalTitle,
   scrollToBottomButton: elements.scrollToBottomButton,
+  i18n,
 });
 
 const configController = createConfigController({
@@ -75,7 +78,9 @@ const configController = createConfigController({
   configFeedback: elements.configFeedback,
   discard: elements.discard,
   saveConfigButton: elements.saveConfigButton,
-  onSaved: async () => {
+  i18n,
+  onSaved: async (saved) => {
+    setAppLanguage(saved?.appLanguage);
     await chatController.refreshStatus();
   },
 });
@@ -96,6 +101,7 @@ const todoController = createTodoController({
   todoUndoText: elements.todoUndoText,
   todoUndoButton: elements.todoUndoButton,
   todoFilterButtons: elements.todoFilterButtons,
+  i18n,
 });
 
 const scheduleController = createScheduleController({
@@ -111,6 +117,7 @@ const scheduleController = createScheduleController({
   scheduleToggleCreateButton: elements.scheduleToggleCreateButton,
   scheduleFeedback: elements.scheduleFeedback,
   scheduleList: elements.scheduleList,
+  i18n,
 });
 
 let foregroundRefreshInFlight = null;
@@ -169,6 +176,15 @@ function handleVisibilityChange() {
   queueForegroundRefresh();
 }
 
+function setAppLanguage(language) {
+  i18n.setLocale(language);
+  applyDocumentTranslations(i18n);
+  chatController.refreshTranslations();
+  configController.refreshTranslations();
+  todoController.refreshTranslations();
+  scheduleController.refreshTranslations();
+}
+
 const pageManager = createPageManager({
   navButtons: elements.navButtons,
   pages: elements.pages,
@@ -187,7 +203,8 @@ window.addEventListener("focus", handleWindowFocus);
 document.addEventListener("visibilitychange", handleVisibilityChange);
 
 (async function initialize() {
-  await configController.loadConfig();
+  const config = await configController.loadConfig();
+  setAppLanguage(config?.appLanguage);
   await chatController.refreshStatus();
   await todoController.loadOnStartup();
   await scheduleController.loadOnStartup();

@@ -41,8 +41,6 @@ from .schedule_tool import (
     list_schedules_in_range,
     list_schedules_in_range_tool,
     list_schedules_tool,
-    manage_schedule,
-    schedule_tool,
     update_schedule,
     update_schedule_tool,
 )
@@ -85,6 +83,4 @@ __all__ = [
     "run_workspace_shell_tool",
     "run_workspace_python_tool_impl",
     "run_workspace_python_tool",
-    "manage_schedule",
-    "schedule_tool",
 ]

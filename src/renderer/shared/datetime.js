@@ -1,9 +1,4 @@
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function formatDateTime(value) {
+function formatDateTime(value, locale = undefined) {
   if (!value) {
     return "-";
   }
@@ -13,7 +8,10 @@ function formatDateTime(value) {
     return String(value);
   }
 
-  return dateFormatter.format(date);
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function toDateTimeLocalValue(value) {

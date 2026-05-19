@@ -113,8 +113,19 @@ class AgentToolTests(BackendTestCase):
     def test_agent_instructions_require_brief_save_confirmations(self) -> None:
         self.assertIn("reply very briefly after the tool call", AGENT_INSTRUCTIONS)
         self.assertIn("do not add extra study tips", AGENT_INSTRUCTIONS)
-        self.assertIn("I saved it for you. Remember to finish it on time.", AGENT_INSTRUCTIONS)
+        self.assertIn("我帮你保存好了，记得按时完成。", AGENT_INSTRUCTIONS)
+        self.assertIn("I saved it for you. Remember to finish it on time.", build_agent_instructions("en"))
         self.assertIn("Mention a schedule id or todo id only when it is helpful", AGENT_INSTRUCTIONS)
+
+    def test_agent_instructions_define_normal_language_preference(self) -> None:
+        english_instructions = build_agent_instructions("en")
+        chinese_instructions = build_agent_instructions("zh-CN")
+
+        self.assertIn("Default to English for normal user requests.", english_instructions)
+        self.assertIn("This is a preference, not a strict lock", english_instructions)
+        self.assertIn("普通用户请求默认使用简体中文回复。", chinese_instructions)
+        self.assertIn("这是语言偏好，不是严格锁定", chinese_instructions)
+        self.assertIn('把 schedule 称为“日程”，把 todo 称为“待办”', chinese_instructions)
 
     def test_agent_instructions_define_localized_startup_motd(self) -> None:
         english_instructions = build_agent_instructions("en")
@@ -122,6 +133,11 @@ class AgentToolTests(BackendTestCase):
 
         self.assertIn(MOTD_TRIGGER_PROMPT, AGENT_INSTRUCTIONS)
         self.assertIn("当前时间：<当前本地时间>", AGENT_INSTRUCTIONS)
+        self.assertIn("最近的日程：<最近的日程，没有就写暂无>", AGENT_INSTRUCTIONS)
+        self.assertIn("最近的待办：<最近的待办，没有就写暂无>", AGENT_INSTRUCTIONS)
+        self.assertIn("总计：<N> 个日程，<M> 个待办", AGENT_INSTRUCTIONS)
+        self.assertNotIn("最近的 Schedule：", AGENT_INSTRUCTIONS)
+        self.assertNotIn("最近的 Todo：", AGENT_INSTRUCTIONS)
         self.assertIn("Reply with a MOTD in English.", english_instructions)
         self.assertIn("Nearest schedule: <nearest schedule or none>", english_instructions)
         self.assertIn("The selected MOTD language is locked to English.", english_instructions)
