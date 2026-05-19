@@ -1,6 +1,11 @@
 # Feature Requirements
 
-This document defines the simplified Release 1 scope. The goal is a small local desktop planner, not a full campus platform.
+This document defines the simplified Release 1 scope. The goal is a small local
+desktop assistant for SUSTech students, not a full campus platform.
+
+The todo, schedule, chat, and local configuration features are generic student
+productivity surfaces. The NanKe Manual (南科手册) corpus and other campus
+knowledge content are SUSTech-specific proprietary/domain content.
 
 `docs/presentation/proposal-26s-29.md` remains the original proposal archive.
 
@@ -34,7 +39,16 @@ The app shall provide local schedule-event management.
 - Schedule events persist locally through TinyDB.
 - The assistant can read schedule events and can request approval to change them.
 
-## FR4. Local Configuration
+## FR4. SUSTech Manual Corpus
+
+The app shall support a SUSTech-oriented knowledge corpus.
+
+- The corpus can be built from bundled NanKe Manual and related SUSTech source materials.
+- The corpus can be validated during development and packaging.
+- Campus-specific answers should be grounded in the SUSTech corpus when available.
+- Generic todo and schedule behavior must not depend on SUSTech-only content.
+
+## FR5. Local Configuration
 
 The app shall let users edit development-time runtime settings without leaving the desktop app.
 
@@ -45,7 +59,6 @@ The app shall let users edit development-time runtime settings without leaving t
 
 ## Out Of Scope For Release 1
 
-- campus knowledge retrieval
 - reminders and notifications
 - Blackboard or Microsoft To Do integration
 - multi-device sync

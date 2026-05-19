@@ -2,6 +2,11 @@
 
 This directory documents the repository as it exists now, not as it was first proposed.
 
+The current product is a SUSTech-oriented student assistant. Some capabilities,
+such as todos, schedule events, chat, and local settings, are generic student
+productivity features. The NanKe Manual (南科手册) corpus and other campus
+knowledge surfaces are SUSTech-specific proprietary/domain content.
+
 ## Recommended Reading Order
 
 1. [Root README](../README.md)

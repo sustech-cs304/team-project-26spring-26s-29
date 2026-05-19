@@ -1,8 +1,8 @@
 {
   "name": "kao-hsiao",
-  "productName": "Student Productivity Agent",
-  "version": "0.1.0",
-  "description": "An AI agent app to boost student productivity.",
+  "productName": "SUSTech Student Assistant",
+  "version": "0.2.0",
+  "description": "A SUSTech-oriented student assistant with NanKe Manual content, todo, calendar, and local planning tools.",
   "homepage": "https://github.com/sustech-cs304/team-project-26spring-26s-29#readme",
   "bugs": {
     "url": "https://github.com/sustech-cs304/team-project-26spring-26s-29/issues"

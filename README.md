@@ -1,10 +1,21 @@
-# Student Productivity Agent
+# SUSTech Student Assistant
 
-A local desktop app for student planning. The app focuses on three practical workflows:
+A local desktop app designed first for Southern University of Science and
+Technology (SUSTech) students. It combines SUSTech-specific proprietary/domain
+content, including NanKe Manual (南科手册) materials, with general student
+planning tools.
+
+The app focuses on four practical workflows:
 
 - chat with a local Python-backed assistant
 - manage tasks and due dates
 - manage schedule events
+- search and use SUSTech-oriented campus knowledge
+
+Todo, schedule, local configuration, and chat workflows are generic enough for
+other student productivity use cases. The bundled campus knowledge and manual
+corpus are SUSTech-specific proprietary/domain content, not a universal
+knowledge base.
 
 The project is intentionally a small local prototype. It uses Electron for the desktop shell, vanilla JavaScript for the UI, FastAPI for the backend, and TinyDB for local persistence.
 
@@ -18,6 +29,7 @@ The project is intentionally a small local prototype. It uses Electron for the d
 - Agent runtime: `agent-framework` with an OpenAI-compatible chat client
 - Local storage: TinyDB
 - Rich chat text: `markdown-it` and KaTeX
+- Campus knowledge corpus: NanKe Manual / SUSTech-oriented documents
 
 ## Quick Start
 
@@ -74,6 +86,7 @@ src/electron/   Electron main process, preload bridge, IPC, and config sync
 src/renderer/   Chat, Todo, Schedule, and Config UI
 tests/          Backend and Electron tests
 docs/           Current documentation and presentation materials
+vendor/         Bundled third-party and SUSTech-oriented source materials
 ```
 
 ## Notes
@@ -82,6 +95,8 @@ docs/           Current documentation and presentation materials
 - TinyDB data lives in `db.json` beside the active config file.
 - Uploaded files are staged into `workspace/inputs/<requestId>/...`.
 - The workspace is cleared and recreated on every app start.
+- SUSTech-specific corpus files are built with `npm run build:sustech-manual`
+  and validated with `npm run validate:sustech-manual`.
 - Avoid committing real API keys or environment-specific secrets.
 
 ## Docs
