@@ -368,3 +368,6 @@ __marimo__/
 config.json
 db.json
 workspace
+backend/knowledge/sustech_manual/generated/
+backend/knowledge/sustech_manual/index.json
+backend/knowledge/sustech_manual/manifest.json

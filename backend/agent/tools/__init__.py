@@ -44,11 +44,27 @@ from .schedule_tool import (
     update_schedule,
     update_schedule_tool,
 )
+from .sustech_manual_tool import (
+    SUSTECH_MANUAL_TOOLS,
+    fetch_sustech_manual_online,
+    fetch_sustech_manual_online_tool,
+    read_sustech_manual_record,
+    read_sustech_manual_record_tool,
+    search_sustech_manual,
+    search_sustech_manual_tool,
+)
 
 __all__ = [
     "TODO_TOOLS",
     "WORKSPACE_TOOLS",
     "SCHEDULE_TOOLS",
+    "SUSTECH_MANUAL_TOOLS",
+    "search_sustech_manual",
+    "search_sustech_manual_tool",
+    "read_sustech_manual_record",
+    "read_sustech_manual_record_tool",
+    "fetch_sustech_manual_online",
+    "fetch_sustech_manual_online_tool",
     "list_schedules",
     "list_schedules_tool",
     "list_schedules_in_range",

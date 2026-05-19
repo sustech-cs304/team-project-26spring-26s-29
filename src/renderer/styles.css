@@ -108,12 +108,18 @@ button {
 }
 
 .sidebar__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   background: transparent;
   color: inherit;
+  cursor: pointer;
+  text-decoration: none;
   text-align: left;
   transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
@@ -129,6 +135,12 @@ button {
 .sidebar__link.is-active {
   background: rgba(248, 238, 215, 0.12);
   border-color: rgba(248, 238, 215, 0.24);
+}
+
+.sidebar__external-icon {
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .content {

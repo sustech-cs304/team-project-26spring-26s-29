@@ -20,7 +20,9 @@
     "test:backend": "python -m unittest discover -s tests -v",
     "test:electron": "node --test tests/electron/*.test.js",
     "test": "npm run test:backend && npm run test:electron",
-    "package:win": "electron-builder --win nsis --publish never"
+    "build:sustech-manual": "python tools/build_sustech_manual_corpus.py",
+    "validate:sustech-manual": "python tools/build_sustech_manual_corpus.py --validate-only",
+    "package:win": "npm run build:sustech-manual && electron-builder --win nsis --publish never"
   },
   "devDependencies": {
     "electron": "^41.0.4",

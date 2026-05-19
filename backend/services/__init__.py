@@ -31,6 +31,12 @@ from .workspace_service import (
     write_workspace_file,
 )
 from .schedule_service import ScheduleService, schedule_service
+from .sustech_manual_service import (
+    SUSTechManualCorpusError,
+    fetch_sustech_manual_online,
+    read_sustech_manual_record,
+    search_sustech_manual,
+)
 
 __all__ = [
     "TodoService",
@@ -60,6 +66,10 @@ __all__ = [
     "summarize_text",
     "todo_service",
     "ScheduleService",
+    "SUSTechManualCorpusError",
+    "fetch_sustech_manual_online",
+    "read_sustech_manual_record",
+    "search_sustech_manual",
     "schedule_service",
     "to_workspace_relative_path",
     "write_workspace_file",
