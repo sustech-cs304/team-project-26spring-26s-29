@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from backend.agent.context import WorkspaceInfoProvider
+from backend.agent.instructions import build_agent_instructions
 from backend.agent.tools import (
     WORKSPACE_TOOLS,
     create_workspace_file,
@@ -152,6 +153,13 @@ class WorkspaceContextTests(AsyncBackendTestCase):
         self.assertIn("workspace_snapshot", state)
         self.assertIn("workspace_info", context.metadata)
         self.assertIn("Workspace context:", context.instructions[0][1])
+        self.assertIn("Markdown image URLs", context.instructions[0][1])
+
+    async def test_agent_instructions_prefer_markdown_for_workspace_image_display(self) -> None:
+        instructions = build_agent_instructions("en")
+
+        self.assertIn("![description](outputs/image.png)", instructions)
+        self.assertIn("Do not call preview_workspace_file only to display a workspace image", instructions)
 
 
 def _sample_pdf_bytes(text: str) -> bytes:

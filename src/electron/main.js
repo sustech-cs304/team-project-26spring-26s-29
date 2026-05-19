@@ -1,8 +1,9 @@
 const path = require("node:path");
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, shell } = require("electron");
 const { resolveConfigPath, resolvePackagedStorageRoot } = require("./app-paths");
 const { createBackendProcessController } = require("./backend-process");
 const { createConfigStore } = require("./config-store");
+const { registerExternalLinkHandlers } = require("./external-links");
 const { registerAgentIpc } = require("./ipc/agent");
 const { registerConfigIpc } = require("./ipc/config");
 const { registerTodoIpc } = require("./ipc/todo");
@@ -104,6 +105,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
     },
   });
+  registerExternalLinkHandlers(window.webContents, shell);
 
   window.webContents.on("before-input-event", (event, input) => {
     if (isZoomInShortcut(input)) {

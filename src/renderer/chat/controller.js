@@ -134,6 +134,90 @@ function createChatController({
     return part?.uri || "";
   }
 
+  function guessImageMediaType(pathOrUri) {
+    const normalized = String(pathOrUri || "").toLowerCase().split(/[?#]/, 1)[0];
+    if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
+      return "image/jpeg";
+    }
+    if (normalized.endsWith(".gif")) {
+      return "image/gif";
+    }
+    if (normalized.endsWith(".webp")) {
+      return "image/webp";
+    }
+    if (normalized.endsWith(".svg")) {
+      return "image/svg+xml";
+    }
+    return "image/png";
+  }
+
+  function imageNameFromPath(pathOrUri, fallback) {
+    const normalized = String(pathOrUri || "").split(/[?#]/, 1)[0].replace(/\\/g, "/");
+    const name = normalized.split("/").filter(Boolean).pop();
+    return name || fallback;
+  }
+
+  function partFromMarkdownImage(image) {
+    const relativePath = String(image.dataset.relativePath || "").trim();
+    const alt = image.getAttribute("alt") || "";
+    if (relativePath) {
+      return {
+        type: "image",
+        name: alt || imageNameFromPath(relativePath, t("preview.imageAlt")),
+        mediaType: image.dataset.mediaType || guessImageMediaType(relativePath),
+        relativePath,
+        sizeBytes: Number.parseInt(image.dataset.sizeBytes || "", 10) || undefined,
+      };
+    }
+
+    const uri = image.currentSrc || image.getAttribute("src") || "";
+    const dataMediaType = uri.match(/^data:([^;,]+)/i)?.[1];
+    return {
+      type: "image",
+      name: alt || imageNameFromPath(uri, t("preview.imageAlt")),
+      mediaType: dataMediaType || guessImageMediaType(uri),
+      uri,
+    };
+  }
+
+  async function hydrateMarkdownImages(root) {
+    const markdownImages = Array.from(root?.querySelectorAll?.("img[data-markdown-image='true'][data-relative-path]") || []);
+    for (const image of markdownImages) {
+      if (image.dataset.markdownImageState === "loading" || image.dataset.markdownImageState === "loaded") {
+        continue;
+      }
+
+      const relativePath = image.dataset.relativePath;
+      image.dataset.markdownImageState = "loading";
+      try {
+        const preview = await window.agentAPI.loadPreview({ relativePath });
+        if (!image.isConnected) {
+          continue;
+        }
+        if (preview?.kind !== "image" || !preview.dataBase64 || !preview.mediaType) {
+          image.dataset.markdownImageState = "error";
+          image.title = preview?.message || t("preview.unavailable");
+          continue;
+        }
+
+        image.src = `data:${preview.mediaType};base64,${preview.dataBase64}`;
+        image.dataset.markdownImageState = "loaded";
+        image.dataset.mediaType = preview.mediaType;
+        image.dataset.sizeBytes = String(preview.sizeBytes || "");
+      } catch (error) {
+        if (image.isConnected) {
+          image.dataset.markdownImageState = "error";
+          image.title = error?.message || t("preview.failed");
+        }
+      }
+    }
+  }
+
+  function enhanceRenderedContent(root) {
+    renderMathInMarkdownBlocks(root);
+    void hydrateMarkdownImages(root);
+  }
+
   function formatBytes(sizeBytes) {
     const size = Number(sizeBytes || 0);
     if (!size) {
@@ -551,7 +635,7 @@ function createChatController({
     const { article, content: contentNode } = createMessageElement(normalizedMessage.role, messageId);
     messageModels.set(messageId, normalizedMessage);
     contentNode.innerHTML = renderMessageContent(normalizedMessage, messageId, isActive);
-    renderMathInMarkdownBlocks(contentNode);
+    enhanceRenderedContent(contentNode);
 
     if (normalizedMessage.role === "user") {
       attachUserMessageToggle(article, contentNode, normalizedMessage.contents);
@@ -571,7 +655,7 @@ function createChatController({
     target.message = normalizedMessage;
     messageModels.set(target.messageId, normalizedMessage);
     target.contentNode.innerHTML = renderMessageContent(normalizedMessage, target.messageId, isActive);
-    renderMathInMarkdownBlocks(target.contentNode);
+    enhanceRenderedContent(target.contentNode);
     scrollMessagesToBottom();
   }
 
@@ -1136,6 +1220,12 @@ function createChatController({
       return;
     }
 
+    const markdownImage = event.target.closest("img[data-markdown-image='true']");
+    if (markdownImage) {
+      await openPreview(partFromMarkdownImage(markdownImage));
+      return;
+    }
+
     const approvalButton = event.target.closest("[data-approval-action]");
     if (!approvalButton || !activeAssistantMessage || !activeRequestId) {
       return;
@@ -1239,7 +1329,7 @@ function createChatController({
       }
       if (contentNode) {
         contentNode.innerHTML = renderMessageContent(message, messageId, activeAssistantMessage?.messageId === messageId);
-        renderMathInMarkdownBlocks(contentNode);
+        enhanceRenderedContent(contentNode);
       }
     }
     if (previewModal && !previewModal.hidden && previewModalLabel && previewState) {

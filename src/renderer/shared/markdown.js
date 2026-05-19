@@ -1,6 +1,7 @@
 import { escapeHtml } from "./html.js";
 
 const RENDERED_MARKDOWN_SELECTOR = "[data-rendered-markdown='true']";
+const TRANSPARENT_IMAGE_SRC = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
 
 function buildPlainTextHtml(text) {
   const paragraphs = escapeHtml(text)
@@ -18,6 +19,34 @@ function buildPlainTextHtml(text) {
 
 function wrapRenderedMarkdown(html) {
   return `<div class="message__markdown" data-rendered-markdown="true">${html}</div>`;
+}
+
+function normalizeWorkspaceImagePath(src) {
+  const raw = String(src || "").trim();
+  if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("//")) {
+    return null;
+  }
+
+  const [withoutHash] = raw.split("#", 1);
+  const [withoutQuery] = withoutHash.split("?", 1);
+  const decoded = (() => {
+    try {
+      return decodeURI(withoutQuery);
+    } catch {
+      return withoutQuery;
+    }
+  })();
+  const parts = decoded
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .split("/")
+    .filter((part) => part && part !== ".");
+
+  if (!parts.length || parts.some((part) => part === "..")) {
+    return null;
+  }
+
+  return parts.join("/");
 }
 
 function createMarkdownRenderer() {
@@ -44,8 +73,18 @@ function createMarkdownRenderer() {
     renderer.renderer.rules.image
     || ((tokens, index, options, _env, self) => self.renderToken(tokens, index, options));
   renderer.renderer.rules.image = (tokens, index, options, env, self) => {
+    const src = tokens[index].attrGet("src");
+    const relativePath = normalizeWorkspaceImagePath(src);
     tokens[index].attrJoin("class", "message__image");
     tokens[index].attrSet("loading", "lazy");
+    if (String(src || "").trim()) {
+      tokens[index].attrSet("data-markdown-image", "true");
+    }
+    if (relativePath) {
+      tokens[index].attrSet("src", TRANSPARENT_IMAGE_SRC);
+      tokens[index].attrSet("data-relative-path", relativePath);
+      tokens[index].attrSet("data-markdown-image-state", "pending");
+    }
     return defaultImage(tokens, index, options, env, self);
   };
 
@@ -103,6 +142,7 @@ function renderMathInMarkdownBlocks(root) {
 }
 
 export {
+  normalizeWorkspaceImagePath,
   renderMarkdown,
   renderMathInMarkdownBlocks,
   renderPlainText,

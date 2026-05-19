@@ -533,6 +533,7 @@ def format_workspace_snapshot(snapshot: dict[str, Any]) -> str:
         f"- Uploaded inputs live under: {snapshot['inputs_root']}",
         f"- Generated outputs should usually go under: {snapshot['outputs_root']}",
         "- All workspace paths shared with the model use forward slashes and are relative to the workspace root.",
+        "- Markdown image URLs in assistant replies are resolved relative to the workspace root.",
         "- Prefer workspace file tools for listing, reading, creating, and updating files.",
         "- Use shell/python only when file tools are insufficient or you need program execution.",
     ]

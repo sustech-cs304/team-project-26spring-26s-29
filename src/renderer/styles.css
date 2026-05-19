@@ -726,6 +726,15 @@ button {
   background: rgba(78, 65, 53, 0.06);
 }
 
+.message__image[data-markdown-image="true"] {
+  cursor: zoom-in;
+}
+
+.message__image[data-markdown-image-state="pending"],
+.message__image[data-markdown-image-state="loading"] {
+  min-height: 120px;
+}
+
 .message__image--thumb {
   width: 72px;
   height: 72px;
