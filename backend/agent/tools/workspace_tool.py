@@ -70,7 +70,7 @@ def read_workspace_file_tool_impl(
         Field(description="Maximum number of characters to return for decodable text files.", ge=1, le=50000),
     ] = 20000,
 ) -> dict[str, Any]:
-    """Read one workspace file. Binary files return metadata plus a guidance message."""
+    """Read text or supported document files. Unsupported binaries return metadata plus a warning."""
     return read_workspace_file(relative_path, max_characters=max_characters)
 
 
@@ -84,7 +84,7 @@ def preview_workspace_file_tool_impl(
         Field(description="Maximum number of preview characters to return for text files.", ge=200, le=20000),
     ] = 8000,
 ) -> list[Content]:
-    """Prepare an inline preview for text, image, PDF, audio, or video files in the workspace."""
+    """Prepare an agent-readable preview for text, supported documents, or images in the workspace."""
     preview = build_workspace_preview(relative_path, max_text_characters=max_text_characters)
     summary = [
         f"Preview request prepared for {preview['relative_path']}.",
@@ -101,6 +101,16 @@ def preview_workspace_file_tool_impl(
                 f"Text preview for {preview['relative_path']}:\n\n{preview.get('text') or '(empty file)'}"
             )
         )
+        return items
+
+    if preview["preview_type"] == "document":
+        document = preview.get("document") or {}
+        if document.get("readable") and preview.get("text"):
+            items.append(
+                Content.from_text(
+                    f"Extracted document text for {preview['relative_path']}:\n\n{preview['text']}"
+                )
+            )
         return items
 
     data_base64 = preview.get("data_base64")
@@ -220,13 +230,19 @@ search_workspace_text_tool = tool(
 
 read_workspace_file_tool = tool(
     name="read_workspace_file",
-    description="Read one workspace file. Binary files return metadata instead of text.",
+    description=(
+        "Read one workspace file. Text and supported documents return text. "
+        "Unsupported binaries return metadata and must not be inferred."
+    ),
     approval_mode="never_require",
 )(read_workspace_file_tool_impl)
 
 preview_workspace_file_tool = tool(
     name="preview_workspace_file",
-    description="Prepare an inline preview for text, image, PDF, audio, or video files in the workspace.",
+    description=(
+        "Prepare an agent-readable preview for text, supported documents, or images. "
+        "Audio, video, and unsupported binaries are not readable unless the user approves custom Python processing."
+    ),
     approval_mode="never_require",
 )(preview_workspace_file_tool_impl)
 

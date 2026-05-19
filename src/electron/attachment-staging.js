@@ -23,6 +23,8 @@ const IMAGE_MEDIA_TYPES = {
 };
 
 const GENERIC_MEDIA_TYPES = {
+  ".aac": "audio/aac",
+  ".avi": "video/x-msvideo",
   ".c": "text/plain",
   ".cc": "text/plain",
   ".cpp": "text/plain",
@@ -38,6 +40,10 @@ const GENERIC_MEDIA_TYPES = {
   ".jsx": "text/javascript",
   ".log": "text/plain",
   ".md": "text/markdown",
+  ".mov": "video/quicktime",
+  ".mp3": "audio/mpeg",
+  ".mp4": "video/mp4",
+  ".m4a": "audio/mp4",
   ".pdf": "application/pdf",
   ".ppt": "application/vnd.ms-powerpoint",
   ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -55,7 +61,25 @@ const GENERIC_MEDIA_TYPES = {
   ".yaml": "application/yaml",
   ".yml": "application/yaml",
   ".zip": "application/zip",
+  ".wav": "audio/wav",
+  ".webm": "video/webm",
 };
+
+const DOCUMENT_EXTENSIONS = new Set([
+  ".csv",
+  ".docx",
+  ".html",
+  ".htm",
+  ".json",
+  ".md",
+  ".odt",
+  ".pdf",
+  ".pptx",
+  ".rtf",
+  ".txt",
+  ".xlsx",
+  ".xml",
+]);
 
 const MEDIA_TYPE_TO_EXTENSION = Object.fromEntries(
   [...Object.entries(IMAGE_MEDIA_TYPES), ...Object.entries(GENERIC_MEDIA_TYPES)].map(([extension, mediaType]) => [
@@ -87,6 +111,20 @@ function isImageMediaType(mediaType) {
   return String(mediaType || "").toLowerCase().startsWith("image/");
 }
 
+function isTemporalMediaType(mediaType) {
+  const normalized = String(mediaType || "").toLowerCase();
+  return normalized.startsWith("audio/") || normalized.startsWith("video/");
+}
+
+function isDocumentPath(filePath) {
+  return DOCUMENT_EXTENSIONS.has(path.extname(filePath || "").toLowerCase());
+}
+
+function isTextInlineMediaType(mediaType) {
+  const normalized = String(mediaType || "").toLowerCase();
+  return normalized.startsWith("text/") || normalized.includes("json") || normalized.includes("xml");
+}
+
 function previewKindForMediaType(mediaType) {
   const normalized = String(mediaType || "").toLowerCase();
   if (!normalized) {
@@ -96,13 +134,10 @@ function previewKindForMediaType(mediaType) {
     return "image";
   }
   if (normalized.startsWith("audio/")) {
-    return "audio";
+    return "file";
   }
   if (normalized.startsWith("video/")) {
-    return "video";
-  }
-  if (normalized === "application/pdf") {
-    return "pdf";
+    return "file";
   }
   if (normalized.startsWith("text/") || normalized.includes("json") || normalized.includes("xml")) {
     return "text";
@@ -219,18 +254,29 @@ async function stageAttachments({ filePaths, requestId, workspacePath }) {
         sizeBytes,
         relativePath,
         dataBase64: fileBuffer.toString("base64"),
+        capability: "image_native",
+        readability: "llm_native",
       });
       continue;
     }
 
-    attachments.push({
+    const capability = resolveAttachmentCapability(filePath, mediaType, summaryText, sizeBytes);
+    const attachment = {
       type: "file",
       name,
       mediaType,
       sizeBytes,
       relativePath,
-      summaryText,
-    });
+      capability,
+      readability: capability === "image_native" && sizeBytes > MAX_INLINE_IMAGE_BYTES
+        ? "llm_unavailable"
+        : readabilityForCapability(capability),
+      message: messageForCapability(capability, sizeBytes),
+    };
+    if (capability === "text_inline") {
+      attachment.summaryText = summaryText;
+    }
+    attachments.push(attachment);
   }
 
   return attachments;
@@ -272,7 +318,7 @@ async function loadWorkspacePreview({
     };
   }
 
-  if (["image", "pdf", "audio", "video"].includes(previewKind)) {
+  if (previewKind === "image") {
     if (fileBuffer.byteLength > maxInlineBytes) {
       return {
         kind: previewKind,
@@ -301,8 +347,66 @@ async function loadWorkspacePreview({
     mediaType: resolvedMediaType,
     relativePath,
     sizeBytes: fileBuffer.byteLength,
-    message: "Inline preview is not available for this file type.",
+    message: previewMessageForMediaType(resolvedMediaType, absolutePath),
   };
+}
+
+function resolveAttachmentCapability(filePath, mediaType, summaryText, sizeBytes) {
+  if (isTemporalMediaType(mediaType)) {
+    return "unsupported_temporal";
+  }
+  if (isImageMediaType(mediaType)) {
+    return "image_native";
+  }
+  if (summaryText && isTextInlineMediaType(mediaType)) {
+    return "text_inline";
+  }
+  if (isDocumentPath(filePath)) {
+    return "document_extractable";
+  }
+  return "unsupported_binary";
+}
+
+function readabilityForCapability(capability) {
+  switch (capability) {
+    case "image_native":
+      return "llm_native";
+    case "document_extractable":
+      return "agent_extractable";
+    case "text_inline":
+      return "text_inline";
+    case "unsupported_temporal":
+      return "unsupported_temporal";
+    default:
+      return "unsupported_binary";
+  }
+}
+
+function messageForCapability(capability, sizeBytes) {
+  switch (capability) {
+    case "image_native":
+      return sizeBytes > MAX_INLINE_IMAGE_BYTES
+        ? "Image is too large to provide inline to the model."
+        : "Image bytes are provided inline to the model.";
+    case "document_extractable":
+      return "Agent can extract text from this document. Human preview is not supported.";
+    case "text_inline":
+      return "Text preview is provided inline.";
+    case "unsupported_temporal":
+      return "Audio and video files are not supported.";
+    default:
+      return "This file type is not directly readable by the model.";
+  }
+}
+
+function previewMessageForMediaType(mediaType, filePath) {
+  if (isTemporalMediaType(mediaType)) {
+    return "Audio and video preview is not supported.";
+  }
+  if (isDocumentPath(filePath)) {
+    return "Document preview is not supported here. The agent can extract text from supported documents.";
+  }
+  return "Inline preview is not available for this file type.";
 }
 
 module.exports = {
@@ -316,8 +420,10 @@ module.exports = {
   extensionFromMediaType: (mediaType) => MEDIA_TYPE_TO_EXTENSION[String(mediaType || "").toLowerCase()] || "",
   isProbablyBinaryBuffer,
   isImageMediaType,
+  isTemporalMediaType,
   loadWorkspacePreview,
   previewKindForMediaType,
+  resolveAttachmentCapability,
   sanitizeFileName,
   stageAttachments,
 };

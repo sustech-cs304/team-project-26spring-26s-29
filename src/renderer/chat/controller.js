@@ -159,19 +159,16 @@ function createChatController({
     if (part?.type === "image") {
       return "image";
     }
+    if (part?.capability === "document_extractable") {
+      return "document";
+    }
+    if (part?.capability === "unsupported_temporal") {
+      return "file";
+    }
 
     const mediaType = String(part?.mediaType || "").toLowerCase();
     if (mediaType.startsWith("image/")) {
       return "image";
-    }
-    if (mediaType === "application/pdf") {
-      return "pdf";
-    }
-    if (mediaType.startsWith("audio/")) {
-      return "audio";
-    }
-    if (mediaType.startsWith("video/")) {
-      return "video";
     }
     if (part?.summaryText || isTextLikeMediaType(mediaType)) {
       return "text";
@@ -181,12 +178,8 @@ function createChatController({
 
   function getPreviewBadge(kind) {
     switch (kind) {
-      case "pdf":
-        return "PDF";
-      case "audio":
-        return "AUDIO";
-      case "video":
-        return "VIDEO";
+      case "document":
+        return "DOC";
       case "text":
         return "TEXT";
       default:
@@ -950,6 +943,8 @@ function createChatController({
       uri: part?.uri,
       dataBase64: part?.dataBase64 ? "inline" : "",
       summaryText: part?.summaryText || "",
+      capability: part?.capability || "",
+      readability: part?.readability || "",
     });
 
     if (localPreviewCache.has(cacheKey)) {
@@ -967,7 +962,7 @@ function createChatController({
         text: part.summaryText,
         truncated: false,
       }
-      : src && ["image", "pdf", "audio", "video"].includes(kind)
+      : src && kind === "image"
         ? {
           kind,
           name: part.name,
@@ -1013,12 +1008,6 @@ function createChatController({
     switch (payload?.kind) {
       case "image":
         return `<img class="preview-modal__image" src="${escapeHtml(src)}" alt="${escapeHtml(payload?.name || part?.name || "Preview image")}" />`;
-      case "pdf":
-        return `<iframe class="preview-modal__frame" src="${escapeHtml(src)}" title="${escapeHtml(payload?.name || part?.name || "PDF preview")}"></iframe>`;
-      case "audio":
-        return `<audio class="preview-modal__media" controls src="${escapeHtml(src)}"></audio>`;
-      case "video":
-        return `<video class="preview-modal__media" controls src="${escapeHtml(src)}"></video>`;
       case "text":
         return `
           <div class="preview-modal__text-wrap">
@@ -1097,7 +1086,7 @@ function createChatController({
       previewModalMeta.textContent = [payload?.mediaType || part?.mediaType, formatBytes(payload?.sizeBytes || part?.sizeBytes), payload?.relativePath || part?.relativePath].filter(Boolean).join(" · ");
       previewModalBody.innerHTML = buildPreviewBody(payload, part);
       previewModalSave.hidden = false;
-      previewModalCopy.hidden = !["text", "image", "pdf", "audio", "video", "file"].includes(payload?.kind || "");
+      previewModalCopy.hidden = !["text", "image"].includes(payload?.kind || "");
     } catch (error) {
       previewModalBody.innerHTML = `
         <div class="preview-modal__empty">

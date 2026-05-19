@@ -9,6 +9,12 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from ..config import get_config
+from .document_service import (
+    DOCUMENT_TEXT_MAX_CHARACTERS,
+    extract_document_text,
+    is_supported_document_path,
+    is_temporal_media_type,
+)
 
 TEXT_DECODING_CANDIDATES = ("utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "gb18030")
 SUMMARY_PREVIEW_MAX_CHARACTERS = 4000
@@ -17,6 +23,7 @@ LIST_FILES_MAX_ENTRIES = 200
 SEARCH_MAX_MATCHES = 50
 PREVIEW_TEXT_MAX_CHARACTERS = 8000
 PREVIEW_INLINE_MAX_BYTES = 8 * 1024 * 1024
+TEXT_DOCUMENT_EXTENSIONS = {".csv", ".html", ".htm", ".json", ".md", ".txt", ".xml"}
 
 
 @dataclass(frozen=True)
@@ -160,8 +167,11 @@ def build_file_reference_text(
     media_type: str,
     size_bytes: int | None,
     relative_path: str,
+    capability: str | None = None,
+    readability: str | None = None,
     summary_text: str | None = None,
     inline_note: str | None = None,
+    message: str | None = None,
 ) -> str:
     lines = [
         "Attached workspace file:",
@@ -171,8 +181,14 @@ def build_file_reference_text(
     ]
     if size_bytes is not None:
         lines.append(f"- Size Bytes: {size_bytes}")
+    if capability:
+        lines.append(f"- Capability: {capability}")
+    if readability:
+        lines.append(f"- Readability: {readability}")
     if inline_note:
         lines.append(f"- Note: {inline_note}")
+    if message:
+        lines.append(f"- Status: {message}")
     if summary_text:
         lines.extend(["- Preview:", summary_text])
     return "\n".join(lines)
@@ -225,14 +241,69 @@ def read_workspace_file(relative_path: str, *, max_characters: int = READ_FILE_M
     if not file_path.exists():
         raise FileNotFoundError(f"Workspace file does not exist: {normalize_relative_path(relative_path)}")
 
+    normalized = normalize_relative_path(relative_path)
+    media_type = guess_workspace_media_type(normalized)
+    if is_supported_document_path(file_path) and file_path.suffix.lower() not in TEXT_DOCUMENT_EXTENSIONS:
+        extraction = extract_document_text(
+            file_path,
+            media_type=media_type,
+            max_characters=min(max_characters, DOCUMENT_TEXT_MAX_CHARACTERS),
+        )
+        payload: dict[str, Any] = {
+            "relative_path": normalized,
+            "size_bytes": file_path.stat().st_size,
+            "media_type": media_type,
+            "is_text": extraction.readable,
+            "is_document": True,
+            "document": extraction.to_dict(),
+        }
+        if extraction.readable:
+            payload.update(
+                {
+                    "encoding": "extracted",
+                    "truncated": extraction.truncated,
+                    "text": extraction.text,
+                }
+            )
+        else:
+            payload["message"] = extraction.message
+        return payload
+
     text_result = read_text_from_workspace(relative_path, max_characters=max_characters)
     payload: dict[str, Any] = {
-        "relative_path": normalize_relative_path(relative_path),
+        "relative_path": normalized,
         "size_bytes": file_path.stat().st_size,
         "is_text": text_result is not None,
     }
     if text_result is None:
-        payload["message"] = "This file is binary or not safely decodable. Use shell/python for advanced inspection."
+        if is_supported_document_path(file_path):
+            extraction = extract_document_text(
+                file_path,
+                media_type=media_type,
+                max_characters=min(max_characters, DOCUMENT_TEXT_MAX_CHARACTERS),
+            )
+            payload.update(
+                {
+                    "media_type": media_type,
+                    "is_document": True,
+                    "document": extraction.to_dict(),
+                }
+            )
+            if extraction.readable:
+                payload.update(
+                    {
+                        "is_text": True,
+                        "encoding": "extracted",
+                        "truncated": extraction.truncated,
+                        "text": extraction.text,
+                    }
+                )
+            else:
+                payload["message"] = extraction.message
+            return payload
+
+        payload["media_type"] = media_type
+        payload["message"] = _unsupported_file_message(media_type)
         return payload
 
     payload.update(
@@ -290,6 +361,28 @@ def build_workspace_preview(
         )
         return payload
 
+    if is_temporal_media_type(media_type):
+        payload["message"] = "Audio and video files are not supported for preview or direct reading."
+        return payload
+
+    if is_supported_document_path(file_path):
+        extraction = extract_document_text(
+            file_path,
+            media_type=media_type,
+            max_characters=DOCUMENT_TEXT_MAX_CHARACTERS,
+        )
+        payload.update(
+            {
+                "preview_type": "document",
+                "document": extraction.to_dict(),
+                "truncated": extraction.truncated,
+                "message": extraction.message,
+            }
+        )
+        if extraction.readable:
+            payload["text"] = extraction.text
+        return payload
+
     text_result = read_text_from_workspace(normalized, max_characters=max_text_characters)
     if text_result is not None:
         preview_text = summarize_text(text_result.text, max_characters=max_text_characters) or ""
@@ -308,9 +401,7 @@ def build_workspace_preview(
         )
         return payload
 
-    payload["message"] = (
-        "This binary file type does not support inline preview. Use workspace shell/python tools if deeper inspection is needed."
-    )
+    payload["message"] = _unsupported_file_message(media_type)
     return payload
 
 
@@ -455,10 +546,13 @@ def _preview_type_for_media_type(media_type: str) -> str | None:
     normalized = str(media_type or "").lower()
     if normalized.startswith("image/"):
         return "image"
-    if normalized.startswith("audio/"):
-        return "audio"
-    if normalized.startswith("video/"):
-        return "video"
-    if normalized == "application/pdf":
-        return "pdf"
     return None
+
+
+def _unsupported_file_message(media_type: str | None) -> str:
+    if is_temporal_media_type(media_type):
+        return "Audio and video files are not supported. Do not infer their contents."
+    return (
+        "This file type is not directly readable. Do not infer its contents. "
+        "If the user insists, ask before trying workspace Python for custom processing."
+    )

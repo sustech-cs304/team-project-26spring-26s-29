@@ -1,5 +1,8 @@
 """Tests for workspace file tools and command helpers."""
 
+import json
+from pathlib import Path
+
 from backend.agent.context import WorkspaceInfoProvider
 from backend.agent.tools import (
     WORKSPACE_TOOLS,
@@ -12,6 +15,8 @@ from backend.agent.tools import (
     search_workspace_text_tool_impl,
     update_workspace_file,
 )
+from backend.services import resolve_workspace_path
+from backend.services.document_service import extract_document_text
 
 from .support import AsyncBackendTestCase, BackendTestCase
 
@@ -45,7 +50,8 @@ class WorkspaceToolTests(BackendTestCase):
 
     def test_preview_workspace_file_returns_rich_preview_items(self) -> None:
         create_workspace_file("outputs/preview.txt", "hello preview world")
-        create_workspace_file("outputs/sample.pdf", "%PDF-1.4 preview")
+        pdf_path = resolve_workspace_path("outputs/sample.pdf")
+        pdf_path.write_bytes(_sample_pdf_bytes("hello pdf preview"))
 
         text_preview = preview_workspace_file_tool_impl("outputs/preview.txt")
         pdf_preview = preview_workspace_file_tool_impl("outputs/sample.pdf")
@@ -53,8 +59,65 @@ class WorkspaceToolTests(BackendTestCase):
         self.assertEqual(text_preview[0].type, "text")
         self.assertEqual(text_preview[1].type, "text")
         self.assertIn("hello preview world", text_preview[1].text)
-        self.assertEqual(pdf_preview[1].type, "data")
-        self.assertEqual(pdf_preview[1].media_type, "application/pdf")
+        self.assertEqual(pdf_preview[1].type, "text")
+        self.assertIn("hello pdf preview", pdf_preview[1].text)
+
+    def test_document_extraction_supports_common_formats_and_truncation(self) -> None:
+        _write_docx(resolve_workspace_path("outputs/sample.docx"), "hello docx")
+        _write_pptx(resolve_workspace_path("outputs/sample.pptx"), "hello pptx")
+        _write_xlsx(resolve_workspace_path("outputs/sample.xlsx"), "hello xlsx")
+        create_workspace_file("outputs/sample.csv", "name,value\nhello,csv")
+        create_workspace_file("outputs/sample.html", "<html><body><h1>hello html</h1></body></html>")
+        create_workspace_file("outputs/sample.json", json.dumps({"hello": "json"}))
+        create_workspace_file("outputs/sample.txt", "hello txt")
+
+        cases = {
+            "outputs/sample.docx": "hello docx",
+            "outputs/sample.pptx": "hello pptx",
+            "outputs/sample.xlsx": "hello xlsx",
+            "outputs/sample.csv": "hello\tcsv",
+            "outputs/sample.html": "hello html",
+            "outputs/sample.json": '"hello": "json"',
+            "outputs/sample.txt": "hello txt",
+        }
+        for relative_path, expected in cases.items():
+            extraction = extract_document_text(resolve_workspace_path(relative_path))
+            self.assertTrue(extraction.readable, relative_path)
+            self.assertIn(expected, extraction.text)
+
+        create_workspace_file("outputs/long.txt", "x" * 31000)
+        long_result = extract_document_text(resolve_workspace_path("outputs/long.txt"))
+        self.assertTrue(long_result.readable)
+        self.assertTrue(long_result.truncated)
+        self.assertIn("Document text truncated", long_result.text)
+
+    def test_empty_pdf_returns_unreadable_warning(self) -> None:
+        from pypdf import PdfWriter
+
+        pdf_path = resolve_workspace_path("outputs/empty.pdf")
+        writer = PdfWriter()
+        writer.add_blank_page(width=72, height=72)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        extraction = extract_document_text(pdf_path)
+
+        self.assertFalse(extraction.readable)
+        self.assertIn("No extractable text", extraction.message)
+
+    def test_read_workspace_file_extracts_documents_and_warns_on_binary(self) -> None:
+        pdf_path = resolve_workspace_path("outputs/readable.pdf")
+        pdf_path.write_bytes(_sample_pdf_bytes("workspace pdf text"))
+        binary_path = resolve_workspace_path("outputs/archive.bin")
+        binary_path.write_bytes(bytes([0, 1, 2]))
+
+        pdf_result = read_workspace_file_tool_impl("outputs/readable.pdf")
+        binary_result = read_workspace_file_tool_impl("outputs/archive.bin")
+
+        self.assertTrue(pdf_result["is_document"])
+        self.assertIn("workspace pdf text", pdf_result["text"])
+        self.assertFalse(binary_result["is_text"])
+        self.assertIn("not directly readable", binary_result["message"])
 
     def test_workspace_tool_approval_modes(self) -> None:
         tool_modes = {tool.name: tool.approval_mode for tool in WORKSPACE_TOOLS}
@@ -89,3 +152,58 @@ class WorkspaceContextTests(AsyncBackendTestCase):
         self.assertIn("workspace_snapshot", state)
         self.assertIn("workspace_info", context.metadata)
         self.assertIn("Workspace context:", context.instructions[0][1])
+
+
+def _sample_pdf_bytes(text: str) -> bytes:
+    content = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode("ascii")
+    objects = [
+        b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
+        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n",
+        (
+            b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj\n"
+        ),
+        b"4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
+        f"5 0 obj << /Length {len(content)} >> stream\n".encode("ascii")
+        + content
+        + b"\nendstream endobj\n",
+    ]
+    payload = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(payload))
+        payload.extend(obj)
+    xref_at = len(payload)
+    payload.extend(b"xref\n0 6\n")
+    payload.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        payload.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    payload.extend(b"trailer << /Root 1 0 R /Size 6 >>\n")
+    payload.extend(f"startxref\n{xref_at}\n%%EOF\n".encode("ascii"))
+    return bytes(payload)
+
+
+def _write_docx(path: Path, text: str) -> None:
+    from docx import Document
+
+    document = Document()
+    document.add_paragraph(text)
+    document.save(str(path))
+
+
+def _write_pptx(path: Path, text: str) -> None:
+    from pptx import Presentation
+
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[5])
+    slide.shapes.title.text = text
+    presentation.save(str(path))
+
+
+def _write_xlsx(path: Path, text: str) -> None:
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet["A1"] = text
+    workbook.save(str(path))

@@ -19,6 +19,7 @@ from backend.agent.runtime import (
     _serialize_content,
 )
 from backend.agent.context import PlanningSnapshotProvider
+from backend.services import resolve_workspace_path
 
 from .support import AsyncBackendTestCase, BackendTestCase
 
@@ -92,6 +93,9 @@ class PartialResponseAgent:
 
 class AgentRuntimeTests(AsyncBackendTestCase):
     async def test_build_user_message_supports_text_image_and_workspace_file(self) -> None:
+        document_path = resolve_workspace_path("inputs/req-1/03-doc.txt")
+        document_path.parent.mkdir(parents=True, exist_ok=True)
+        document_path.write_text("document body", encoding="utf-8")
         message = _build_user_message(
             [
                 {"type": "text", "text": "Summarize this"},
@@ -109,7 +113,26 @@ class AgentRuntimeTests(AsyncBackendTestCase):
                     "mediaType": "text/markdown",
                     "sizeBytes": 7,
                     "relativePath": "inputs/req-1/02-notes.md",
+                    "capability": "text_inline",
                     "summaryText": "# Notes",
+                },
+                {
+                    "type": "file",
+                    "name": "doc.txt",
+                    "mediaType": "text/plain",
+                    "sizeBytes": 13,
+                    "relativePath": "inputs/req-1/03-doc.txt",
+                    "capability": "document_extractable",
+                    "readability": "agent_extractable",
+                },
+                {
+                    "type": "file",
+                    "name": "archive.bin",
+                    "mediaType": "application/octet-stream",
+                    "sizeBytes": 3,
+                    "relativePath": "inputs/req-1/04-archive.bin",
+                    "capability": "unsupported_binary",
+                    "readability": "unsupported_binary",
                 },
             ]
         )
@@ -121,6 +144,8 @@ class AgentRuntimeTests(AsyncBackendTestCase):
         self.assertIn("data:image/png;base64,YWJj", message.contents[1].uri)
         self.assertIn("Workspace Path: inputs/req-1/01-photo.png", message.contents[2].text)
         self.assertIn("Preview:", message.contents[3].text)
+        self.assertIn("document body", message.contents[4].text)
+        self.assertIn("not directly readable", message.contents[5].text)
 
     async def test_serialize_content_supports_tool_requests_results_images_and_files(self) -> None:
         image_content = Content.from_uri(

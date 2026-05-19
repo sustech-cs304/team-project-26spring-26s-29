@@ -19,7 +19,13 @@ from agent_framework import (
 from agent_framework.openai import OpenAIChatCompletionClient
 
 from ..config import get_config
-from ..services import build_file_reference_text
+from ..services import (
+    DOCUMENT_TEXT_MAX_CHARACTERS,
+    build_file_reference_text,
+    extract_document_text,
+    guess_workspace_media_type,
+    resolve_workspace_path,
+)
 from .context import CurrentInfoProvider, PlanningSnapshotProvider, WorkspaceInfoProvider
 from .instructions import build_agent_instructions
 
@@ -354,6 +360,8 @@ def _build_user_message(contents: Sequence[InputPart]) -> Message:
                         media_type=media_type,
                         size_bytes=int(item.get("sizeBytes") or 0),
                         relative_path=relative_path,
+                        capability=str(item.get("capability") or "image_native"),
+                        readability=str(item.get("readability") or "llm_native"),
                         inline_note="The image bytes are attached inline for multimodal inspection.",
                     )
                 )
@@ -363,15 +371,28 @@ def _build_user_message(contents: Sequence[InputPart]) -> Message:
         if part_type == "file":
             name = str(item.get("name") or "file")
             media_type = str(item.get("mediaType") or "application/octet-stream")
+            relative_path = str(item.get("relativePath") or "")
+            capability = str(item.get("capability") or "").strip() or None
+            readability = str(item.get("readability") or "").strip() or None
+            message = str(item.get("message") or "").strip() or None
             summary_text = str(item.get("summaryText") or "") or None
+            extracted_text = None
+            if capability == "document_extractable":
+                extracted_text = _extract_attached_document_text(relative_path, media_type)
+            elif capability == "text_inline" and summary_text:
+                extracted_text = summary_text
+
             user_contents.append(
                 Content.from_text(
                     build_file_reference_text(
                         name=name,
                         media_type=media_type,
                         size_bytes=int(item.get("sizeBytes") or 0),
-                        relative_path=str(item.get("relativePath") or ""),
-                        summary_text=summary_text,
+                        relative_path=relative_path,
+                        capability=capability,
+                        readability=readability,
+                        summary_text=extracted_text,
+                        message=message or _default_attachment_message(capability),
                     )
                 )
             )
@@ -380,6 +401,42 @@ def _build_user_message(contents: Sequence[InputPart]) -> Message:
         raise ValueError(f"Unsupported input content type: {part_type}")
 
     return Message("user", user_contents)
+
+
+def _extract_attached_document_text(relative_path: str, media_type: str) -> str | None:
+    try:
+        file_path = resolve_workspace_path(relative_path)
+        extraction = extract_document_text(
+            file_path,
+            media_type=media_type or guess_workspace_media_type(relative_path),
+            max_characters=DOCUMENT_TEXT_MAX_CHARACTERS,
+        )
+    except Exception as exc:
+        return f"Document text extraction failed: {type(exc).__name__}: {exc}. Do not infer this document's contents."
+
+    if not extraction.readable:
+        return f"{extraction.message} Do not infer this document's contents."
+
+    header = [
+        "Extracted document text:",
+        f"- Extraction Status: {extraction.message}",
+        f"- Truncated: {extraction.truncated}",
+    ]
+    if extraction.page_or_sheet_count is not None:
+        header.append(f"- Pages/Sheets/Slides: {extraction.page_or_sheet_count}")
+    if extraction.warnings:
+        header.append("- Warnings: " + "; ".join(extraction.warnings))
+    return "\n".join(header) + "\n\n" + extraction.text
+
+
+def _default_attachment_message(capability: str | None) -> str | None:
+    if capability == "image_native":
+        return "Image was not provided inline to the model. Do not infer visual details unless an image preview tool succeeds."
+    if capability == "unsupported_temporal":
+        return "Audio and video files are not supported. Do not infer their contents."
+    if capability == "unsupported_binary":
+        return "This file type is not directly readable. Do not infer its contents."
+    return None
 
 
 def _normalize_agent_input_messages(agent_input: Content | Message) -> list[Message]:

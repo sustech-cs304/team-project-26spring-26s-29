@@ -27,6 +27,8 @@ class ImageInputPart(BaseModel):
     sizeBytes: int = Field(ge=0)
     relativePath: str = Field(min_length=1, max_length=500)
     dataBase64: str = Field(min_length=1)
+    capability: str | None = Field(default=None, max_length=80)
+    readability: str | None = Field(default=None, max_length=80)
 
     @field_validator("name", "mediaType", "dataBase64", "relativePath")
     @classmethod
@@ -36,6 +38,14 @@ class ImageInputPart(BaseModel):
             raise ValueError("Field cannot be empty.")
         return value
 
+    @field_validator("capability", "readability")
+    @classmethod
+    def normalize_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
 
 class FileInputPart(BaseModel):
     type: Literal["file"]
@@ -43,6 +53,9 @@ class FileInputPart(BaseModel):
     mediaType: str = Field(min_length=1, max_length=120)
     sizeBytes: int = Field(ge=0)
     relativePath: str = Field(min_length=1, max_length=500)
+    capability: str | None = Field(default=None, max_length=80)
+    readability: str | None = Field(default=None, max_length=80)
+    message: str | None = Field(default=None, max_length=1000)
     summaryText: str | None = Field(default=None, max_length=5000)
 
     @field_validator("name", "mediaType", "relativePath")
@@ -53,9 +66,9 @@ class FileInputPart(BaseModel):
             raise ValueError("Field cannot be empty.")
         return value
 
-    @field_validator("summaryText")
+    @field_validator("capability", "readability", "message", "summaryText")
     @classmethod
-    def normalize_summary(cls, value: str | None) -> str | None:
+    def normalize_optional_metadata(cls, value: str | None) -> str | None:
         if value is None:
             return None
         value = value.strip()

@@ -1,6 +1,13 @@
 """Service layer entry points for backend business logic."""
 
 from .todo_service import TodoService, todo_service
+from .document_service import (
+    DOCUMENT_TEXT_MAX_CHARACTERS,
+    DocumentExtractionResult,
+    extract_document_text,
+    is_supported_document_path,
+    is_temporal_media_type,
+)
 from .workspace_command_service import run_workspace_python, run_workspace_shell
 from .workspace_service import (
     append_workspace_file,
@@ -27,16 +34,21 @@ from .schedule_service import ScheduleService, schedule_service
 
 __all__ = [
     "TodoService",
+    "DOCUMENT_TEXT_MAX_CHARACTERS",
+    "DocumentExtractionResult",
     "append_workspace_file",
     "build_workspace_preview",
     "build_file_reference_text",
     "build_workspace_snapshot",
     "decode_text_bytes",
     "ensure_workspace_layout",
+    "extract_document_text",
     "format_workspace_snapshot",
     "guess_workspace_media_type",
     "get_workspace_root",
     "is_probably_text",
+    "is_supported_document_path",
+    "is_temporal_media_type",
     "list_workspace_entries",
     "normalize_relative_path",
     "read_text_from_workspace",

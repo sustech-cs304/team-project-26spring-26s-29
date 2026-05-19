@@ -2,3 +2,10 @@ agent-framework
 fastapi
 uvicorn
 tinydb
+pypdf
+python-docx
+python-pptx
+openpyxl
+beautifulsoup4
+striprtf
+odfpy
