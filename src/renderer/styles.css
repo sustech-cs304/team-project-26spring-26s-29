@@ -4,24 +4,24 @@
 
 :root {
   color-scheme: light;
-  --bg: #f6efe3;
-  --panel: rgba(255, 252, 246, 0.78);
-  --panel-strong: rgba(255, 253, 248, 0.92);
-  --sidebar: #243127;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-text: #f8eed7;
-  --text: #1e1a16;
-  --muted: #675e53;
-  --line: rgba(36, 49, 39, 0.12);
-  --accent: #cc6a2f;
-  --accent-strong: #a74f1a;
-  --accent-soft: rgba(204, 106, 47, 0.12);
+  --bg: #f5eee5;
+  --panel: #fbf7f1;
+  --panel-strong: #fffaf4;
+  --sidebar: #6a5544;
+  --sidebar-border: rgba(255, 250, 244, 0.14);
+  --sidebar-text: #fff7ed;
+  --text: #2a241f;
+  --muted: #71665c;
+  --line: rgba(78, 65, 53, 0.14);
+  --accent: #b96235;
+  --accent-strong: #8f4523;
+  --accent-soft: rgba(185, 98, 53, 0.1);
   --danger: #b33d2e;
-  --success: #2e6b2e;
-  --shadow: 0 16px 36px rgba(72, 47, 28, 0.1);
-  --radius: 18px;
-  --radius-sm: 12px;
-  --font-ui: "Trebuchet MS", "Segoe UI", sans-serif;
+  --success: #7d5132;
+  --shadow: 0 8px 20px rgba(72, 47, 28, 0.08);
+  --radius: 10px;
+  --radius-sm: 8px;
+  --font-ui: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body {
@@ -29,9 +29,8 @@ body {
   margin: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at top left, rgba(204, 106, 47, 0.16), transparent 32%),
-    radial-gradient(circle at bottom right, rgba(81, 117, 84, 0.16), transparent 28%),
-    linear-gradient(135deg, #f8f1e8 0%, #f2e8d8 45%, #efe3d2 100%);
+    radial-gradient(circle at top left, rgba(185, 98, 53, 0.08), transparent 30%),
+    linear-gradient(135deg, #f8f1e8 0%, #f3eadf 100%);
   color: var(--text);
   font: 15px/1.5 var(--font-ui);
 }
@@ -49,32 +48,30 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: 8px;
   height: 100vh;
-  padding: 12px;
+  padding: 8px;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-height: calc(100vh - 24px);
-  padding: 16px 14px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 35%),
-    var(--sidebar);
+  gap: 12px;
+  min-height: calc(100vh - 16px);
+  padding: 12px;
+  background: var(--sidebar);
   color: var(--sidebar-text);
   border: 1px solid var(--sidebar-border);
-  border-radius: 20px;
-  box-shadow: 0 14px 30px rgba(20, 28, 22, 0.16);
+  border-radius: var(--radius);
+  box-shadow: none;
 }
 
 .sidebar__brand h1,
 .page__header h2,
 .config-field__label,
 .preview-modal__title {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-ui);
 }
 
 .sidebar__brand h1,
@@ -82,6 +79,11 @@ button {
   margin: 0;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.sidebar__brand h1 {
+  font-size: 1.28rem;
+  line-height: 1.2;
 }
 
 .sidebar__eyebrow,
@@ -102,14 +104,14 @@ button {
 
 .sidebar__nav {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .sidebar__link {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  border-radius: 6px;
   background: transparent;
   color: inherit;
   text-align: left;
@@ -129,20 +131,6 @@ button {
   border-color: rgba(248, 238, 215, 0.24);
 }
 
-.sidebar__status-card {
-  margin-top: auto;
-  padding: 12px 14px;
-  border: 1px solid rgba(248, 238, 215, 0.1);
-  border-radius: 14px;
-  background: rgba(248, 238, 215, 0.06);
-}
-
-#status {
-  margin: 0;
-  font-size: 0.98rem;
-  font-weight: 700;
-}
-
 .content {
   min-width: 0;
   height: 100%;
@@ -154,12 +142,12 @@ button {
   height: 100%;
   min-height: 0;
   margin: 0;
-  padding: 18px;
+  padding: 14px;
   overflow: auto;
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(78, 65, 53, 0.1);
   border-radius: var(--radius);
   background: var(--panel);
-  backdrop-filter: blur(18px);
+  backdrop-filter: none;
   box-shadow: var(--shadow);
 }
 
@@ -170,12 +158,12 @@ button {
 }
 
 .page__header {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   flex-shrink: 0;
 }
 
 .page__header h2 {
-  font-size: clamp(1.8rem, 2.6vw, 2.6rem);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
 }
 
 .page__copy {
@@ -201,10 +189,10 @@ button {
 .config-field,
 .config-field--checkbox,
 .todo-create-form {
-  padding: 14px 16px;
+  padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: rgba(255, 253, 248, 0.72);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 250, 244, 0.74);
 }
 
 .config-field__toggle-row {
@@ -219,16 +207,16 @@ button {
 .todo-input,
 .todo-select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 9px 10px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--panel-strong);
   color: var(--text);
   transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 #prompt {
-  min-height: 108px;
+  min-height: 92px;
   max-height: 220px;
   resize: vertical;
 }
@@ -278,13 +266,13 @@ button {
 .scroll-to-bottom {
   position: absolute;
   left: 50%;
-  bottom: 128px;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgba(36, 49, 39, 0.1);
-  border-radius: 999px;
+  bottom: 112px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(78, 65, 53, 0.1);
+  border-radius: 8px;
   background: rgba(255, 253, 248, 0.94);
-  color: #1f241f;
+  color: var(--text);
   box-shadow: 0 10px 20px rgba(72, 47, 28, 0.1);
   backdrop-filter: blur(10px);
   transform: translateX(-50%);
@@ -303,7 +291,7 @@ button {
   justify-content: center;
   width: 100%;
   height: 100%;
-  font-size: 1.45rem;
+  font-size: 1.2rem;
 }
 
 .message {
@@ -330,17 +318,17 @@ button {
 
 .message__bubble {
   width: min(100%, 980px);
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: rgba(255, 253, 248, 0.9);
-  box-shadow: 0 8px 16px rgba(72, 47, 28, 0.06);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 250, 244, 0.84);
+  box-shadow: none;
 }
 
 .message--user .message__bubble {
   width: min(100%, 860px);
-  background: linear-gradient(135deg, rgba(204, 106, 47, 0.18), rgba(204, 106, 47, 0.08));
-  border-color: rgba(204, 106, 47, 0.22);
+  background: rgba(185, 98, 53, 0.1);
+  border-color: rgba(185, 98, 53, 0.18);
 }
 
 .message--assistant .message__bubble {
@@ -352,8 +340,8 @@ button {
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  border-radius: 16px 0 0 16px;
-  background: linear-gradient(180deg, rgba(204, 106, 47, 0.5), rgba(81, 117, 84, 0.3));
+  border-radius: 8px 0 0 8px;
+  background: rgba(143, 69, 35, 0.32);
 }
 
 .message__content {
@@ -372,10 +360,10 @@ button {
   position: absolute;
   top: 10px;
   right: 10px;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.62);
   color: var(--muted);
 }
@@ -455,13 +443,13 @@ button {
 
 .message__content hr {
   border: 0;
-  border-top: 1px solid rgba(36, 49, 39, 0.16);
+  border-top: 1px solid rgba(78, 65, 53, 0.14);
 }
 
 .message__content code {
   padding: 0.12em 0.36em;
   border-radius: 6px;
-  background: rgba(36, 49, 39, 0.08);
+  background: rgba(78, 65, 53, 0.08);
   font-family: "Consolas", "Courier New", monospace;
   font-size: 0.95em;
 }
@@ -469,8 +457,8 @@ button {
 .message__content pre {
   overflow: auto;
   padding: 12px 14px;
-  border-radius: 12px;
-  background: #1f241f;
+  border-radius: var(--radius-sm);
+  background: #2b2621;
   color: #f8f2e7;
 }
 
@@ -500,7 +488,7 @@ button {
   border-collapse: collapse;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
 }
 
 .message__content th,
@@ -512,7 +500,7 @@ button {
 }
 
 .message__content th {
-  background: rgba(36, 49, 39, 0.06);
+  background: rgba(78, 65, 53, 0.06);
   font-weight: 700;
 }
 
@@ -527,8 +515,8 @@ button {
   margin: 0;
   padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(36, 49, 39, 0.04);
+  border-radius: var(--radius-sm);
+  background: rgba(78, 65, 53, 0.04);
 }
 
 .message__filename,
@@ -564,16 +552,16 @@ button {
   padding: 6px 10px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(36, 49, 39, 0.04);
+  border-radius: 6px;
+  background: rgba(78, 65, 53, 0.04);
   color: var(--muted);
   font-size: 0.82rem;
   white-space: nowrap;
 }
 
 .message__tool-line--approved {
-  background: rgba(46, 107, 46, 0.08);
-  border-color: rgba(46, 107, 46, 0.18);
+  background: rgba(143, 69, 35, 0.08);
+  border-color: rgba(143, 69, 35, 0.18);
 }
 
 .message__tool-line--interrupted {
@@ -601,8 +589,8 @@ button {
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(36, 49, 39, 0.08);
+  border-radius: 5px;
+  background: rgba(78, 65, 53, 0.08);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -636,7 +624,7 @@ button {
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid rgba(204, 106, 47, 0.24);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: rgba(204, 106, 47, 0.08);
 }
 
@@ -669,7 +657,7 @@ button {
   display: inline-flex;
   align-items: center;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 5px;
   font-size: 0.7rem;
   font-weight: 700;
 }
@@ -680,8 +668,8 @@ button {
 }
 
 .message__badge--approved {
-  background: rgba(46, 107, 46, 0.14);
-  color: var(--success);
+  background: rgba(143, 69, 35, 0.12);
+  color: var(--accent-strong);
 }
 
 .message__badge--rejected {
@@ -734,8 +722,8 @@ button {
   width: min(100%, 420px);
   max-height: 320px;
   object-fit: contain;
-  border-radius: 12px;
-  background: rgba(36, 49, 39, 0.06);
+  border-radius: var(--radius-sm);
+  background: rgba(78, 65, 53, 0.06);
 }
 
 .message__image--thumb {
@@ -755,7 +743,7 @@ button {
   height: 72px;
   padding: 8px;
   border-radius: 10px;
-  background: rgba(36, 49, 39, 0.08);
+  background: rgba(78, 65, 53, 0.08);
   color: var(--muted);
   text-align: center;
 }
@@ -793,23 +781,23 @@ button {
   gap: 8px;
   padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(36, 49, 39, 0.04);
+  border-radius: var(--radius-sm);
+  background: rgba(78, 65, 53, 0.04);
 }
 
 .composer-attachment__remove,
 .button--icon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 7px;
   font-size: 1.1rem;
   line-height: 1;
 }
 
 .composer-attachment__remove {
   border: 0;
-  background: rgba(36, 49, 39, 0.08);
+  background: rgba(78, 65, 53, 0.08);
   color: var(--text);
   box-shadow: none;
 }
@@ -817,19 +805,19 @@ button {
 .composer-attachment__remove:hover,
 .composer-attachment__remove:focus-visible {
   outline: none;
-  background: rgba(36, 49, 39, 0.12);
+  background: rgba(78, 65, 53, 0.12);
 }
 
 .chat-composer {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-self: stretch;
-  padding: 14px;
+  padding: 10px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: rgba(255, 253, 248, 0.94);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 10px 18px rgba(72, 47, 28, 0.08);
+  border-radius: var(--radius);
+  background: rgba(255, 250, 244, 0.92);
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .chat-toolbar,
@@ -869,14 +857,14 @@ button {
 
 .button,
 #send {
-  padding: 9px 14px;
+  padding: 8px 12px;
   border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  border-radius: 7px;
+  background: var(--accent);
   color: #fff6ef;
   font-weight: 700;
   letter-spacing: 0.01em;
-  box-shadow: 0 10px 18px rgba(167, 79, 26, 0.16);
+  box-shadow: none;
   transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
 }
 
@@ -885,18 +873,19 @@ button {
 #send:hover,
 #send:focus-visible {
   outline: none;
-  transform: translateY(-1px);
+  transform: none;
+  background: var(--accent-strong);
 }
 
 .button--secondary {
-  background: rgba(36, 49, 39, 0.08);
+  background: rgba(78, 65, 53, 0.08);
   color: var(--text);
   box-shadow: none;
 }
 
 .button--secondary:hover,
 .button--secondary:focus-visible {
-  background: rgba(36, 49, 39, 0.12);
+  background: rgba(78, 65, 53, 0.12);
   box-shadow: none;
 }
 
@@ -971,9 +960,9 @@ button {
 }
 
 .todo-filter {
-  padding: 7px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 7px;
   background: rgba(255, 253, 248, 0.8);
   color: var(--text);
 }
@@ -1015,7 +1004,7 @@ button {
   min-width: 28px;
   padding: 1px 8px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 5px;
   text-align: center;
   color: var(--muted);
   font-size: 0.78rem;
@@ -1037,7 +1026,7 @@ button {
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 253, 248, 0.82);
 }
 
@@ -1067,7 +1056,7 @@ button {
   min-height: 30px;
   padding: 5px 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 6px;
   background: rgba(255, 253, 248, 0.9);
   color: var(--muted);
   font-size: 0.74rem;
@@ -1153,8 +1142,8 @@ button {
   gap: 10px;
   margin: 0 0 8px;
   padding: 8px 10px;
-  border: 1px dashed rgba(36, 49, 39, 0.22);
-  border-radius: 10px;
+  border: 1px dashed rgba(78, 65, 53, 0.2);
+  border-radius: 6px;
   background: rgba(255, 253, 248, 0.86);
 }
 
@@ -1206,7 +1195,7 @@ button {
   gap: 10px;
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 16px;
+  border-radius: var(--radius);
   background: rgba(255, 252, 246, 0.84);
   box-shadow: 0 22px 44px rgba(21, 18, 14, 0.16);
 }
@@ -1246,8 +1235,8 @@ button {
 .preview-modal__media {
   width: 100%;
   border: 0;
-  border-radius: 12px;
-  background: rgba(36, 49, 39, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(78, 65, 53, 0.08);
 }
 
 .preview-modal__image {
@@ -1272,8 +1261,8 @@ button {
   margin: 0;
   padding: 12px;
   overflow: auto;
-  border-radius: 12px;
-  background: #1f241f;
+  border-radius: var(--radius-sm);
+  background: #2b2621;
   color: #f8f2e7;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1281,9 +1270,9 @@ button {
 
 .preview-modal__empty {
   padding: 16px;
-  border: 1px dashed rgba(36, 49, 39, 0.2);
-  border-radius: 12px;
-  background: rgba(36, 49, 39, 0.04);
+  border: 1px dashed rgba(78, 65, 53, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(78, 65, 53, 0.04);
 }
 
 .preview-modal__empty p {
@@ -1436,7 +1425,7 @@ button {
   padding: 10px;
   min-height: 56px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--panel-strong);
   color: var(--text);
   display: flex;
@@ -1463,7 +1452,7 @@ button {
   padding: 0 6px;
   font-size: 0.75rem;
   font-weight: 700;
-  border-radius: 999px;
+  border-radius: 5px;
   background: var(--accent);
   color: #fff6ef;
   display: inline-flex;
@@ -1473,8 +1462,8 @@ button {
 
 .calendar-day-btn.is-selected {
   border-color: rgba(204, 106, 47, 0.45);
-  box-shadow: 0 6px 14px rgba(167, 79, 26, 0.12);
-  background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+  box-shadow: none;
+  background: var(--accent-soft);
 }
 
 /* Schedule layout adjustments to enable right-column scrolling */
@@ -1524,14 +1513,14 @@ button {
   align-content: start;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 253, 248, 0.72);
 }
 
 .schedule-create-form .form-actions {
   margin-top: 4px;
   padding-top: 6px;
-  border-top: 1px solid rgba(36, 49, 39, 0.12);
+  border-top: 1px solid rgba(78, 65, 53, 0.12);
 }
 
 #schedule-feedback {

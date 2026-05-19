@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; frame-src 'self' data: blob: https:;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agent Console</title>
+  <title>Kao Hsiao</title>
   <link rel="stylesheet" href="../../node_modules/katex/dist/katex.min.css" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -15,8 +15,7 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="sidebar__brand">
-        <p class="sidebar__eyebrow">Electron -> Python</p>
-        <h1>Agent Console</h1>
+        <h1>Kao Hsiao</h1>
       </div>
 
       <nav class="sidebar__nav" aria-label="Page navigation">
@@ -25,19 +24,14 @@
         <button class="sidebar__link" data-page-target="schedule" type="button">Schedule</button>
         <button class="sidebar__link" data-page-target="config" type="button">Config</button>
       </nav>
-
-      <div class="sidebar__status-card">
-        <p class="sidebar__status-label">Backend status</p>
-        <p id="status" aria-live="polite">starting</p>
-      </div>
+      <p id="status" aria-live="polite" hidden>starting</p>
     </aside>
 
     <main class="content">
       <section class="page is-active" data-page="chat" aria-labelledby="chat-title">
         <header class="page__header">
-          <p class="page__eyebrow">Workspace</p>
           <h2 id="chat-title">Chat</h2>
-          <p class="page__copy">Send prompts to the Python agent and watch the streamed reply land live.</p>
+          <p class="page__copy">Ask questions and get help with your work.</p>
         </header>
 
         <div class="chat-layout">
@@ -75,9 +69,8 @@
 
       <section class="page" data-page="todo" hidden aria-labelledby="todo-title">
         <header class="page__header">
-          <p class="page__eyebrow">Workspace</p>
           <h2 id="todo-title">Todo</h2>
-          <p class="page__copy">A local-first task panel for quick planning before agent integration.</p>
+          <p class="page__copy">Keep track of tasks and deadlines.</p>
         </header>
 
         <form id="todo-create-form" class="todo-create-form">
@@ -148,9 +141,8 @@
 
       <section class="page" data-page="schedule" hidden aria-labelledby="schedule-title">
         <header class="page__header">
-          <p class="page__eyebrow">Calendar</p>
           <h2 id="schedule-title">Schedule</h2>
-          <p class="page__copy">Create and manage calendar events.</p>
+          <p class="page__copy">Plan upcoming events.</p>
         </header>
 
         <div class="schedule-grid">
@@ -204,9 +196,8 @@
 
       <section class="page" data-page="config" hidden aria-labelledby="config-title">
         <header class="page__header">
-          <p class="page__eyebrow">Settings</p>
           <h2 id="config-title">Config</h2>
-          <p class="page__copy">Edit the local app configuration here, then save or discard the draft below.</p>
+          <p class="page__copy">Manage app settings.</p>
         </header>
 
         <form id="config-form" class="config-form">
