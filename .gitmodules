@@ -1,0 +1,3 @@
+[submodule "vendor/sustech-online-ng"]
+	path = vendor/sustech-online-ng
+	url = https://github.com/SUSTech-CRA/sustech-online-ng.git
