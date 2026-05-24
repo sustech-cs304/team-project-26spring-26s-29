@@ -5,6 +5,7 @@ const { createBackendProcessController } = require("./backend-process");
 const { createConfigStore } = require("./config-store");
 const { registerExternalLinkHandlers } = require("./external-links");
 const { registerAgentIpc } = require("./ipc/agent");
+const { registerBlackboardIpc } = require("./ipc/blackboard");
 const { registerConfigIpc } = require("./ipc/config");
 const { registerTodoIpc } = require("./ipc/todo");
 const { registerScheduleIpc } = require("./ipc/schedule");
@@ -163,6 +164,7 @@ app.whenReady().then(async () => {
     getApi,
     getConfig: () => configStore.getRuntimeConfig(config),
   });
+  registerBlackboardIpc({ getApi });
   registerTodoIpc({ getApi });
   registerScheduleIpc({ getApi });
   createWindow();

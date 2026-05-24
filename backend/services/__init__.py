@@ -1,5 +1,6 @@
 """Service layer entry points for backend business logic."""
 
+from .blackboard_service import BlackboardService, blackboard_service
 from .todo_service import TodoService, todo_service
 from .document_service import (
     DOCUMENT_TEXT_MAX_CHARACTERS,
@@ -40,9 +41,11 @@ from .sustech_manual_service import (
 
 __all__ = [
     "TodoService",
+    "BlackboardService",
     "DOCUMENT_TEXT_MAX_CHARACTERS",
     "DocumentExtractionResult",
     "append_workspace_file",
+    "blackboard_service",
     "build_workspace_preview",
     "build_file_reference_text",
     "build_workspace_snapshot",

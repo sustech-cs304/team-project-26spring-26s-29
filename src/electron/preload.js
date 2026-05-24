@@ -35,3 +35,13 @@ contextBridge.exposeInMainWorld("scheduleAPI", {
   update: (id, updates) => ipcRenderer.invoke("schedule:update", { id, ...updates }),
   remove: (id) => ipcRenderer.invoke("schedule:delete", id),
 });
+
+contextBridge.exposeInMainWorld("blackboardAPI", {
+  openLogin: () => ipcRenderer.invoke("blackboard:open-login"),
+  getStatus: () => ipcRenderer.invoke("blackboard:get-status"),
+  clearLogin: () => ipcRenderer.invoke("blackboard:clear-login"),
+  sync: () => ipcRenderer.invoke("blackboard:sync"),
+  listSuggestions: () => ipcRenderer.invoke("blackboard:list-suggestions"),
+  applySuggestions: (ids) => ipcRenderer.invoke("blackboard:apply-suggestions", ids),
+  dismissSuggestions: (ids) => ipcRenderer.invoke("blackboard:dismiss-suggestions", ids),
+});

@@ -1,3 +1,4 @@
+import { createBlackboardController } from "./blackboard/controller.js";
 import { createChatController } from "./chat/controller.js";
 import { createConfigController } from "./config/controller.js";
 import { elements } from "./shared/dom.js";
@@ -120,6 +121,21 @@ const scheduleController = createScheduleController({
   i18n,
 });
 
+const blackboardController = createBlackboardController({
+  applyAllButton: elements.blackboardApplyAll,
+  clearButton: elements.blackboardClear,
+  dismissAllButton: elements.blackboardDismissAll,
+  empty: elements.blackboardEmpty,
+  loginButton: elements.blackboardLogin,
+  meta: elements.blackboardMeta,
+  statusText: elements.blackboardStatusText,
+  suggestionList: elements.blackboardSuggestionList,
+  summary: elements.blackboardSummary,
+  syncButton: elements.blackboardSync,
+  syncFeedback: elements.blackboardSyncFeedback,
+  i18n,
+});
+
 let foregroundRefreshInFlight = null;
 let lastForegroundRefreshAt = 0;
 
@@ -141,6 +157,9 @@ async function refreshActivePageOnForeground() {
   }
   if (activePage === "schedule") {
     await scheduleController.refreshOnForeground();
+  }
+  if (activePage === "blackboard") {
+    await blackboardController.refreshOnForeground();
   }
 }
 
@@ -183,6 +202,7 @@ function setAppLanguage(language) {
   configController.refreshTranslations();
   todoController.refreshTranslations();
   scheduleController.refreshTranslations();
+  blackboardController.refreshTranslations();
 }
 
 const pageManager = createPageManager({
@@ -197,6 +217,7 @@ chatController.init();
 configController.init();
 todoController.init();
 scheduleController.init();
+blackboardController.init();
 pageManager.bind();
 
 window.addEventListener("focus", handleWindowFocus);
@@ -208,6 +229,7 @@ document.addEventListener("visibilitychange", handleVisibilityChange);
   await chatController.refreshStatus();
   await todoController.loadOnStartup();
   await scheduleController.loadOnStartup();
+  await blackboardController.loadOnStartup();
   pageManager.setActivePage("chat");
   chatController.scrollToBottom(true);
 })();

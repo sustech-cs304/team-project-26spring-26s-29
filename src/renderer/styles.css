@@ -1411,6 +1411,149 @@ button {
   }
 }
 
+.blackboard-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.blackboard-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 253, 248, 0.72);
+}
+
+.blackboard-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.blackboard-panel h3,
+.blackboard-suggestion h4 {
+  margin: 0;
+}
+
+.blackboard-muted {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.blackboard-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.blackboard-meta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.blackboard-meta dt {
+  color: var(--muted);
+}
+
+.blackboard-meta dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.blackboard-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.blackboard-summary__item {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid rgba(78, 65, 53, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.blackboard-summary__item strong {
+  font-size: 1.35rem;
+}
+
+.blackboard-summary__item span {
+  color: var(--muted);
+}
+
+.blackboard-suggestion-list {
+  display: grid;
+  gap: 10px;
+}
+
+.blackboard-suggestion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(78, 65, 53, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.blackboard-suggestion__main {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.blackboard-suggestion__main p {
+  margin: 0;
+}
+
+.blackboard-suggestion__main pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 8px 0 0;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(36, 32, 28, 0.06);
+}
+
+.blackboard-suggestion__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.blackboard-badge {
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(34, 107, 94, 0.12);
+  color: #226b5e;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .blackboard-panel__header,
+  .blackboard-suggestion {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .blackboard-actions,
+  .blackboard-suggestion__actions {
+    justify-content: stretch;
+  }
+}
+
 /* Calendar styles (appended from SEproj) */
 .calendar-controls {
   display: flex;

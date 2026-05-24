@@ -22,6 +22,7 @@
         <button class="sidebar__link is-active" data-page-target="chat" data-i18n="nav.chat" type="button">Chat</button>
         <button class="sidebar__link" data-page-target="todo" data-i18n="nav.todo" type="button">Todo</button>
         <button class="sidebar__link" data-page-target="schedule" data-i18n="nav.schedule" type="button">Schedule</button>
+        <button class="sidebar__link" data-page-target="blackboard" data-i18n="nav.blackboard" type="button">Blackboard</button>
         <button class="sidebar__link" data-page-target="config" data-i18n="nav.config" type="button">Config</button>
         <a class="sidebar__link sidebar__link--external" href="https://sustech.online/" target="_blank" rel="noopener noreferrer">
           <span data-i18n="nav.manual">Manual</span>
@@ -195,6 +196,55 @@
             <p id="schedule-feedback" class="form-feedback" aria-live="polite"></p>
             <ul id="schedule-list" class="todo-list" aria-live="polite"></ul>
           </div>
+        </div>
+      </section>
+
+      <section class="page" data-page="blackboard" hidden aria-labelledby="blackboard-title">
+        <header class="page__header">
+          <h2 id="blackboard-title" data-i18n="blackboard.title">Blackboard</h2>
+          <p class="page__copy" data-i18n="blackboard.copy">Sync Blackboard announcements, assignments, and course events.</p>
+        </header>
+
+        <div class="blackboard-layout">
+          <section class="blackboard-panel" aria-labelledby="blackboard-login-title">
+            <div class="blackboard-panel__header">
+              <div>
+                <h3 id="blackboard-login-title" data-i18n="blackboard.connection">Connection</h3>
+                <p id="blackboard-status-text" class="blackboard-muted">Not connected.</p>
+              </div>
+              <div class="blackboard-actions">
+                <button id="blackboard-login" class="button" type="button" data-i18n="blackboard.login">Open Login</button>
+                <button id="blackboard-clear" class="button button--secondary" type="button" data-i18n="blackboard.clear">Clear Login</button>
+              </div>
+            </div>
+            <dl id="blackboard-meta" class="blackboard-meta"></dl>
+          </section>
+
+          <section class="blackboard-panel" aria-labelledby="blackboard-sync-title">
+            <div class="blackboard-panel__header">
+              <div>
+                <h3 id="blackboard-sync-title" data-i18n="blackboard.sync">Sync</h3>
+                <p id="blackboard-sync-feedback" class="form-feedback" aria-live="polite"></p>
+              </div>
+              <button id="blackboard-sync" class="button" type="button" data-i18n="blackboard.syncNow">Sync Now</button>
+            </div>
+            <div id="blackboard-summary" class="blackboard-summary"></div>
+          </section>
+
+          <section class="blackboard-panel" aria-labelledby="blackboard-suggestions-title">
+            <div class="blackboard-panel__header">
+              <div>
+                <h3 id="blackboard-suggestions-title" data-i18n="blackboard.suggestions">Suggested Changes</h3>
+                <p class="blackboard-muted" data-i18n="blackboard.previewHint">Review changes before applying them to Todo and Schedule.</p>
+              </div>
+              <div class="blackboard-actions">
+                <button id="blackboard-apply-all" class="button" type="button" data-i18n="blackboard.applyAll">Apply All</button>
+                <button id="blackboard-dismiss-all" class="button button--secondary" type="button" data-i18n="blackboard.dismissAll">Dismiss All</button>
+              </div>
+            </div>
+            <div id="blackboard-suggestion-list" class="blackboard-suggestion-list"></div>
+            <p id="blackboard-empty" class="todo-empty" data-i18n="blackboard.empty" hidden>No pending suggestions.</p>
+          </section>
         </div>
       </section>
 
