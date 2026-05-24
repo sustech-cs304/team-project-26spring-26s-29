@@ -38,7 +38,9 @@ contextBridge.exposeInMainWorld("scheduleAPI", {
 
 contextBridge.exposeInMainWorld("blackboardAPI", {
   openLogin: () => ipcRenderer.invoke("blackboard:open-login"),
+  login: (payload) => ipcRenderer.invoke("blackboard:login", payload),
   getStatus: () => ipcRenderer.invoke("blackboard:get-status"),
+  refreshStatus: () => ipcRenderer.invoke("blackboard:refresh-status"),
   clearLogin: () => ipcRenderer.invoke("blackboard:clear-login"),
   sync: () => ipcRenderer.invoke("blackboard:sync"),
   listSuggestions: () => ipcRenderer.invoke("blackboard:list-suggestions"),

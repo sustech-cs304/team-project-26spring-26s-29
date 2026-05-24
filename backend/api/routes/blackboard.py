@@ -4,9 +4,12 @@ from fastapi import APIRouter, Query
 
 from ...services.blackboard_service import BlackboardCookie, blackboard_service
 from ..schemas.blackboard import (
+    BlackboardCookieRequest,
+    BlackboardLoginRequest,
     BlackboardSessionRequest,
     BlackboardSuggestionIdsRequest,
     BlackboardSuggestionResponse,
+    serialize_cookie,
     serialize_state,
     serialize_suggestion,
 )
@@ -18,6 +21,21 @@ router = APIRouter()
 @router.get("/api/blackboard/status")
 async def read_blackboard_status() -> dict[str, object]:
     return serialize_state(blackboard_service.get_status())
+
+
+@router.post("/api/blackboard/login")
+async def login_blackboard(payload: BlackboardLoginRequest) -> dict[str, object]:
+    return serialize_state(blackboard_service.login(payload.username, payload.password))
+
+
+@router.post("/api/blackboard/refresh")
+async def refresh_blackboard_status() -> dict[str, object]:
+    return serialize_state(blackboard_service.refresh_status())
+
+
+@router.get("/api/blackboard/session-cookies", response_model=list[BlackboardCookieRequest])
+async def list_blackboard_session_cookies() -> list[BlackboardCookieRequest]:
+    return [serialize_cookie(cookie) for cookie in blackboard_service.get_session_cookies()]
 
 
 @router.post("/api/blackboard/session")

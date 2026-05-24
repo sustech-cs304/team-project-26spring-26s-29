@@ -21,10 +21,13 @@
       <nav class="sidebar__nav" aria-label="Page navigation" data-i18n-aria-label="nav.aria">
         <button class="sidebar__link is-active" data-page-target="chat" data-i18n="nav.chat" type="button">Chat</button>
         <button class="sidebar__link" data-page-target="todo" data-i18n="nav.todo" type="button">Todo</button>
-        <button class="sidebar__link" data-page-target="schedule" data-i18n="nav.schedule" type="button">Schedule</button>
-        <button class="sidebar__link" data-page-target="blackboard" data-i18n="nav.blackboard" type="button">Blackboard</button>
+        <button class="sidebar__link" data-page-target="schedule" data-i18n="nav.schedule"
+          type="button">Schedule</button>
+        <button class="sidebar__link" data-page-target="blackboard" data-i18n="nav.blackboard"
+          type="button">Blackboard</button>
         <button class="sidebar__link" data-page-target="config" data-i18n="nav.config" type="button">Config</button>
-        <a class="sidebar__link sidebar__link--external" href="https://sustech.online/" target="_blank" rel="noopener noreferrer">
+        <a class="sidebar__link sidebar__link--external" href="https://sustech.online/" target="_blank"
+          rel="noopener noreferrer">
           <span data-i18n="nav.manual">Manual</span>
           <span class="sidebar__external-icon" aria-hidden="true">↗</span>
         </a>
@@ -40,8 +43,10 @@
         </header>
 
         <div class="chat-layout">
-          <section id="messages" class="messages" aria-label="Conversation" data-i18n-aria-label="chat.conversation"></section>
-          <button id="scroll-to-bottom" class="scroll-to-bottom" type="button" aria-label="Scroll to bottom" data-i18n-aria-label="chat.scrollToBottom" hidden>
+          <section id="messages" class="messages" aria-label="Conversation" data-i18n-aria-label="chat.conversation">
+          </section>
+          <button id="scroll-to-bottom" class="scroll-to-bottom" type="button" aria-label="Scroll to bottom"
+            data-i18n-aria-label="chat.scrollToBottom" hidden>
             <span class="scroll-to-bottom__icon" aria-hidden="true">&#8595;</span>
           </button>
 
@@ -49,20 +54,23 @@
             <label class="field" for="prompt">
               <span class="field__label" data-i18n="chat.message">Message</span>
             </label>
-            <textarea id="prompt" rows="4" placeholder="Type a message" data-i18n-placeholder="chat.placeholder"></textarea>
+            <textarea id="prompt" rows="4" placeholder="Type a message"
+              data-i18n-placeholder="chat.placeholder"></textarea>
             <div id="attachments" class="composer-attachments" hidden></div>
 
             <div class="chat-toolbar">
               <div class="chat-toolbar__actions">
                 <button id="attach-file" class="button button--secondary button--icon" type="button"
                   aria-label="Add attachment" data-i18n-aria-label="chat.addAttachment">+</button>
-                <p class="chat-toolbar__hint" data-i18n="chat.toolbarHint">Attach images or text files. Use Ctrl/Cmd + Enter to send quickly.</p>
+                <p class="chat-toolbar__hint" data-i18n="chat.toolbarHint">Attach images or text files. Use Ctrl/Cmd +
+                  Enter to send quickly.</p>
               </div>
               <div class="chat-toolbar__controls">
                 <button id="always-approve-tools" class="button button--secondary" type="button" aria-pressed="false">
                   <span data-i18n="chat.alwaysApprove">Always Approve Tools</span>
                 </button>
-                <button id="interrupt-run" class="button button--secondary" type="button" data-i18n="chat.interrupt" disabled>
+                <button id="interrupt-run" class="button button--secondary" type="button" data-i18n="chat.interrupt"
+                  disabled>
                   Interrupt
                 </button>
                 <button id="send" type="button" data-i18n="chat.send">Send</button>
@@ -82,7 +90,8 @@
           <div class="todo-create-grid">
             <label class="field" for="todo-title-input">
               <span class="field__label" data-i18n="todo.field.title">Title</span>
-              <input id="todo-title-input" class="todo-input" type="text" placeholder="Write a task" data-i18n-placeholder="todo.placeholder.title" required />
+              <input id="todo-title-input" class="todo-input" type="text" placeholder="Write a task"
+                data-i18n-placeholder="todo.placeholder.title" required />
             </label>
 
             <label class="field" for="todo-due-input">
@@ -106,7 +115,8 @@
           <div class="todo-querybar">
             <label class="todo-search" for="todo-search-input">
               <span class="todo-search__label" data-i18n="todo.search">Search</span>
-              <input id="todo-search-input" class="todo-input" type="search" placeholder="Search title or detail" data-i18n-placeholder="todo.searchPlaceholder" />
+              <input id="todo-search-input" class="todo-input" type="search" placeholder="Search title or detail"
+                data-i18n-placeholder="todo.searchPlaceholder" />
             </label>
 
             <label class="todo-sort" for="todo-sort-select">
@@ -121,15 +131,20 @@
           </div>
 
           <div class="todo-filters" role="tablist" aria-label="Todo filters" data-i18n-aria-label="todo.filters">
-            <button class="todo-filter is-active" data-todo-filter="all" data-i18n="todo.filter.all" type="button">All</button>
-            <button class="todo-filter" data-todo-filter="active" data-i18n="todo.filter.active" type="button">Active</button>
+            <button class="todo-filter is-active" data-todo-filter="all" data-i18n="todo.filter.all"
+              type="button">All</button>
+            <button class="todo-filter" data-todo-filter="active" data-i18n="todo.filter.active"
+              type="button">Active</button>
             <button class="todo-filter" data-todo-filter="done" data-i18n="todo.filter.done" type="button">Done</button>
-            <button class="todo-filter" data-todo-filter="overdue" data-i18n="todo.filter.overdue" type="button">Overdue</button>
+            <button class="todo-filter" data-todo-filter="overdue" data-i18n="todo.filter.overdue"
+              type="button">Overdue</button>
           </div>
 
           <div class="todo-bulk-actions">
-            <button id="todo-clear-completed" class="button button--secondary" type="button" data-i18n="todo.clearCompleted">Clear Completed</button>
-            <button id="todo-clear-all" class="button button--secondary" type="button" data-i18n="todo.clearAll">Clear All</button>
+            <button id="todo-clear-completed" class="button button--secondary" type="button"
+              data-i18n="todo.clearCompleted">Clear Completed</button>
+            <button id="todo-clear-all" class="button button--secondary" type="button" data-i18n="todo.clearAll">Clear
+              All</button>
           </div>
         </div>
 
@@ -137,7 +152,8 @@
 
         <div id="todo-undo-bar" class="todo-undo" hidden>
           <p id="todo-undo-text" class="todo-undo__text" data-i18n="todo.deleted">Task deleted.</p>
-          <button id="todo-undo-button" class="button button--secondary" type="button" data-i18n="todo.undo">Undo</button>
+          <button id="todo-undo-button" class="button button--secondary" type="button"
+            data-i18n="todo.undo">Undo</button>
         </div>
 
         <div id="todo-list" class="todo-list" aria-live="polite"></div>
@@ -169,7 +185,8 @@
             <form id="schedule-create-form" class="schedule-create-form">
               <label class="field" for="schedule-title-input">
                 <span class="field__label" data-i18n="schedule.field.title">Title</span>
-                <input id="schedule-title-input" class="todo-input" type="text" placeholder="Event title" data-i18n-placeholder="schedule.placeholder.title" required />
+                <input id="schedule-title-input" class="todo-input" type="text" placeholder="Event title"
+                  data-i18n-placeholder="schedule.placeholder.title" required />
               </label>
 
               <label class="field" for="schedule-start-input">
@@ -189,7 +206,8 @@
               </label>
 
               <div class="form-actions">
-                <button id="schedule-create-button" class="button" type="submit" data-i18n="schedule.add">Add Event</button>
+                <button id="schedule-create-button" class="button" type="submit" data-i18n="schedule.add">Add
+                  Event</button>
               </div>
             </form>
 
@@ -202,7 +220,8 @@
       <section class="page" data-page="blackboard" hidden aria-labelledby="blackboard-title">
         <header class="page__header">
           <h2 id="blackboard-title" data-i18n="blackboard.title">Blackboard</h2>
-          <p class="page__copy" data-i18n="blackboard.copy">Sync Blackboard announcements, assignments, and course events.</p>
+          <p class="page__copy" data-i18n="blackboard.copy">Sync Blackboard announcements, assignments, and course
+            events.</p>
         </header>
 
         <div class="blackboard-layout">
@@ -212,11 +231,41 @@
                 <h3 id="blackboard-login-title" data-i18n="blackboard.connection">Connection</h3>
                 <p id="blackboard-status-text" class="blackboard-muted">Not connected.</p>
               </div>
-              <div class="blackboard-actions">
-                <button id="blackboard-login" class="button" type="button" data-i18n="blackboard.login">Open Login</button>
-                <button id="blackboard-clear" class="button button--secondary" type="button" data-i18n="blackboard.clear">Clear Login</button>
-              </div>
             </div>
+
+            <form id="blackboard-login-form" class="blackboard-login-form">
+              <label class="field" for="blackboard-username">
+                <span class="field__label" data-i18n="blackboard.username">Username</span>
+                <input id="blackboard-username" class="todo-input" type="text" autocomplete="username"
+                  placeholder="Enter your account" data-i18n-placeholder="blackboard.usernamePlaceholder" />
+              </label>
+
+              <label class="field" for="blackboard-password">
+                <span class="field__label" data-i18n="blackboard.password">Password</span>
+                <input id="blackboard-password" class="todo-input" type="password" autocomplete="current-password"
+                  placeholder="Enter your password" data-i18n-placeholder="blackboard.passwordPlaceholder" />
+              </label>
+
+              <label class="blackboard-login-form__remember" for="blackboard-remember-password">
+                <input id="blackboard-remember-password" type="checkbox" />
+                <span data-i18n="blackboard.rememberPassword">Remember password</span>
+              </label>
+
+              <p class="blackboard-muted" data-i18n="blackboard.rememberPasswordWarning">
+                Saved password stays on this device only. Anyone with local access to this user profile can read it.
+              </p>
+
+              <p id="blackboard-login-feedback" class="form-feedback" aria-live="polite"></p>
+
+              <div class="blackboard-actions">
+                <button id="blackboard-login" class="button" type="submit" data-i18n="blackboard.login">Login and Check
+                  Connection</button>
+                <button id="blackboard-clear" class="button button--secondary" type="button"
+                  data-i18n="blackboard.clear">Clear Login</button>
+                <button id="blackboard-open-page" class="button button--secondary" type="button"
+                  data-i18n="blackboard.openPage">Open Blackboard Page</button>
+              </div>
+            </form>
             <dl id="blackboard-meta" class="blackboard-meta"></dl>
           </section>
 
@@ -235,11 +284,14 @@
             <div class="blackboard-panel__header">
               <div>
                 <h3 id="blackboard-suggestions-title" data-i18n="blackboard.suggestions">Suggested Changes</h3>
-                <p class="blackboard-muted" data-i18n="blackboard.previewHint">Review changes before applying them to Todo and Schedule.</p>
+                <p class="blackboard-muted" data-i18n="blackboard.previewHint">Review changes before applying them to
+                  Todo and Schedule.</p>
               </div>
               <div class="blackboard-actions">
-                <button id="blackboard-apply-all" class="button" type="button" data-i18n="blackboard.applyAll">Apply All</button>
-                <button id="blackboard-dismiss-all" class="button button--secondary" type="button" data-i18n="blackboard.dismissAll">Dismiss All</button>
+                <button id="blackboard-apply-all" class="button" type="button" data-i18n="blackboard.applyAll">Apply
+                  All</button>
+                <button id="blackboard-dismiss-all" class="button button--secondary" type="button"
+                  data-i18n="blackboard.dismissAll">Dismiss All</button>
               </div>
             </div>
             <div id="blackboard-suggestion-list" class="blackboard-suggestion-list"></div>
@@ -260,7 +312,8 @@
           <p id="config-feedback" class="form-feedback" aria-live="polite"></p>
 
           <div class="form-actions">
-            <button id="discard" class="button button--secondary" type="button" data-i18n="config.discard">Discard</button>
+            <button id="discard" class="button button--secondary" type="button"
+              data-i18n="config.discard">Discard</button>
             <button id="save-config" class="button" type="submit">Save</button>
           </div>
         </form>
@@ -278,9 +331,12 @@
           <p id="preview-modal-meta" class="preview-modal__meta"></p>
         </div>
         <div class="preview-modal__actions">
-          <button id="preview-modal-copy" class="button button--secondary" type="button" data-i18n="preview.copy" hidden>Copy</button>
-          <button id="preview-modal-save" class="button button--secondary" type="button" data-i18n="preview.save" hidden>Save</button>
-          <button id="preview-modal-close" class="button button--secondary" type="button" data-i18n="preview.close">Close</button>
+          <button id="preview-modal-copy" class="button button--secondary" type="button" data-i18n="preview.copy"
+            hidden>Copy</button>
+          <button id="preview-modal-save" class="button button--secondary" type="button" data-i18n="preview.save"
+            hidden>Save</button>
+          <button id="preview-modal-close" class="button button--secondary" type="button"
+            data-i18n="preview.close">Close</button>
         </div>
       </header>
       <div id="preview-modal-body" class="preview-modal__body"></div>

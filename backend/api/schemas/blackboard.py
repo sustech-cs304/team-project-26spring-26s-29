@@ -14,8 +14,22 @@ class BlackboardCookieRequest(BaseModel):
     path: str | None = None
 
 
+def serialize_cookie(cookie: Any) -> BlackboardCookieRequest:
+    return BlackboardCookieRequest(
+        name=cookie.name,
+        value=cookie.value,
+        domain=cookie.domain,
+        path=cookie.path,
+    )
+
+
 class BlackboardSessionRequest(BaseModel):
     cookies: list[BlackboardCookieRequest] = Field(default_factory=list)
+
+
+class BlackboardLoginRequest(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
 
 
 class BlackboardSuggestionResponse(BaseModel):

@@ -193,3 +193,19 @@ class BlackboardServiceTests(BackendTestCase):
 
         self.assertFalse(state["connected"])
         self.assertTrue(state["needs_login"])
+
+    def test_login_uses_fetched_cookies_and_refreshes_state(self) -> None:
+        fake_cookies = [
+            type("Cookie", (), {"name": "s_session_id", "value": "abc", "domain": "bb.sustech.edu.cn", "path": "/"})()
+        ]
+
+        with patch("backend.services.blackboard_service._login_blackboard", return_value=fake_cookies), patch.object(
+            self.service,
+            "refresh_status",
+            return_value={"connected": True, "needs_login": False, "last_error": None},
+        ) as refresh_status:
+            state = self.service.login("student", "secret")
+
+        refresh_status.assert_called_once()
+        self.assertTrue(state["connected"])
+        self.assertIn("s_session_id=abc", self.service._cookie_header)

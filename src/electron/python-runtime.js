@@ -3,7 +3,16 @@ const path = require("node:path");
 
 function resolvePythonExecutable({ isPackaged, resourcesPath }) {
   if (!isPackaged) {
-    return "python";
+    const projectRoot = path.resolve(__dirname, "..", "..");
+    const candidates = [
+      path.join(projectRoot, ".venv", "Scripts", "python.exe"),
+      path.join(projectRoot, ".venv", "bin", "python"),
+      process.env.PYTHON,
+      "python",
+    ].filter(Boolean);
+
+    const resolved = candidates.find((candidate) => fs.existsSync(candidate));
+    return resolved || "python";
   }
 
   const candidates = [

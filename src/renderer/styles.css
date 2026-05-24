@@ -418,11 +418,11 @@ button {
   margin-bottom: 0;
 }
 
-.message__content > .message__markdown > :first-child {
+.message__content>.message__markdown> :first-child {
   margin-top: 0;
 }
 
-.message__content > .message__markdown > :last-child {
+.message__content>.message__markdown> :last-child {
   margin-bottom: 0;
 }
 
@@ -1432,6 +1432,26 @@ button {
   gap: 12px;
 }
 
+.blackboard-login-form {
+  display: grid;
+  gap: 10px;
+}
+
+.blackboard-login-form__remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  user-select: none;
+}
+
+.blackboard-login-form__remember input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .blackboard-panel h3,
 .blackboard-suggestion h4 {
   margin: 0;
@@ -1447,6 +1467,10 @@ button {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.blackboard-login-form .blackboard-actions {
+  justify-content: flex-start;
 }
 
 .blackboard-meta {
@@ -1542,6 +1566,7 @@ button {
 }
 
 @media (max-width: 720px) {
+
   .blackboard-panel__header,
   .blackboard-suggestion {
     grid-template-columns: 1fr;

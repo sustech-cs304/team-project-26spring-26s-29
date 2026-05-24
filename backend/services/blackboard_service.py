@@ -13,8 +13,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import requests
 from openai import OpenAI
 from bs4 import BeautifulSoup
+
+requests.packages.urllib3.disable_warnings()  # type: ignore[attr-defined]
 
 from ..config import get_config
 from ..repositories import blackboard_repository
@@ -29,8 +32,24 @@ from .todo_service import todo_service
 
 
 BLACKBOARD_BASE_URL = "https://bb.sustech.edu.cn"
+CAS_BASE_URL = "https://cas.sustech.edu.cn/cas"
+BLACKBOARD_LOGIN_SERVICE_URL = f"{BLACKBOARD_BASE_URL}/webapps/calendar/viewPersonal"
+COMMON_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0"
+    ),
+    "X-Requested-With": "XMLHttpRequest",
+}
 HONG_KONG_TZ = timezone(timedelta(hours=8))
 MAX_CONTENT_DEPTH = 3
+BLACKBOARD_COOKIE_NAMES = {
+    "s_session_id",
+    "JSESSIONID",
+    "BbClientCalenderTimeZone",
+    "web_client_cache_guid",
+    "COOKIE_CONSENT_ACCEPTED",
+}
 
 
 class BlackboardAuthenticationError(RuntimeError):
@@ -78,6 +97,68 @@ class BlackboardApiClient:
             results.extend(payload.get("results") or [])
             next_page = _extract_next_page(payload)
         return results
+
+
+def _build_cas_login_url(service_url: str) -> str:
+    return f"{CAS_BASE_URL}/login?service={urllib.parse.quote(service_url, safe='')}"
+
+
+def _extract_execution_token(html_text: str) -> str:
+    match = re.search(r'name="execution" value="([^"]+)"', html_text)
+    if not match:
+        raise BlackboardAuthenticationError("Unable to parse CAS login token.")
+    return match.group(1)
+
+
+def _cookies_from_session(session: requests.Session) -> list[BlackboardCookie]:
+    cookies: list[BlackboardCookie] = []
+    for cookie in session.cookies:
+      if cookie.name not in BLACKBOARD_COOKIE_NAMES:
+        continue
+      cookies.append(
+          BlackboardCookie(
+              name=cookie.name,
+              value=cookie.value,
+              domain=getattr(cookie, "domain", None),
+              path=getattr(cookie, "path", None),
+          )
+      )
+    return cookies
+
+
+def _login_blackboard(username: str, password: str) -> list[BlackboardCookie]:
+    session = requests.Session()
+    session.headers.update(COMMON_HEADERS)
+
+    login_url = _build_cas_login_url(BLACKBOARD_LOGIN_SERVICE_URL)
+    page = session.get(login_url, verify=False, timeout=20)
+    page.raise_for_status()
+
+    response = session.post(
+        login_url,
+        data={
+            "username": username,
+            "password": password,
+            "execution": _extract_execution_token(page.text),
+            "_eventId": "submit",
+            "geolocation": "",
+        },
+        allow_redirects=True,
+        verify=False,
+        timeout=20,
+    )
+    response.raise_for_status()
+
+    warmup = session.get(
+        BLACKBOARD_LOGIN_SERVICE_URL,
+        headers={**COMMON_HEADERS, "Referer": BLACKBOARD_LOGIN_SERVICE_URL},
+        allow_redirects=True,
+        verify=False,
+        timeout=20,
+    )
+    warmup.raise_for_status()
+
+    return _cookies_from_session(session)
 
 
 class BlackboardLlmClassifier:
@@ -198,13 +279,49 @@ class BlackboardService:
         self._repository = repository
         self._classifier = classifier or BlackboardLlmClassifier()
         self._cookie_header: str | None = None
+        self._session_cookies: list[BlackboardCookie] = []
 
     def set_session(self, cookies: list[BlackboardCookie]) -> dict[str, Any]:
         self._cookie_header = _build_cookie_header(cookies)
+        self._session_cookies = list(cookies)
         return self.refresh_status()
+
+    def login(self, username: str, password: str) -> dict[str, Any]:
+        username = username.strip()
+        password = password.strip()
+        if not username or not password:
+            return self._repository.update_state(
+                {
+                    "connected": False,
+                    "needs_login": True,
+                    "user": None,
+                    "learn_version": None,
+                    "last_error": "Blackboard username and password are required.",
+                }
+            )
+
+        try:
+            cookies = _login_blackboard(username, password)
+            if not cookies:
+                raise BlackboardAuthenticationError("Blackboard login did not return any session cookies.")
+        except Exception as exc:
+            self._cookie_header = None
+            self._session_cookies = []
+            return self._repository.update_state(
+                {
+                    "connected": False,
+                    "needs_login": True,
+                    "user": None,
+                    "learn_version": None,
+                    "last_error": f"Blackboard login failed: {exc}",
+                }
+            )
+
+        return self.set_session(cookies)
 
     def clear_session(self) -> dict[str, Any]:
         self._cookie_header = None
+        self._session_cookies = []
         return self._repository.update_state(
             {
                 "connected": False,
@@ -229,6 +346,8 @@ class BlackboardService:
             user = client.get_json("/learn/api/public/v1/users/me")
             version = client.get_json("/learn/api/public/v1/system/version")
         except BlackboardAuthenticationError:
+            self._cookie_header = None
+            self._session_cookies = []
             return self._repository.update_state(
                 {
                     "connected": False,
@@ -278,6 +397,8 @@ class BlackboardService:
             ]
             courses = {course_id: client.get_json(f"/learn/api/public/v1/courses/{_quote(course_id)}") for course_id in course_ids}
         except BlackboardAuthenticationError:
+            self._cookie_header = None
+            self._session_cookies = []
             return self._repository.update_state(
                 {
                     "connected": False,
@@ -357,6 +478,9 @@ class BlackboardService:
                 applied.append(self._repository.update_suggestion(suggestion.id, {"status": "dismissed"}))
 
         return {"appliedCount": len(applied), "suggestions": applied}
+
+    def get_session_cookies(self) -> list[BlackboardCookie]:
+        return list(self._session_cookies)
 
     def dismiss_suggestions(self, ids: list[int]) -> dict[str, Any]:
         dismissed = [
