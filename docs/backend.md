@@ -45,7 +45,7 @@ backend/
 
 ## Public API Surface
 
-The backend currently exposes four groups of endpoints.
+The backend currently exposes five groups of endpoints.
 
 ### Health And Runtime Config
 
@@ -92,6 +92,30 @@ Schedule validation and serialization live in `backend/api/schemas/schedule.py`.
 
 The shipped Schedule HTTP surface is intentionally range-first: the renderer reads events through `/api/schedules/range` and mutates individual records with create, patch, and delete operations.
 
+Key validation rules:
+
+- `title`, `startAt`, and `endAt` are required for create
+- blank titles are rejected
+- `startAt` and `endAt` must be ISO 8601 datetime strings
+- `PATCH` must provide at least one field
+- explicit `null` is rejected for `title`, `detail`, `startAt`, `endAt`, `allDay`, `timezone`, and `isDone`
+
+### Blackboard API
+
+| Method   | Path                                      | Purpose                                      |
+| -------- | ----------------------------------------- | -------------------------------------------- |
+| `GET`    | `/api/blackboard/status`                  | Read Blackboard sync/login state             |
+| `POST`   | `/api/blackboard/session`                 | Store filtered Blackboard cookies in memory  |
+| `DELETE` | `/api/blackboard/session`                 | Clear the current Blackboard session         |
+| `POST`   | `/api/blackboard/sync`                    | Sync courses and create reviewed suggestions |
+| `GET`    | `/api/blackboard/suggestions?status=...`  | List suggestions by status                   |
+| `POST`   | `/api/blackboard/suggestions/apply`       | Apply suggestions into Todo or Schedule      |
+| `POST`   | `/api/blackboard/suggestions/dismiss`     | Dismiss suggestions                          |
+
+Electron owns the login window and cookie collection. The backend stores only a
+filtered session header in memory and persists sync state, remote item hashes,
+and suggestions in TinyDB.
+
 ### Agent API
 
 | Method | Path             | Purpose                                                  |
@@ -124,6 +148,51 @@ The backend exposes Todo items with these fields:
 
 The repository implementation stores timestamps in UTC ISO format.
 
+Todos with due times are mirrored into short linked schedule events through
+`todo_schedule_binding_service`. That binding is best-effort: todo CRUD still
+succeeds even if linked schedule creation or cleanup reports a binding error.
+
+## Schedule Data Model
+
+The backend exposes Schedule events with these fields:
+
+| Field             | Meaning                                  |
+| ----------------- | ---------------------------------------- |
+| `id`              | TinyDB document id                       |
+| `title`           | Required event title                     |
+| `detail`          | Optional notes                           |
+| `startAt`         | ISO start datetime                       |
+| `endAt`           | ISO end datetime                         |
+| `allDay`          | All-day display flag                     |
+| `timezone`        | Event timezone name                      |
+| `location`        | Optional location                        |
+| `isCancelled`     | Cancellation flag                        |
+| `isDone`          | Completion state                         |
+| `completedAt`     | Completion timestamp or `null`           |
+| `reminderOffsets` | Reminder offsets in minutes             |
+| `recurrence`      | Optional recurrence metadata             |
+| `recurrenceEnd`   | Optional recurrence end datetime         |
+| `createdAt`       | Creation timestamp                       |
+| `updatedAt`       | Last update timestamp                    |
+| `startDay`        | Derived UTC date bucket for range lookup |
+| `endDay`          | Derived UTC date bucket for range lookup |
+| `startTs`         | Derived UTC start timestamp in ms        |
+| `endTs`           | Derived UTC end timestamp in ms          |
+
+## Blackboard Data Model
+
+Blackboard sync persists three kinds of records:
+
+| Record                 | Purpose                                                         |
+| ---------------------- | --------------------------------------------------------------- |
+| `blackboard_state`     | Connection status, user/version metadata, last sync summary     |
+| `blackboard_remote_items` | Deduped remote announcements, content items, and gradebook columns |
+| `blackboard_suggestions` | Pending/applied/dismissed todo, schedule, or ignore suggestions |
+
+Suggestions contain the source item hash, course metadata, action
+(`create_todo`, `create_schedule`, or `ignore`), confidence, reason, proposed
+times, and the target local id after application.
+
 ## Service Layer
 
 The main service objects are:
@@ -133,6 +202,12 @@ The main service objects are:
 
 - `schedule_service`
   CRUD-style mutations and list/range behavior for schedule events
+
+- `blackboard_service`
+  Blackboard session status, remote sync, LLM classification, and suggestion application/dismissal
+
+- `sustech_manual_service`
+  Read-only generated corpus search, exact record reads, and live source fetches
 
 - workspace services (`workspace_service.py`, `workspace_command_service.py`)
   Workspace file reading/writing, preview metadata, text search, and command execution helpers
@@ -145,6 +220,8 @@ This separation keeps route handlers thin while preserving clear service ownersh
 
 - `TodoRepository` / `TinyDbTodoRepository`
 - `ScheduleRepository` / `TinyDbScheduleRepository`
+- `BindingRepository` / `TinyDbBindingRepository`
+- `BlackboardRepository` / `TinyDbBlackboardRepository`
 
 Current production path:
 
@@ -156,6 +233,9 @@ FastAPI route
 ```
 
 Schedule follows the same path through `schedule_service` and `TinyDbScheduleRepository`, and is wired into both UI and public API.
+
+Blackboard follows the same route/service/repository shape through
+`blackboard_service` and `TinyDbBlackboardRepository`.
 
 ## Agent Runtime
 
@@ -197,6 +277,14 @@ The current workspace tools are:
 
 The first four are read-only and do not require approval. File writes and command execution require approval.
 
+The current SUSTech manual tools are:
+
+- `search_sustech_manual`
+- `read_sustech_manual_record`
+- `fetch_sustech_manual_online`
+
+All SUSTech manual tools are read-only and do not require approval.
+
 ### Current context providers
 
 `CurrentInfoProvider` injects runtime metadata before each run, including:
@@ -205,6 +293,13 @@ The first four are read-only and do not require approval. File writes and comman
 - current session id
 - OS, architecture, and Python version
 - public IP and network metadata from `ipinfo.io` (with session-level caching)
+
+`PlanningSnapshotProvider` injects:
+
+- total todo and schedule counts
+- nearest schedule summary
+- nearest todo summary
+- the selection rules used for those summaries
 
 `WorkspaceInfoProvider` injects:
 
@@ -226,6 +321,10 @@ The current tables are:
 
 - `todo_list`
 - `schedule_events`
+- `todo_schedule_bindings`
+- `blackboard_state`
+- `blackboard_remote_items`
+- `blackboard_suggestions`
 
 In the Electron-managed app flow, `dbPath` is derived to `db.json` beside `config.json`.
 
@@ -239,6 +338,7 @@ Backend tests live under `tests/backend_suite/` and cover:
 - config route behavior
 - todo service behavior
 - TinyDB repository round trips
+- Blackboard service behavior
 - workspace tool and preview behavior
 - agent tool behavior
 - agent context and adapter behavior

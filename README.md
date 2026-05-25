@@ -5,17 +5,18 @@ Technology (SUSTech) students. It combines SUSTech-specific proprietary/domain
 content, including NanKe Manual (南科手册) materials, with general student
 planning tools.
 
-The app focuses on four practical workflows:
+The app focuses on five practical workflows:
 
 - chat with a local Python-backed assistant
 - manage tasks and due dates
 - manage schedule events
+- sync Blackboard items into reviewed todo/schedule suggestions
 - search and use SUSTech-oriented campus knowledge
 
 Todo, schedule, local configuration, and chat workflows are generic enough for
-other student productivity use cases. The bundled campus knowledge and manual
-corpus are SUSTech-specific proprietary/domain content, not a universal
-knowledge base.
+other student productivity use cases. The bundled campus knowledge, manual
+corpus, and Blackboard sync path are SUSTech-specific proprietary/domain
+content, not a universal knowledge base.
 
 The project is intentionally a small local prototype. It uses Electron for the desktop shell, vanilla JavaScript for the UI, FastAPI for the backend, and TinyDB for local persistence.
 
@@ -30,6 +31,7 @@ The project is intentionally a small local prototype. It uses Electron for the d
 - Local storage: TinyDB
 - Rich chat text: `markdown-it` and KaTeX
 - Campus knowledge corpus: NanKe Manual / SUSTech-oriented documents
+- Blackboard sync: Electron login window, FastAPI sync service, reviewed suggestions
 
 ## Quick Start
 
@@ -81,9 +83,9 @@ node --test tests/electron/*.test.js
 ## Repository Map
 
 ```text
-backend/        FastAPI routes, services, repositories, and agent runtime
+backend/        FastAPI routes, services, repositories, Blackboard sync, and agent runtime
 src/electron/   Electron main process, preload bridge, IPC, and config sync
-src/renderer/   Chat, Todo, Schedule, and Config UI
+src/renderer/   Chat, Todo, Schedule, Blackboard, and Config UI
 tests/          Backend and Electron tests
 docs/           Current documentation and presentation materials
 vendor/         Bundled third-party and SUSTech-oriented source materials
@@ -92,7 +94,8 @@ vendor/         Bundled third-party and SUSTech-oriented source materials
 ## Notes
 
 - `config.json` is the development source of truth for local settings.
-- TinyDB data lives in `db.json` beside the active config file.
+- TinyDB data lives in `db.json` beside the active config file, including
+  todos, schedules, todo-schedule bindings, and Blackboard sync state.
 - Uploaded files are staged into `workspace/inputs/<requestId>/...`.
 - The workspace is cleared and recreated on every app start.
 - SUSTech-specific corpus files are built with `npm run build:sustech-manual`

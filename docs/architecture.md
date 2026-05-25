@@ -17,8 +17,8 @@ Renderer UI
 
 ### Layer responsibilities
 
-- `src/renderer/` owns the desktop UI for Chat, Todo, Schedule, and Config.
-  The renderer is now split by feature under `chat/`, `todo/`, `schedule/`, `config/`, plus reusable helpers in `shared/`.
+- `src/renderer/` owns the desktop UI for Chat, Todo, Schedule, Blackboard, and Config.
+  The renderer is now split by feature under `chat/`, `todo/`, `schedule/`, `blackboard/`, `config/`, plus reusable helpers in `shared/`.
 - `src/electron/preload.js` exposes a narrow bridge into the renderer.
 - `src/electron/main.js` now mostly wires modules together.
 - `src/electron/backend-process.js` owns the Python backend process lifecycle.
@@ -26,7 +26,7 @@ Renderer UI
 - `src/electron/workspace.js` owns workspace path safety checks plus startup cleanup.
 - `src/electron/attachment-staging.js` copies uploads into the workspace and builds attachment metadata.
 - `src/electron/python-runtime.js` resolves the Python executable used in development versus packaged builds.
-- `src/electron/ipc/` owns domain-specific IPC handlers such as `agent`, `todo`, `schedule`, and `config`.
+- `src/electron/ipc/` owns domain-specific IPC handlers such as `agent`, `todo`, `schedule`, `blackboard`, and `config`.
 - `backend/` owns HTTP routes, the agent runtime, local business logic, and persistence.
 
 This split keeps the UI simple, keeps Node and process control out of the renderer, and gives the Python backend a clean local API boundary.
@@ -35,11 +35,12 @@ This split keeps the UI simple, keeps Node and process control out of the render
 
 ### Renderer
 
-The renderer is a plain HTML/CSS/JavaScript app with four pages:
+The renderer is a plain HTML/CSS/JavaScript app with five pages:
 
 - `Chat`: sends structured prompts and attachments, then renders rich streamed agent output
 - `Todo`: local task management UI
 - `Schedule`: local calendar event management UI
+- `Blackboard`: SUSTech Blackboard login, sync status, and reviewed import suggestions
 - `Config`: edits `config.json` through Electron IPC
 
 Inside Chat, assistant text parts are rendered through `shared/markdown.js` using `markdown-it`, then KaTeX is applied only to those rendered Markdown blocks. Tool rows, approval cards, and media tiles remain structured UI elements instead of being routed through the Markdown parser.
@@ -51,6 +52,7 @@ renderer.js       bootstrap and page-level orchestration
 chat/             chat controller and streaming UI behavior
 todo/             todo state, rendering, and mutations
 schedule/         schedule state, calendar rendering, and mutations
+blackboard/       Blackboard status, sync actions, and suggestion review
 config/           config form state and save/discard flow
 shared/           DOM lookup, markdown/KaTeX helpers, date helpers, page manager
 ```
@@ -60,6 +62,7 @@ The renderer never talks to Python directly. It only calls the APIs exposed by t
 - `window.agentAPI`
 - `window.todoAPI`
 - `window.scheduleAPI`
+- `window.blackboardAPI`
 - `window.configAPI`
 
 ### Preload
@@ -73,7 +76,7 @@ The Electron layer is now split into smaller modules:
 - `main.js` wires the app together and creates the browser window
 - `backend-process.js` starts, stops, and health-checks the Python backend
 - `config-store.js` reads and writes `config.json` and pushes runtime config to Python
-- `ipc/agent.js`, `ipc/todo.js`, `ipc/schedule.js`, and `ipc/config.js` register per-domain IPC handlers
+- `ipc/agent.js`, `ipc/todo.js`, `ipc/schedule.js`, `ipc/blackboard.js`, and `ipc/config.js` register per-domain IPC handlers
 
 Together they:
 
@@ -83,7 +86,7 @@ Together they:
 - starts `python -m uvicorn backend.app:app` in development or the bundled Python runtime in packaged builds
 - waits for `/health`
 - syncs runtime config to `POST /api/config`
-- registers IPC handlers for agent, todo, schedule, and config actions
+- registers IPC handlers for agent, todo, schedule, Blackboard, and config actions
 
 Electron is also responsible for restarting the backend when `backendPort` changes. The host is fixed to `127.0.0.1`.
 
@@ -147,6 +150,11 @@ Renderer
 
 The Todo page is a real local workflow, not just demo state. It supports persistence, validation, and round trips through the backend.
 
+When a todo has a due time, `todo_service` also maintains a best-effort
+`todo_due_event` binding. Creating or updating that todo creates or updates a
+linked short schedule event; removing the due time or deleting the todo removes
+the linked auto-generated schedule event.
+
 ### Schedule Flow
 
 ```text
@@ -160,6 +168,29 @@ Renderer
 ```
 
 The Schedule page is a real local workflow with calendar navigation, event CRUD, and range queries through the backend.
+
+Deleting a schedule event also removes any todo-to-schedule binding that points
+at it, so stale binding rows do not survive user-driven schedule cleanup.
+
+### Blackboard Flow
+
+```text
+Renderer
+  -> window.blackboardAPI.*
+  -> IPC handlers in src/electron/ipc/blackboard.js
+  -> Electron opens Blackboard login in persist:blackboard partition
+  -> Electron filters allowed Blackboard cookies
+  -> HTTP calls to /api/blackboard...
+  -> blackboard_service
+  -> TinyDbBlackboardRepository
+  -> TinyDB tables: blackboard_state, blackboard_remote_items, blackboard_suggestions
+```
+
+The sync path reads Blackboard course data, announcements, content items, and
+gradebook columns from `https://bb.sustech.edu.cn`. Changed items are classified
+into pending suggestions. Applying a suggestion creates either a Todo or a
+Schedule event; dismissing a suggestion records that decision without changing
+planning data.
 
 ### Config Flow
 
@@ -185,11 +216,14 @@ TinyDB is the current storage layer.
 
 - Todo data is stored in the `todo_list` table.
 - Schedule data is stored in the `schedule_events` table.
+- Todo-to-schedule auto bindings are stored in the `todo_schedule_bindings` table.
+- Blackboard sync state is stored across `blackboard_state`,
+  `blackboard_remote_items`, and `blackboard_suggestions`.
 - The active database path is `db.json` beside the active `config.json`.
 - Uploaded files and generated artifacts live in `workspace/` beside the active `config.json`.
 - Electron recreates `inputs/` and `outputs/` inside that workspace every time the app starts.
 
-Both Todo and Schedule are surfaced through the UI and HTTP API.
+Todo, Schedule, and Blackboard are surfaced through the UI and HTTP API.
 
 ## Agent Integration
 
@@ -200,19 +234,25 @@ The Python agent runtime lives in `backend/agent/`.
 - `tools/todo_tool.py` exposes `list_todos`, `create_todo`, `update_todo`, and `delete_todo`
 - `tools/schedule_tool.py` exposes `manage_schedule` for listing and mutating schedule events
 - `tools/workspace_tool.py` exposes workspace file tools, preview helpers, plus approval-gated shell and Python tools
+- `tools/sustech_manual_tool.py` exposes read-only SUSTech manual search, record reads, and live source fetches
 - `context/current_info.py` injects runtime environment and network context before each run
+- `context/planning_snapshot.py` injects the nearest schedule/todo summary before each run
 - `context/workspace_info.py` injects workspace root, uploaded input location, and output guidance before each run
 
 The current agent is therefore stateful enough to:
 
 - chat with the configured model
+- search local and live SUSTech manual sources without approval
 - inspect local todos without approval and request approval before changing them
 - inspect and manage local schedule events with the schedule tool
 - inspect and edit workspace files with tool approval where appropriate
 - prepare inline previews for text, image, PDF, audio, and video workspace files
 - run local PowerShell and Python inside the workspace after approval
 - receive runtime environment context (time, host runtime info, and public IP metadata) on each run
+- receive a nearest todo/schedule planning snapshot on each run
 - receive workspace state guidance on each run
+
+`AdaptiveChatCompletionClient` also contains compatibility handling for OpenAI-compatible endpoints whose base URL contains `xiaomimimo`: hosted web search is moved into the tools array and streamed reasoning content is replayed in the shape that provider expects.
 
 ## Extension Guidance
 
