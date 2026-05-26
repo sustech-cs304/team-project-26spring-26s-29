@@ -55,10 +55,13 @@ test("electron-builder packages generated SUSTech corpus but not the full submod
 });
 
 test("bundled Python runtime installs build tools before requirements", () => {
-  const buildToolsIndex = windowsInstallerWorkflow.indexOf("setuptools wheel");
+  const setuptoolsIndex = windowsInstallerWorkflow.indexOf("setuptools");
+  const wheelIndex = windowsInstallerWorkflow.indexOf("wheel");
   const requirementsIndex = windowsInstallerWorkflow.lastIndexOf("-r backend/requirements.txt");
 
-  assert.ok(buildToolsIndex > -1);
+  assert.ok(setuptoolsIndex > -1);
+  assert.ok(wheelIndex > -1);
   assert.ok(requirementsIndex > -1);
-  assert.ok(buildToolsIndex < requirementsIndex);
+  assert.ok(setuptoolsIndex < requirementsIndex);
+  assert.ok(wheelIndex < requirementsIndex);
 });

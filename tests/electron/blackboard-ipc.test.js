@@ -57,7 +57,7 @@ test("blackboard login forwards credentials to the backend", async () => {
   assert.deepEqual(JSON.parse(requests[0].options.body), { username: "alice", password: "secret" });
 });
 
-test("open login window uses the persistent Blackboard partition", async () => {
+test("open login window uses the non-persistent Blackboard partition", async () => {
   const ipcMain = new FakeIpcMain();
   const createdWindows = [];
   const cookieSets = [];

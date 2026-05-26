@@ -418,11 +418,11 @@ button {
   margin-bottom: 0;
 }
 
-.message__content>.message__markdown> :first-child {
+.message__content > .message__markdown > :first-child {
   margin-top: 0;
 }
 
-.message__content>.message__markdown> :last-child {
+.message__content > .message__markdown > :last-child {
   margin-bottom: 0;
 }
 
@@ -1566,7 +1566,6 @@ button {
 }
 
 @media (max-width: 720px) {
-
   .blackboard-panel__header,
   .blackboard-suggestion {
     grid-template-columns: 1fr;
