@@ -46,4 +46,7 @@ contextBridge.exposeInMainWorld("blackboardAPI", {
   listSuggestions: () => ipcRenderer.invoke("blackboard:list-suggestions"),
   applySuggestions: (ids) => ipcRenderer.invoke("blackboard:apply-suggestions", ids),
   dismissSuggestions: (ids) => ipcRenderer.invoke("blackboard:dismiss-suggestions", ids),
+  saveCredentials: (payload) => ipcRenderer.invoke("blackboard:save-credentials", payload),
+  getCredentials: () => ipcRenderer.invoke("blackboard:get-credentials"),
+  deleteCredentials: () => ipcRenderer.invoke("blackboard:delete-credentials"),
 });

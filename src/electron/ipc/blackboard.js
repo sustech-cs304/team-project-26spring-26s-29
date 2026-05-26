@@ -1,6 +1,9 @@
-const { BrowserWindow, ipcMain, session } = require("electron");
-
+const electron = require("electron");
 const { requestJson } = require("./http");
+const fs = require("fs");
+const path = require("path");
+
+const { BrowserWindow, ipcMain, session } = electron;
 
 const BLACKBOARD_URL = "https://bb.sustech.edu.cn";
 const BLACKBOARD_PARTITION = "persist:blackboard";
@@ -10,6 +13,56 @@ let loginWindow = null;
 async function clearBlackboardSessionCookies() {
   const blackboardSession = session.fromPartition(BLACKBOARD_PARTITION);
   await blackboardSession.clearStorageData({ storages: ["cookies"] });
+}
+
+const CREDENTIALS_FILE = (() => {
+  try {
+    return path.join((electron.app && electron.app.getPath("userData")) || __dirname, "blackboard_credentials.enc");
+  } catch {
+    return path.join(__dirname, "blackboard_credentials.enc");
+  }
+})();
+
+async function saveEncryptedCredentials(username, password) {
+  try {
+    const safeStorage = electron.safeStorage;
+    if (!safeStorage || !safeStorage.isEncryptionAvailable()) {
+      throw new Error("safeStorage unavailable");
+    }
+    const payload = JSON.stringify({ username: String(username || ""), password: String(password || "") });
+    const encrypted = safeStorage.encryptString(payload);
+    await fs.promises.writeFile(CREDENTIALS_FILE, encrypted);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function loadEncryptedCredentials() {
+  try {
+    const safeStorage = electron.safeStorage;
+    if (!safeStorage || !safeStorage.isEncryptionAvailable()) {
+      return null;
+    }
+    const data = await fs.promises.readFile(CREDENTIALS_FILE);
+    const decrypted = safeStorage.decryptString(data);
+    const parsed = JSON.parse(decrypted);
+    return {
+      username: typeof parsed.username === "string" ? parsed.username : "",
+      password: typeof parsed.password === "string" ? parsed.password : "",
+      rememberPassword: Boolean(parsed.password),
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+async function deleteEncryptedCredentials() {
+  try {
+    await fs.promises.unlink(CREDENTIALS_FILE);
+  } catch {
+    // ignore
+  }
 }
 
 async function syncBlackboardSessionCookies(getApi) {
@@ -82,6 +135,19 @@ function registerBlackboardIpc({ getApi }) {
         password: String(payload.password ?? ""),
       }),
     });
+  });
+
+  ipcMain.handle("blackboard:save-credentials", async (_event, payload = {}) => {
+    return saveEncryptedCredentials(payload.username, payload.password);
+  });
+
+  ipcMain.handle("blackboard:get-credentials", async () => {
+    return loadEncryptedCredentials();
+  });
+
+  ipcMain.handle("blackboard:delete-credentials", async () => {
+    await deleteEncryptedCredentials();
+    return true;
   });
 
   ipcMain.handle("blackboard:get-status", async () => {
