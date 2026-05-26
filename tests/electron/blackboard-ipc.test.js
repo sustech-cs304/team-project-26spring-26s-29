@@ -126,6 +126,62 @@ test("open login window uses the persistent Blackboard partition", async () => {
   assert.equal(cookieSets.length > 1, true);
 });
 
+test("credentials save/get/delete and forget-device/logout behaviors", async () => {
+  const ipcMain = new FakeIpcMain();
+  const requests = [];
+  const os = require("node:os");
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "bb-test-"));
+
+  const { registerBlackboardIpc } = loadBlackboardIpcModule({
+    ipcMain,
+    BrowserWindow: class { },
+    session: { fromPartition: () => ({ clearStorageData: async () => {}, cookies: { set: async () => {} } }) },
+    app: { getPath: () => tmp },
+    safeStorage: {
+      isEncryptionAvailable: () => true,
+      encryptString: (s) => Buffer.from(s, "utf8"),
+      decryptString: (b) => b.toString("utf8"),
+    },
+  }, {
+    requestJson: async (_api, path, options) => {
+      requests.push({ path, options });
+      if (path === "/api/blackboard/session") {
+        return { connected: false, hasSession: false };
+      }
+      return {};
+    },
+  });
+
+  registerBlackboardIpc({ getApi: () => "http://127.0.0.1:8765" });
+
+  // save credentials
+  const saveRes = await ipcMain.handlers.get("blackboard:save-credentials")({}, { username: "bob", password: "pw", autoLoginAllowed: true });
+  assert.equal(saveRes, true);
+
+  // get credentials
+  const getRes = await ipcMain.handlers.get("blackboard:get-credentials")();
+  assert.equal(getRes.username, "bob");
+  assert.equal(getRes.password, "pw");
+  assert.equal(getRes.autoLoginAllowed, true);
+
+  // forget-device
+  const forgetRes = await ipcMain.handlers.get("blackboard:forget-device")();
+  assert.equal(forgetRes, true);
+
+  // after forget, get should return null
+  const getAfter = await ipcMain.handlers.get("blackboard:get-credentials")();
+  assert.equal(getAfter, null);
+
+  // logout should call backend DELETE session
+  await ipcMain.handlers.get("blackboard:logout")();
+  assert(requests.some((r) => r.path === "/api/blackboard/session" && r.options && r.options.method === "DELETE"));
+
+  // cleanup
+  try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
+});
+
 test("clear login clears the Electron Blackboard session", async () => {
   const ipcMain = new FakeIpcMain();
   const createdWindows = [];
