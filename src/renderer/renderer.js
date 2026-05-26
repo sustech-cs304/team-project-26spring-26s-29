@@ -127,10 +127,16 @@ const blackboardController = createBlackboardController({
   dismissAllButton: elements.blackboardDismissAll,
   empty: elements.blackboardEmpty,
   loginButton: elements.blackboardLogin,
+  loginFeedback: elements.blackboardLoginFeedback,
+  loginForm: elements.blackboardLoginForm,
   meta: elements.blackboardMeta,
+  openPageButton: elements.blackboardOpenPage,
+  passwordInput: elements.blackboardPassword,
+  rememberPasswordInput: elements.blackboardRememberPassword,
   statusText: elements.blackboardStatusText,
   suggestionList: elements.blackboardSuggestionList,
   summary: elements.blackboardSummary,
+  usernameInput: elements.blackboardUsername,
   syncButton: elements.blackboardSync,
   syncFeedback: elements.blackboardSyncFeedback,
   i18n,
@@ -208,7 +214,12 @@ function setAppLanguage(language) {
 const pageManager = createPageManager({
   navButtons: elements.navButtons,
   pages: elements.pages,
-  onPageChange: () => {
+  onPageChange: (pageName) => {
+    if (pageName === "blackboard") {
+      void blackboardController.refreshOnForeground();
+      return;
+    }
+
     queueForegroundRefresh();
   },
 });

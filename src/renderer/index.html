@@ -212,11 +212,36 @@
                 <h3 id="blackboard-login-title" data-i18n="blackboard.connection">Connection</h3>
                 <p id="blackboard-status-text" class="blackboard-muted">Not connected.</p>
               </div>
-              <div class="blackboard-actions">
-                <button id="blackboard-login" class="button" type="button" data-i18n="blackboard.login">Open Login</button>
-                <button id="blackboard-clear" class="button button--secondary" type="button" data-i18n="blackboard.clear">Clear Login</button>
-              </div>
             </div>
+
+            <form id="blackboard-login-form" class="blackboard-login-form">
+              <label class="field" for="blackboard-username">
+                <span class="field__label" data-i18n="blackboard.username">Username</span>
+                <input id="blackboard-username" class="todo-input" type="text" autocomplete="username" placeholder="Enter your account" data-i18n-placeholder="blackboard.usernamePlaceholder" />
+              </label>
+
+              <label class="field" for="blackboard-password">
+                <span class="field__label" data-i18n="blackboard.password">Password</span>
+                <input id="blackboard-password" class="todo-input" type="password" autocomplete="current-password" placeholder="Enter your password" data-i18n-placeholder="blackboard.passwordPlaceholder" />
+              </label>
+
+              <label class="blackboard-login-form__remember" for="blackboard-remember-password">
+                <input id="blackboard-remember-password" type="checkbox" />
+                <span data-i18n="blackboard.rememberPassword">Remember password</span>
+              </label>
+
+              <p class="blackboard-muted" data-i18n="blackboard.rememberPasswordWarning">
+                Saved password is encrypted on this device. Normal local file browsing should not reveal the password, but anyone with access to this user profile or admin-level access on this machine may still recover it.
+              </p>
+
+              <p id="blackboard-login-feedback" class="form-feedback" aria-live="polite"></p>
+
+              <div class="blackboard-actions">
+                <button id="blackboard-login" class="button" type="submit" data-i18n="blackboard.login">Login and Check Connection</button>
+                <button id="blackboard-clear" class="button button--secondary" type="button" data-i18n="blackboard.clear">Clear Login</button>
+                <button id="blackboard-open-page" class="button button--secondary" type="button" data-i18n="blackboard.openPage">Open Blackboard Page</button>
+              </div>
+            </form>
             <dl id="blackboard-meta" class="blackboard-meta"></dl>
           </section>
 

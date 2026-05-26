@@ -1,51 +1,114 @@
-const { BrowserWindow, ipcMain, session } = require("electron");
-
+const electron = require("electron");
 const { requestJson } = require("./http");
+const fs = require("fs");
+const path = require("path");
+
+const { BrowserWindow, ipcMain, session } = electron;
 
 const BLACKBOARD_URL = "https://bb.sustech.edu.cn";
-const BLACKBOARD_PARTITION = "persist:blackboard";
-const ALLOWED_COOKIE_NAMES = new Set([
-  "s_session_id",
-  "JSESSIONID",
-  "BbClientCalenderTimeZone",
-  "web_client_cache_guid",
-  "COOKIE_CONSENT_ACCEPTED",
-]);
+// Use a non-persistent partition so cookies are not written to disk
+const BLACKBOARD_PARTITION = "blackboard";
 
 let loginWindow = null;
 
-function getBlackboardSession() {
-  return session.fromPartition(BLACKBOARD_PARTITION);
+async function clearBlackboardSessionCookies() {
+  const blackboardSession = session.fromPartition(BLACKBOARD_PARTITION);
+  await blackboardSession.clearStorageData({ storages: ["cookies"] });
 }
 
-function filterBlackboardCookies(cookies) {
-  return cookies
-    .filter((cookie) => cookie.domain === "bb.sustech.edu.cn" || cookie.domain === ".bb.sustech.edu.cn")
-    .filter((cookie) => ALLOWED_COOKIE_NAMES.has(cookie.name))
-    .map((cookie) => ({
-      name: cookie.name,
-      value: cookie.value,
-      domain: cookie.domain,
-      path: cookie.path,
-    }));
+const CREDENTIALS_FILE = (() => {
+  try {
+    return path.join((electron.app && electron.app.getPath("userData")) || __dirname, "blackboard_credentials.enc");
+  } catch {
+    return path.join(__dirname, "blackboard_credentials.enc");
+  }
+})();
+
+async function saveEncryptedCredentials(username, password, options = {}) {
+  try {
+    const safeStorage = electron.safeStorage;
+    if (!safeStorage || !safeStorage.isEncryptionAvailable()) {
+      throw new Error("safeStorage unavailable");
+    }
+    const payload = JSON.stringify({
+      username: String(username || ""),
+      password: String(password || ""),
+      autoLoginAllowed: options.autoLoginAllowed !== false,
+    });
+    const encrypted = safeStorage.encryptString(payload);
+    await fs.promises.writeFile(CREDENTIALS_FILE, encrypted);
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
-async function collectBlackboardCookies() {
-  const cookies = await getBlackboardSession().cookies.get({ url: BLACKBOARD_URL });
-  return filterBlackboardCookies(cookies);
+async function loadEncryptedCredentials() {
+  try {
+    const safeStorage = electron.safeStorage;
+    if (!safeStorage || !safeStorage.isEncryptionAvailable()) {
+      return null;
+    }
+    const data = await fs.promises.readFile(CREDENTIALS_FILE);
+    const decrypted = safeStorage.decryptString(data);
+    const parsed = JSON.parse(decrypted);
+    return {
+      username: typeof parsed.username === "string" ? parsed.username : "",
+      password: typeof parsed.password === "string" ? parsed.password : "",
+      rememberPassword: Boolean(parsed.password),
+      autoLoginAllowed: parsed.autoLoginAllowed !== false,
+    };
+  } catch (err) {
+    return null;
+  }
 }
 
-async function syncSessionToBackend(api) {
-  const cookies = await collectBlackboardCookies();
-  return requestJson(api, "/api/blackboard/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cookies }),
-  });
+async function deleteEncryptedCredentials() {
+  try {
+    await fs.promises.unlink(CREDENTIALS_FILE);
+  } catch {
+    // ignore
+  }
 }
 
-function openLoginWindow() {
+async function syncBlackboardSessionCookies(getApi) {
+  const cookies = await requestJson(getApi(), "/api/blackboard/session-cookies");
+  if (!Array.isArray(cookies) || cookies.length === 0) {
+    throw new Error("Blackboard session cookies are unavailable.");
+  }
+
+  const blackboardSession = session.fromPartition(BLACKBOARD_PARTITION);
+
+  await blackboardSession.clearStorageData({ storages: ["cookies"] });
+
+  for (const cookie of Array.isArray(cookies) ? cookies : []) {
+    await blackboardSession.cookies.set({
+      url: BLACKBOARD_URL,
+      name: String(cookie.name ?? ""),
+      value: String(cookie.value ?? ""),
+      domain: cookie.domain ? String(cookie.domain) : undefined,
+      path: cookie.path ? String(cookie.path) : "/",
+    });
+  }
+}
+
+async function reloadBlackboardWindow() {
   if (loginWindow && !loginWindow.isDestroyed()) {
+    loginWindow.loadURL(BLACKBOARD_URL);
+    loginWindow.focus();
+  }
+}
+
+async function openBlackboardWindow(getApi) {
+  const status = await requestJson(getApi(), "/api/blackboard/status");
+  if (!status.connected) {
+    return { opened: false, reused: false, reason: "not-connected" };
+  }
+
+  await syncBlackboardSessionCookies(getApi);
+
+  if (loginWindow && !loginWindow.isDestroyed()) {
+    loginWindow.loadURL(BLACKBOARD_URL);
     loginWindow.focus();
     return { opened: true, reused: true };
   }
@@ -53,7 +116,7 @@ function openLoginWindow() {
   loginWindow = new BrowserWindow({
     width: 1100,
     height: 780,
-    title: "Blackboard Login",
+    title: "Blackboard",
     webPreferences: {
       partition: BLACKBOARD_PARTITION,
     },
@@ -67,24 +130,72 @@ function openLoginWindow() {
 }
 
 function registerBlackboardIpc({ getApi }) {
-  ipcMain.handle("blackboard:open-login", async () => openLoginWindow());
+  ipcMain.handle("blackboard:open-login", async () => openBlackboardWindow(getApi));
+
+  ipcMain.handle("blackboard:login", async (_event, payload = {}) => {
+    return requestJson(getApi(), "/api/blackboard/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: String(payload.username ?? ""),
+        password: String(payload.password ?? ""),
+      }),
+    });
+  });
+
+  ipcMain.handle("blackboard:save-credentials", async (_event, payload = {}) => {
+    return saveEncryptedCredentials(payload.username, payload.password, { autoLoginAllowed: payload.autoLoginAllowed !== false });
+  });
+
+  ipcMain.handle("blackboard:get-credentials", async () => {
+    return loadEncryptedCredentials();
+  });
+
+  ipcMain.handle("blackboard:delete-credentials", async () => {
+    await deleteEncryptedCredentials();
+    return true;
+  });
+
+  // New: logout (clear session only) and forget-device (delete local credentials)
+  ipcMain.handle("blackboard:logout", async () => {
+    await clearBlackboardSessionCookies();
+    await reloadBlackboardWindow();
+    return requestJson(getApi(), "/api/blackboard/session", { method: "DELETE" });
+  });
+
+  ipcMain.handle("blackboard:forget-device", async () => {
+    await deleteEncryptedCredentials();
+    return true;
+  });
+
+  ipcMain.handle("blackboard:sync-cookies", async () => {
+    try {
+      await syncBlackboardSessionCookies(getApi);
+      return { synced: true };
+    } catch (err) {
+      return { synced: false, error: err?.message || String(err) };
+    }
+  });
 
   ipcMain.handle("blackboard:get-status", async () => {
-    await syncSessionToBackend(getApi());
     return requestJson(getApi(), "/api/blackboard/status");
   });
 
-  ipcMain.handle("blackboard:clear-login", async () => {
-    await getBlackboardSession().clearStorageData({
-      storages: ["cookies", "localstorage", "sessionstorage", "cachestorage"],
+  ipcMain.handle("blackboard:refresh-status", async () => {
+    return requestJson(getApi(), "/api/blackboard/refresh", {
+      method: "POST",
     });
+  });
+
+  ipcMain.handle("blackboard:clear-login", async () => {
+    await clearBlackboardSessionCookies();
+    await reloadBlackboardWindow();
     return requestJson(getApi(), "/api/blackboard/session", {
       method: "DELETE",
     });
   });
 
   ipcMain.handle("blackboard:sync", async () => {
-    await syncSessionToBackend(getApi());
     return requestJson(getApi(), "/api/blackboard/sync", {
       method: "POST",
     });
@@ -113,6 +224,5 @@ function registerBlackboardIpc({ getApi }) {
 
 module.exports = {
   BLACKBOARD_PARTITION,
-  filterBlackboardCookies,
   registerBlackboardIpc,
 };

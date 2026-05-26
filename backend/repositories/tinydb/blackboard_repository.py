@@ -36,10 +36,14 @@ class TinyDbBlackboardRepository:
     def get_state(self, db_path: str | Path | None = None) -> dict[str, Any]:
         with open_table(_STATE_TABLE, db_path) as table:
             row = table.all()[0] if table.all() else None
-        return dict(row or self._default_state())
+        state = dict(row or self._default_state())
+        state.pop("cookie_header", None)
+        return state
 
     def update_state(self, updates: dict[str, Any], db_path: str | Path | None = None) -> dict[str, Any]:
-        next_state = {**self.get_state(db_path), **updates}
+        current_state = self.get_state(db_path)
+        current_state.pop("cookie_header", None)
+        next_state = {**current_state, **updates}
         next_state["updated_at"] = self._utcnow_iso()
         with open_table(_STATE_TABLE, db_path) as table:
             table.truncate()

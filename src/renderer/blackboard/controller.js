@@ -7,10 +7,16 @@ function createBlackboardController({
   dismissAllButton,
   empty,
   loginButton,
+  loginFeedback,
+  loginForm,
+  openPageButton,
+  passwordInput,
   meta,
   statusText,
   suggestionList,
   summary,
+  usernameInput,
+  rememberPasswordInput,
   syncButton,
   syncFeedback,
   i18n,
@@ -19,6 +25,7 @@ function createBlackboardController({
     status: null,
     suggestions: [],
     isBusy: false,
+    savedCredentials: { username: "", password: "", rememberPassword: false },
   };
 
   function t(key, params) {
@@ -37,6 +44,90 @@ function createBlackboardController({
       return;
     }
     delete syncFeedback.dataset.state;
+  }
+
+  function setLoginFeedback(message = "", kind = "") {
+    loginFeedback.textContent = message;
+    if (kind) {
+      loginFeedback.dataset.state = kind;
+      return;
+    }
+    delete loginFeedback.dataset.state;
+  }
+
+  async function persistCredentials({ username, password, rememberPassword }) {
+    const payload = {
+      username: username || "",
+      password: rememberPassword ? password || "" : "",
+      rememberPassword: Boolean(rememberPassword && password),
+    };
+    try {
+      if (payload.rememberPassword) {
+        await window.blackboardAPI.saveCredentials({ username: payload.username, password: payload.password });
+      } else {
+        await window.blackboardAPI.deleteCredentials();
+      }
+    } catch {
+      // ignore failures to persist
+    }
+    state.savedCredentials = payload;
+  }
+
+  function hydrateLoginForm() {
+    const credentials = state.savedCredentials || { username: "", password: "", rememberPassword: false };
+    usernameInput.value = credentials.username || "";
+    rememberPasswordInput.checked = Boolean(credentials.rememberPassword);
+    passwordInput.value = credentials.rememberPassword ? credentials.password || "" : "";
+  }
+
+  async function autoLoginIfRemembered() {
+    let credentials = state.savedCredentials;
+    if (!credentials || !credentials.username) {
+      try {
+        const remote = await window.blackboardAPI.getCredentials();
+        if (remote) {
+          credentials = remote;
+          state.savedCredentials = remote;
+          hydrateLoginForm();
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (state.status?.connected || !credentials || !credentials.rememberPassword || !credentials.username || !credentials.password || credentials.autoLoginAllowed === false) {
+      return false;
+    }
+
+    setLoginFeedback(t("blackboard.feedback.loggingIn"), "pending");
+    try {
+      const result = await window.blackboardAPI.login({
+        username: credentials.username,
+        password: credentials.password,
+      });
+      if (result.connected) {
+        setLoginFeedback(t("blackboard.feedback.loginSucceeded"), "success");
+        try {
+          await window.blackboardAPI.syncCookies();
+        } catch (e) {
+          // best-effort: ignore sync failures but keep UI success
+        }
+      } else {
+        setLoginFeedback(result.lastError || t("blackboard.feedback.loginFailed"), "error");
+        // Disable further auto-login attempts until user intervenes
+        try {
+          await window.blackboardAPI.saveCredentials({ username: credentials.username, password: credentials.password, autoLoginAllowed: false });
+          state.savedCredentials = { ...credentials, autoLoginAllowed: false };
+        } catch {}
+      }
+    } catch (error) {
+      setLoginFeedback(error?.message || t("blackboard.feedback.loginFailed"), "error");
+      try {
+        await window.blackboardAPI.saveCredentials({ username: credentials.username, password: credentials.password, autoLoginAllowed: false });
+        state.savedCredentials = { ...credentials, autoLoginAllowed: false };
+      } catch {}
+    }
+
+    return true;
   }
 
   function renderStatus() {
@@ -131,29 +222,88 @@ function createBlackboardController({
     syncButton.disabled = state.isBusy;
     applyAllButton.disabled = state.isBusy || state.suggestions.length === 0;
     dismissAllButton.disabled = state.isBusy || state.suggestions.length === 0;
+    openPageButton.disabled = state.isBusy || !state.status?.connected;
+    usernameInput.disabled = state.isBusy;
+    passwordInput.disabled = state.isBusy;
+    rememberPasswordInput.disabled = state.isBusy;
   }
 
-  async function refresh() {
+  async function refreshState() {
+    state.status = await window.blackboardAPI.refreshStatus();
+    state.suggestions = await window.blackboardAPI.listSuggestions();
+    render();
+  }
+
+  async function refresh({ autoLogin = false } = {}) {
     try {
-      state.status = await window.blackboardAPI.getStatus();
-      state.suggestions = await window.blackboardAPI.listSuggestions();
-      render();
+      if (autoLogin && !state.status?.connected) {
+        await autoLoginIfRemembered();
+      }
+      await refreshState();
     } catch (error) {
       setFeedback(error?.message || String(error), "error");
     }
   }
 
-  async function openLogin() {
-    await window.blackboardAPI.openLogin();
-    setFeedback(t("blackboard.feedback.loginOpened"), "pending");
+  async function openPage() {
+    if (!state.status?.connected) {
+      setLoginFeedback(t("blackboard.feedback.loginFailed"), "error");
+      return;
+    }
+
+    try {
+      const result = await window.blackboardAPI.openLogin();
+      if (result?.opened) {
+        setLoginFeedback(t("blackboard.feedback.pageOpened"), "pending");
+        return;
+      }
+
+      setLoginFeedback(t("blackboard.feedback.loginFailed"), "error");
+    } catch (error) {
+      setLoginFeedback(error?.message || t("blackboard.feedback.loginFailed"), "error");
+    }
+  }
+
+  async function login(event) {
+    event.preventDefault();
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    if (!username || !password) {
+      setLoginFeedback(t("blackboard.feedback.loginFailed"), "error");
+      return;
+    }
+
+    setBusy(true);
+    setLoginFeedback(t("blackboard.feedback.loggingIn"), "pending");
+    try {
+      const result = await window.blackboardAPI.login({ username, password });
+      await persistCredentials({ username, password, rememberPassword: rememberPasswordInput.checked });
+      await refresh();
+      if (result.connected) {
+        setLoginFeedback(t("blackboard.feedback.loginSucceeded"), "success");
+        setFeedback("", "");
+        render();
+        return;
+      }
+      setLoginFeedback(result.lastError || t("blackboard.feedback.loginFailed"), "error");
+      render();
+    } catch (error) {
+      setLoginFeedback(error?.message || t("blackboard.feedback.loginFailed"), "error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function clearLogin() {
     setBusy(true);
     setFeedback(t("blackboard.feedback.clearing"), "pending");
     try {
-      state.status = await window.blackboardAPI.clearLogin();
-      state.suggestions = await window.blackboardAPI.listSuggestions();
+      await window.blackboardAPI.clearLogin();
+      try {
+        await window.blackboardAPI.deleteCredentials();
+        state.savedCredentials = { username: "", password: "", rememberPassword: false };
+      } catch {}
+      await refreshState();
       setFeedback(t("blackboard.feedback.cleared"), "success");
     } catch (error) {
       setFeedback(error?.message || String(error), "error");
@@ -166,6 +316,7 @@ function createBlackboardController({
     setBusy(true);
     setFeedback(t("blackboard.feedback.syncing"), "pending");
     try {
+      await refreshState();
       state.status = await window.blackboardAPI.sync();
       state.suggestions = await window.blackboardAPI.listSuggestions();
       setFeedback(t("blackboard.feedback.synced"), "success");
@@ -221,8 +372,22 @@ function createBlackboardController({
   }
 
   function init() {
+    hydrateLoginForm();
     render();
-    loginButton.addEventListener("click", openLogin);
+    (async () => {
+      try {
+        const creds = await window.blackboardAPI.getCredentials();
+        if (creds) {
+          state.savedCredentials = creds;
+          hydrateLoginForm();
+          render();
+        }
+      } catch (err) {
+        // ignore
+      }
+    })();
+    loginForm.addEventListener("submit", login);
+    openPageButton.addEventListener("click", openPage);
     clearButton.addEventListener("click", clearLogin);
     syncButton.addEventListener("click", sync);
     applyAllButton.addEventListener("click", () => apply(state.suggestions.map((item) => item.id)));
@@ -233,7 +398,7 @@ function createBlackboardController({
   return {
     init,
     loadOnStartup: refresh,
-    refreshOnForeground: refresh,
+    refreshOnForeground: () => refresh({ autoLogin: true }),
     refreshTranslations: render,
   };
 }

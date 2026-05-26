@@ -7,5 +7,6 @@ python-docx
 python-pptx
 openpyxl
 beautifulsoup4
+requests
 striprtf
 odfpy
