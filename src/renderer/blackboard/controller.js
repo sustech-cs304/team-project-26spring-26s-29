@@ -94,8 +94,7 @@ function createBlackboardController({
         // ignore
       }
     }
-
-    if (state.status?.connected || !credentials || !credentials.rememberPassword || !credentials.username || !credentials.password) {
+    if (state.status?.connected || !credentials || !credentials.rememberPassword || !credentials.username || !credentials.password || credentials.autoLoginAllowed === false) {
       return false;
     }
 
@@ -109,9 +108,18 @@ function createBlackboardController({
         setLoginFeedback(t("blackboard.feedback.loginSucceeded"), "success");
       } else {
         setLoginFeedback(result.lastError || t("blackboard.feedback.loginFailed"), "error");
+        // Disable further auto-login attempts until user intervenes
+        try {
+          await window.blackboardAPI.saveCredentials({ username: credentials.username, password: credentials.password, autoLoginAllowed: false });
+          state.savedCredentials = { ...credentials, autoLoginAllowed: false };
+        } catch {}
       }
     } catch (error) {
       setLoginFeedback(error?.message || t("blackboard.feedback.loginFailed"), "error");
+      try {
+        await window.blackboardAPI.saveCredentials({ username: credentials.username, password: credentials.password, autoLoginAllowed: false });
+        state.savedCredentials = { ...credentials, autoLoginAllowed: false };
+      } catch {}
     }
 
     return true;

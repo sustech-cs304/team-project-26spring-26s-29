@@ -6,7 +6,8 @@ const path = require("path");
 const { BrowserWindow, ipcMain, session } = electron;
 
 const BLACKBOARD_URL = "https://bb.sustech.edu.cn";
-const BLACKBOARD_PARTITION = "persist:blackboard";
+// Use a non-persistent partition so cookies are not written to disk
+const BLACKBOARD_PARTITION = "blackboard";
 
 let loginWindow = null;
 
@@ -23,13 +24,17 @@ const CREDENTIALS_FILE = (() => {
   }
 })();
 
-async function saveEncryptedCredentials(username, password) {
+async function saveEncryptedCredentials(username, password, options = {}) {
   try {
     const safeStorage = electron.safeStorage;
     if (!safeStorage || !safeStorage.isEncryptionAvailable()) {
       throw new Error("safeStorage unavailable");
     }
-    const payload = JSON.stringify({ username: String(username || ""), password: String(password || "") });
+    const payload = JSON.stringify({
+      username: String(username || ""),
+      password: String(password || ""),
+      autoLoginAllowed: options.autoLoginAllowed !== false,
+    });
     const encrypted = safeStorage.encryptString(payload);
     await fs.promises.writeFile(CREDENTIALS_FILE, encrypted);
     return true;
@@ -51,6 +56,7 @@ async function loadEncryptedCredentials() {
       username: typeof parsed.username === "string" ? parsed.username : "",
       password: typeof parsed.password === "string" ? parsed.password : "",
       rememberPassword: Boolean(parsed.password),
+      autoLoginAllowed: parsed.autoLoginAllowed !== false,
     };
   } catch (err) {
     return null;
@@ -138,7 +144,7 @@ function registerBlackboardIpc({ getApi }) {
   });
 
   ipcMain.handle("blackboard:save-credentials", async (_event, payload = {}) => {
-    return saveEncryptedCredentials(payload.username, payload.password);
+    return saveEncryptedCredentials(payload.username, payload.password, { autoLoginAllowed: payload.autoLoginAllowed !== false });
   });
 
   ipcMain.handle("blackboard:get-credentials", async () => {
@@ -146,6 +152,18 @@ function registerBlackboardIpc({ getApi }) {
   });
 
   ipcMain.handle("blackboard:delete-credentials", async () => {
+    await deleteEncryptedCredentials();
+    return true;
+  });
+
+  // New: logout (clear session only) and forget-device (delete local credentials)
+  ipcMain.handle("blackboard:logout", async () => {
+    await clearBlackboardSessionCookies();
+    await reloadBlackboardWindow();
+    return requestJson(getApi(), "/api/blackboard/session", { method: "DELETE" });
+  });
+
+  ipcMain.handle("blackboard:forget-device", async () => {
     await deleteEncryptedCredentials();
     return true;
   });
