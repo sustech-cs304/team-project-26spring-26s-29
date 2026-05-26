@@ -71,10 +71,15 @@ jobs:
             --upgrade `
             --disable-pip-version-check `
             --no-cache-dir `
-            --no-compile `
+            --no-warn-script-location `
             pip `
             setuptools `
-            wheel `
+            wheel
+          & "vendor/windows-python/python.exe" -m pip install `
+            --disable-pip-version-check `
+            --no-cache-dir `
+            --no-compile `
+            --no-warn-script-location `
             -r backend/requirements.txt
 
       - name: Verify bundled Python
