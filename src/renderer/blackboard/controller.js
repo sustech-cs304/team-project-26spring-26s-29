@@ -106,6 +106,11 @@ function createBlackboardController({
       });
       if (result.connected) {
         setLoginFeedback(t("blackboard.feedback.loginSucceeded"), "success");
+        try {
+          await window.blackboardAPI.syncCookies();
+        } catch (e) {
+          // best-effort: ignore sync failures but keep UI success
+        }
       } else {
         setLoginFeedback(result.lastError || t("blackboard.feedback.loginFailed"), "error");
         // Disable further auto-login attempts until user intervenes

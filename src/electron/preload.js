@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld("blackboardAPI", {
   logout: () => ipcRenderer.invoke("blackboard:logout"),
   forgetDevice: () => ipcRenderer.invoke("blackboard:forget-device"),
   sync: () => ipcRenderer.invoke("blackboard:sync"),
+  syncCookies: () => ipcRenderer.invoke("blackboard:sync-cookies"),
   listSuggestions: () => ipcRenderer.invoke("blackboard:list-suggestions"),
   applySuggestions: (ids) => ipcRenderer.invoke("blackboard:apply-suggestions", ids),
   dismissSuggestions: (ids) => ipcRenderer.invoke("blackboard:dismiss-suggestions", ids),

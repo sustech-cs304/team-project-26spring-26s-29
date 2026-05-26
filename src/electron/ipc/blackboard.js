@@ -168,6 +168,15 @@ function registerBlackboardIpc({ getApi }) {
     return true;
   });
 
+  ipcMain.handle("blackboard:sync-cookies", async () => {
+    try {
+      await syncBlackboardSessionCookies(getApi);
+      return { synced: true };
+    } catch (err) {
+      return { synced: false, error: err?.message || String(err) };
+    }
+  });
+
   ipcMain.handle("blackboard:get-status", async () => {
     return requestJson(getApi(), "/api/blackboard/status");
   });
