@@ -1,7 +1,7 @@
 {
   "name": "kao-hsiao",
   "productName": "SUSTech Student Assistant",
-  "version": "0.2.1",
+  "version": "0.3.1",
   "description": "A SUSTech-oriented student assistant with NanKe Manual content, todo, calendar, and local planning tools.",
   "homepage": "https://github.com/sustech-cs304/team-project-26spring-26s-29#readme",
   "bugs": {

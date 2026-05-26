@@ -10,15 +10,15 @@ It is a design artifact for report submission and is separate from implementatio
 ```mermaid
 flowchart LR
     subgraph Renderer[Renderer UI]
-      UI[Chat / Todo / Schedule / Config]
+      UI[Chat / Todo / Schedule / Blackboard / Config]
     end
 
     subgraph Preload[Preload Bridge]
-      Bridge[window.agentAPI / todoAPI / scheduleAPI / configAPI]
+      Bridge[window.agentAPI / todoAPI / scheduleAPI / blackboardAPI / configAPI]
     end
 
     subgraph Electron[Electron Main Process]
-      IPC[IPC handlers: agent / todo / schedule / config]
+      IPC[IPC handlers: agent / todo / schedule / blackboard / config]
       ConfigStore[Config store + workspace lifecycle]
       BackendProc[Python backend process controller]
     end
@@ -44,7 +44,7 @@ flowchart LR
 
 | Component             | Role                                                                      | Notes                                       |
 | --------------------- | ------------------------------------------------------------------------- | ------------------------------------------- |
-| Renderer UI           | User-facing interaction for chat, todo, schedule, and config              | Keeps no direct backend process control     |
+| Renderer UI           | User-facing interaction for chat, todo, schedule, Blackboard, and config  | Keeps no direct backend process control     |
 | Preload Bridge        | Trusted boundary exposed to renderer via safe APIs                        | Restricts renderer to explicit capabilities |
 | Electron Main Process | App orchestration: IPC, backend process, config file, workspace lifecycle | Central integration point                   |
 | FastAPI Routes        | Transport boundary for HTTP and WebSocket                                 | Validation and endpoint contracts           |
@@ -143,6 +143,7 @@ flowchart LR
     MainArea --> ChatPage[Chat Page]
     MainArea --> TodoPage[Todo Page]
     MainArea --> SchedulePage[Schedule Page]
+    MainArea --> BlackboardPage[Blackboard Page]
     MainArea --> ConfigPage[Config Page]
 ```
 
@@ -193,7 +194,22 @@ Design intent:
 - Date-centric planning with direct event operations.
 - Keep event actions near event visibility to reduce context switching.
 
-### 2.5 Config UI Design
+### 2.5 Blackboard UI Design
+
+```mermaid
+flowchart TB
+    Login[Connection Panel\nopen login + clear login + status]
+    Sync[Sync Panel\nsync action + summary]
+    Suggestions[Suggestion Review\napply / dismiss / bulk actions]
+
+    Login --> Sync --> Suggestions
+```
+
+Design intent:
+- Keep authentication state separate from data mutation.
+- Require review before Blackboard suggestions affect Todo or Schedule.
+
+### 2.6 Config UI Design
 
 ```mermaid
 flowchart TB
@@ -208,7 +224,7 @@ Design intent:
 - Keep runtime-sensitive configuration explicit.
 - Make unsaved state and save result obvious.
 
-### 2.6 UI Design Notes For Report
+### 2.7 UI Design Notes For Report
 
 - Use this document's diagrams as the UI design artifact baseline.
 - If the report requires image files, export each Mermaid diagram as PNG/SVG from Markdown preview.

@@ -4,8 +4,8 @@ This document defines the simplified Release 1 scope. The goal is a small local
 desktop assistant for SUSTech students, not a full campus platform.
 
 The todo, schedule, chat, and local configuration features are generic student
-productivity surfaces. The NanKe Manual (南科手册) corpus and other campus
-knowledge content are SUSTech-specific proprietary/domain content.
+productivity surfaces. The NanKe Manual (南科手册) corpus, Blackboard sync, and
+other campus knowledge content are SUSTech-specific proprietary/domain content.
 
 `docs/presentation/proposal-26s-29.md` remains the original proposal archive.
 
@@ -27,6 +27,7 @@ The app shall provide local task management.
 - Tasks can have optional due times and details.
 - Users can search, sort, filter, bulk clear, and undo a recent delete.
 - Tasks persist locally through TinyDB.
+- A task with a due time creates and maintains a linked short schedule event.
 - The assistant can read tasks and can request approval to change tasks.
 
 ## FR3. Schedule Management
@@ -34,7 +35,7 @@ The app shall provide local task management.
 The app shall provide local schedule-event management.
 
 - Users can create, read, update, and delete schedule events.
-- Events have title, optional details, and start/end time fields.
+- Events have title, optional details, start/end time fields, completion state, optional location, all-day metadata, reminder offsets, and recurrence metadata.
 - Users can browse events through a month calendar.
 - Schedule events persist locally through TinyDB.
 - The assistant can read schedule events and can request approval to change them.
@@ -57,10 +58,21 @@ The app shall let users edit development-time runtime settings without leaving t
 - Electron syncs runtime settings to the Python backend.
 - Electron restarts the backend when the backend port changes.
 
+## FR6. Blackboard Sync
+
+The app shall support a reviewed SUSTech Blackboard import path.
+
+- Users can open Blackboard login in a dedicated Electron browser partition.
+- Electron collects allowed Blackboard cookies and sends them to the backend.
+- The backend can sync enrolled courses, announcements, content items, and gradebook columns.
+- Changed Blackboard items can be classified into todo, schedule, or ignore suggestions.
+- Users can apply or dismiss suggestions before local Todo or Schedule data changes.
+- Blackboard sync state, remote item hashes, and suggestions persist locally through TinyDB.
+
 ## Out Of Scope For Release 1
 
 - reminders and notifications
-- Blackboard or Microsoft To Do integration
+- Microsoft To Do integration
 - multi-device sync
 - cloud accounts
 - fully automated actions without user approval

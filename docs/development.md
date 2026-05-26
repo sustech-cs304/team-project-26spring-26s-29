@@ -85,6 +85,7 @@ npm test
 ### UI changes
 
 - page structure and behavior: `src/renderer/`
+- Blackboard page behavior: `src/renderer/blackboard/`
 - assistant Markdown and formula rendering: `src/renderer/shared/markdown.js`
 - safe renderer bridge: `src/electron/preload.js`
 - IPC and process orchestration: `src/electron/`
@@ -105,11 +106,15 @@ That means:
 - HTTP route assembly belongs in `backend/api/routes/`
 - business logic belongs in `backend/services/`
 - persistence belongs in `backend/repositories/`
+- agent tools belong in `backend/agent/tools/`
+- agent run context belongs in `backend/agent/context/`
 
 ## Persistence Notes
 
 - Todo data is stored in TinyDB table `todo_list`.
 - Schedule data is stored in TinyDB table `schedule_events`.
+- Todo-to-schedule due-date bindings are stored in `todo_schedule_bindings`.
+- Blackboard sync uses `blackboard_state`, `blackboard_remote_items`, and `blackboard_suggestions`.
 - In the Electron-managed app flow, TinyDB lives in `db.json` beside the active `config.json`.
 - Uploaded files and generated artifacts live in `workspace/` beside that same `config.json`, with `inputs/` and `outputs/` recreated on every application start.
 
