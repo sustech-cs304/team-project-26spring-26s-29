@@ -101,15 +101,50 @@ jobs:
             Expression = { [math]::Round($_.Length / 1MB, 1) }
           } | Format-Table -AutoSize
 
-      - name: Upload installer artifacts
+      - name: Resolve installer artifact paths
+        id: artifact-paths
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $installer = Get-ChildItem "dist" -File -Filter "*.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Failed to find the generated Windows installer in dist/."
+          }
+
+          $blockmap = Get-ChildItem "dist" -File -Filter "*.blockmap" | Select-Object -First 1
+          $metadata = Get-ChildItem "dist" -File -Filter "latest*.yml" | Select-Object -First 1
+
+          "installer_path=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          if ($blockmap) {
+            "blockmap_path=$($blockmap.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+          if ($metadata) {
+            "metadata_path=$($metadata.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+
+      - name: Upload installer executable
         uses: actions/upload-artifact@v7
         with:
-          name: windows-installer
-          path: |
-            dist/*.exe
-            dist/*.blockmap
-            dist/latest*.yml
-          if-no-files-found: error
+          name: windows-installer-exe
+          path: ${{ steps.artifact-paths.outputs.installer_path }}
+          archive: false
+
+      - name: Upload installer blockmap
+        if: ${{ steps.artifact-paths.outputs.blockmap_path != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer-blockmap
+          path: ${{ steps.artifact-paths.outputs.blockmap_path }}
+          archive: false
+
+      - name: Upload installer metadata
+        if: ${{ steps.artifact-paths.outputs.metadata_path != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer-metadata
+          path: ${{ steps.artifact-paths.outputs.metadata_path }}
+          archive: false
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
