@@ -6,8 +6,8 @@ const test = require("node:test");
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf8")
 );
-const windowsInstallerWorkflow = fs.readFileSync(
-  path.join(__dirname, "..", "..", ".github", "workflows", "build-windows-installer.yml"),
+const prepareWindowsPythonScript = fs.readFileSync(
+  path.join(__dirname, "..", "..", "tools", "ci", "prepare-windows-python.ps1"),
   "utf8"
 );
 
@@ -55,9 +55,9 @@ test("electron-builder packages generated SUSTech corpus but not the full submod
 });
 
 test("bundled Python runtime installs build tools before requirements", () => {
-  const setuptoolsIndex = windowsInstallerWorkflow.indexOf("setuptools");
-  const wheelIndex = windowsInstallerWorkflow.indexOf("wheel");
-  const requirementsIndex = windowsInstallerWorkflow.lastIndexOf("-r backend/requirements.txt");
+  const setuptoolsIndex = prepareWindowsPythonScript.indexOf("setuptools");
+  const wheelIndex = prepareWindowsPythonScript.indexOf("wheel");
+  const requirementsIndex = prepareWindowsPythonScript.lastIndexOf("-r backend/requirements.txt");
 
   assert.ok(setuptoolsIndex > -1);
   assert.ok(wheelIndex > -1);
