@@ -1,28 +1,32 @@
 # SUSTech Student Assistant
 
-A local desktop app designed first for Southern University of Science and
-Technology (SUSTech) students. It combines SUSTech-specific proprietary/domain
-content, including NanKe Manual (南科手册) materials, with general student
-planning tools.
+[中文版本](./README.zh-CN.md)
 
-The app focuses on five practical workflows:
+SUSTech Student Assistant is a local desktop app for Southern University of
+Science and Technology students. It combines a chat assistant, todo planning,
+calendar events, Blackboard sync, and SUSTech-oriented campus knowledge from
+NanKe Manual (南科手册) materials.
 
-- chat with a local Python-backed assistant
-- manage tasks and due dates
-- manage schedule events
-- sync Blackboard items into reviewed todo/schedule suggestions
-- search and use SUSTech-oriented campus knowledge
+The app is a small local prototype built with Electron, vanilla JavaScript,
+FastAPI, and TinyDB. Electron runs the desktop shell and starts the Python
+backend automatically during normal use.
 
-Todo, schedule, local configuration, and chat workflows are generic enough for
-other student productivity use cases. The bundled campus knowledge, manual
-corpus, and Blackboard sync path are SUSTech-specific proprietary/domain
-content, not a universal knowledge base.
+## Key Features
 
-The project is intentionally a small local prototype. It uses Electron for the desktop shell, vanilla JavaScript for the UI, FastAPI for the backend, and TinyDB for local persistence.
+- Chat with a Python-backed assistant through an OpenAI-compatible model.
+- Upload local files into a temporary workspace for assistant inspection.
+- Manage todos with due dates, completion state, search, sorting, filters, bulk
+  clearing, and undo after delete.
+- Mirror todo due dates into linked schedule events.
+- Create and update schedule events in a calendar view.
+- Sign in to SUSTech Blackboard in a dedicated window, sync remote items, and
+  review suggested todo or schedule changes before applying them.
+- Search SUSTech-oriented campus knowledge built from NanKe Manual and related
+  bundled documents.
+- Configure backend port, model settings, endpoint, API key, and UI language
+  from local settings.
 
-`docs/presentation/proposal-26s-29.md` is historical context. The current project scope is documented in `docs/`.
-
-## Stack
+## Tech Stack
 
 - Desktop shell: Electron
 - Renderer: HTML, CSS, vanilla JavaScript
@@ -30,84 +34,232 @@ The project is intentionally a small local prototype. It uses Electron for the d
 - Agent runtime: `agent-framework` with an OpenAI-compatible chat client
 - Local storage: TinyDB
 - Rich chat text: `markdown-it` and KaTeX
-- Campus knowledge corpus: NanKe Manual / SUSTech-oriented documents
-- Blackboard sync: Electron login window, FastAPI sync service, reviewed suggestions
+- Packaging: `electron-builder` for Windows NSIS builds
 
-## Quick Start
+## Repository Layout
 
-1. Install Node.js and a recent `python` interpreter.
-2. Install dependencies:
+```text
+backend/        FastAPI routes, services, repositories, Blackboard sync, and agent runtime
+src/electron/   Electron main process, preload bridge, IPC, and backend process control
+src/renderer/   Chat, Todo, Schedule, Blackboard, and Config UI
+tests/          Backend and Electron-side tests
+docs/           Product, architecture, backend, development, and packaging docs
+tools/          Corpus build and CI helper scripts
+vendor/         Bundled third-party and SUSTech-oriented source materials
+```
+
+## Prerequisites
+
+- Node.js with npm
+- A recent Python interpreter available as `python`
+- Network access to the configured OpenAI-compatible chat endpoint if you want
+  to use the assistant chat features
+- SUSTech Blackboard credentials if you want to use Blackboard sync
+
+## Installation
+
+Install JavaScript dependencies:
 
 ```powershell
 npm install
+```
+
+Install Python dependencies:
+
+```powershell
 python -m pip install -r backend/requirements.txt
 ```
 
-3. Edit `config.json`:
+Optional: rebuild the local SUSTech manual corpus:
 
-- `backendPort`
-- `openaiApiKey`
-- `openaiChatModel`
-- `openaiEndpoint`
-- `appLanguage` (`zh-CN` or `en`)
+```powershell
+npm run build:sustech-manual
+```
 
-4. Start the app:
+## Configuration
+
+The development config file is `config.json` in the repository root. The app
+expects these keys:
+
+| Key | Purpose |
+| --- | --- |
+| `backendPort` | Local port used by Electron to reach the FastAPI backend |
+| `openaiApiKey` | API key for the configured chat provider |
+| `openaiChatModel` | Model name used by the assistant runtime |
+| `openaiEndpoint` | OpenAI-compatible base URL |
+| `appLanguage` | UI and default assistant language, usually `zh-CN` or `en` |
+
+Example config shape:
+
+```json
+{
+  "backendPort": 8765,
+  "openaiApiKey": "YOUR_API_KEY",
+  "openaiChatModel": "YOUR_MODEL_NAME",
+  "openaiEndpoint": "https://api.example.com/v1",
+  "appLanguage": "zh-CN"
+}
+```
+
+Do not commit real API keys or personal credentials. TinyDB data is stored in
+`db.json` beside the active config file. Electron also creates a local
+`workspace/` directory for uploaded files and generated artifacts; that
+workspace is cleared and recreated on app startup.
+
+## Running the Desktop App
+
+Start the app from the repository root:
 
 ```powershell
 npm start
 ```
 
-Electron starts the Python backend automatically. When the backend is reachable and a chat model is configured, the app status changes to `ready`.
+Electron opens the desktop UI and starts the Python backend automatically. When
+the backend is reachable and the chat model is configured, the app status
+changes to `ready`.
 
-## Backend Only
+## Running the Backend Only
+
+Use this mode when you want to test the API without Electron:
 
 ```powershell
 python -m uvicorn backend.app:app --host 127.0.0.1 --port 8765
 ```
 
-Use this when testing the API without Electron.
+Then check the health endpoint:
 
-## Tests
+```powershell
+curl.exe http://127.0.0.1:8765/health
+```
+
+## Usage Examples
+
+### Chat
+
+1. Open the desktop app with `npm start`.
+2. Go to the Chat page.
+3. Ask a question such as:
+
+```text
+Summarize my upcoming todos and schedule events for this week.
+```
+
+4. If the assistant asks for permission before changing local todos, schedules,
+   or workspace files, review the request before approving it.
+
+### Todo Planning
+
+1. Open the Todo page.
+2. Create a task with a title and due time, for example:
+
+```text
+Title: Submit CS304 milestone report
+Due: 2026-06-03 23:59
+```
+
+3. The todo is persisted in TinyDB. If it has a due time, the app also creates a
+   linked schedule event.
+4. Mark the todo complete or edit the due time to update the linked event.
+
+### Schedule
+
+1. Open the Schedule page.
+2. Add an event such as:
+
+```text
+Title: Group meeting
+Time: 2026-06-01 15:00-16:00
+Location: Library
+```
+
+3. Navigate by month to review upcoming events.
+
+### Blackboard Sync
+
+1. Open the Blackboard page.
+2. Start the Blackboard login flow and sign in through the dedicated window.
+3. Run sync to collect announcements, content items, and gradebook columns.
+4. Review generated suggestions before applying them to Todo or Schedule.
+
+### Backend API Snapshot
+
+When the backend is running on port `8765`, you can create and read todos
+directly:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8765/api/todos `
+  -H "Content-Type: application/json" `
+  -d "{\"title\":\"Read NanKe Manual\",\"dueAt\":\"2026-06-01T10:00:00\"}"
+
+curl.exe http://127.0.0.1:8765/api/todos
+```
+
+## Screenshots / Snapshots
+
+Recommended screenshots for project reports or demos:
+
+- Chat page with a rendered assistant response
+- Todo page showing an active task and its due date
+- Schedule page showing a linked event
+- Blackboard page showing reviewed suggestions
+- Config page showing non-secret local settings
+
+Place screenshots under a directory such as `docs/screenshots/` and link them
+from this section. Do not include API keys, Blackboard credentials, or private
+student data in screenshots.
+
+## Testing
+
+Run the full test suite:
 
 ```powershell
 npm test
 ```
 
-This runs both suites:
+Run backend tests only:
 
 ```powershell
-python -m unittest discover -s tests -v
-node --test tests/electron/*.test.js
+npm run test:backend
 ```
 
-## Repository Map
+Run Electron-side tests only:
 
-```text
-backend/        FastAPI routes, services, repositories, Blackboard sync, and agent runtime
-src/electron/   Electron main process, preload bridge, IPC, and config sync
-src/renderer/   Chat, Todo, Schedule, Blackboard, and Config UI
-tests/          Backend and Electron tests
-docs/           Current documentation and presentation materials
-vendor/         Bundled third-party and SUSTech-oriented source materials
+```powershell
+npm run test:electron
 ```
 
-## Notes
+## Build for Windows
 
-- `config.json` is the development source of truth for local settings.
-- TinyDB data lives in `db.json` beside the active config file, including
-  todos, schedules, todo-schedule bindings, and Blackboard sync state.
-- Uploaded files are staged into `workspace/inputs/<requestId>/...`.
-- The workspace is cleared and recreated on every app start.
-- SUSTech-specific corpus files are built with `npm run build:sustech-manual`
-  and validated with `npm run validate:sustech-manual`.
-- Avoid committing real API keys or environment-specific secrets.
+The Windows package flow rebuilds the SUSTech manual corpus and then runs
+`electron-builder`:
 
-## Docs
+```powershell
+npm run package:win
+```
 
-- [docs/README.md](./docs/README.md): documentation index
-- [docs/product.md](./docs/product.md): simplified product scope
-- [docs/feature.md](./docs/feature.md): Release 1 requirements
-- [docs/architecture.md](./docs/architecture.md): runtime boundaries and request flows
-- [docs/backend.md](./docs/backend.md): backend modules and API details
-- [docs/development.md](./docs/development.md): setup, config, and testing
-- [docs/windows-packaging.md](./docs/windows-packaging.md): Windows installer flow
+See [docs/windows-packaging.md](./docs/windows-packaging.md) for details about
+the bundled Python runtime and installer artifacts.
+
+## Known Issues and Limitations
+
+- This is a local prototype, not a hosted multi-user service.
+- Assistant chat requires a working OpenAI-compatible endpoint and API key.
+- Blackboard sync is SUSTech-specific and depends on the current Blackboard
+  login/session flow.
+- The bundled campus knowledge is SUSTech-specific and is not a universal
+  student knowledge base.
+- Reminders, local notifications, Microsoft To Do sync, and external calendar
+  sync are outside the current Release 1 scope.
+- The local `workspace/` directory is recreated on every app startup, so do not
+  use it as long-term storage.
+
+## Additional Resources
+
+- [Documentation index](./docs/README.md)
+- [Product scope](./docs/product.md)
+- [Feature requirements](./docs/feature.md)
+- [Architecture](./docs/architecture.md)
+- [Backend API and modules](./docs/backend.md)
+- [Development guide](./docs/development.md)
+- [Windows packaging guide](./docs/windows-packaging.md)
+- [Historical proposal](./docs/presentation/proposal-26s-29.md)
