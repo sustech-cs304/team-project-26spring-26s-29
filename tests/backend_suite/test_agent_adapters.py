@@ -11,8 +11,12 @@ from backend.agent.instructions import (
     build_agent_instructions,
 )
 from backend.agent.tools import (
+    BLACKBOARD_TOOLS,
     SCHEDULE_TOOLS,
     TODO_TOOLS,
+    get_blackboard_status,
+    list_blackboard_suggestions,
+    sync_blackboard,
     create_schedule,
     delete_schedule,
     create_todo,
@@ -23,7 +27,7 @@ from backend.agent.tools import (
     update_schedule,
     update_todo,
 )
-from backend.services import schedule_service, todo_service
+from backend.services import blackboard_service, schedule_service, todo_service
 
 from .support import AsyncBackendTestCase, BackendTestCase
 
@@ -77,6 +81,22 @@ class AgentToolTests(BackendTestCase):
         self.assertEqual(updated["action"], "update")
         self.assertEqual(updated["todo"]["id"], created["todo"]["id"])
 
+    def test_blackboard_tools_report_login_requirement_without_credentials(self) -> None:
+        blackboard_service.clear_session()
+
+        status = get_blackboard_status()
+        sync = sync_blackboard()
+        suggestions = list_blackboard_suggestions()
+
+        self.assertEqual(len(BLACKBOARD_TOOLS), 5)
+        self.assertEqual(status["action"], "status")
+        self.assertFalse(status["status"]["connected"])
+        self.assertTrue(status["status"]["needs_login"])
+        self.assertEqual(sync["action"], "sync")
+        self.assertTrue(sync["status"]["needs_login"])
+        self.assertEqual(sync["status"]["last_error"], "Blackboard login is required.")
+        self.assertEqual(suggestions["count"], 0)
+
     def test_write_tools_require_approval_but_list_does_not(self) -> None:
         tool_modes = {tool.name: tool.approval_mode for tool in TODO_TOOLS}
         self.assertEqual(tool_modes["list_todos"], "never_require")
@@ -90,6 +110,13 @@ class AgentToolTests(BackendTestCase):
         self.assertEqual(schedule_tool_modes["create_schedule"], "always_require")
         self.assertEqual(schedule_tool_modes["update_schedule"], "always_require")
         self.assertEqual(schedule_tool_modes["delete_schedule"], "always_require")
+
+        blackboard_tool_modes = {tool.name: tool.approval_mode for tool in BLACKBOARD_TOOLS}
+        self.assertEqual(blackboard_tool_modes["get_blackboard_status"], "never_require")
+        self.assertEqual(blackboard_tool_modes["list_blackboard_suggestions"], "never_require")
+        self.assertEqual(blackboard_tool_modes["sync_blackboard"], "always_require")
+        self.assertEqual(blackboard_tool_modes["apply_blackboard_suggestions"], "always_require")
+        self.assertEqual(blackboard_tool_modes["dismiss_blackboard_suggestions"], "always_require")
 
     def test_todo_tool_descriptions_warn_against_internal_planning(self) -> None:
         for tool in TODO_TOOLS:
@@ -109,6 +136,11 @@ class AgentToolTests(BackendTestCase):
         self.assertIn("todo stores tasks the user only needs to finish before a deadline", AGENT_INSTRUCTIONS)
         self.assertIn("remind me tomorrow about my exam", AGENT_INSTRUCTIONS)
         self.assertIn("Do not add the assistant's own short-term work", AGENT_INSTRUCTIONS)
+
+    def test_agent_instructions_define_blackboard_credential_boundary(self) -> None:
+        self.assertIn("use the Blackboard tools", AGENT_INSTRUCTIONS)
+        self.assertIn("never ask for, store, echo, or reuse the user's SID", AGENT_INSTRUCTIONS)
+        self.assertIn("sign in through the app's Blackboard login window", AGENT_INSTRUCTIONS)
 
     def test_agent_instructions_require_brief_save_confirmations(self) -> None:
         self.assertIn("reply very briefly after the tool call", AGENT_INSTRUCTIONS)

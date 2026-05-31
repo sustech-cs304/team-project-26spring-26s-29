@@ -29,7 +29,7 @@ from ..services import (
 from .context import CurrentInfoProvider, PlanningSnapshotProvider, WorkspaceInfoProvider
 from .instructions import build_agent_instructions
 
-from .tools import SCHEDULE_TOOLS, SUSTECH_MANUAL_TOOLS, TODO_TOOLS, WORKSPACE_TOOLS
+from .tools import BLACKBOARD_TOOLS, SCHEDULE_TOOLS, SUSTECH_MANUAL_TOOLS, TODO_TOOLS, WORKSPACE_TOOLS
 
 
 MessageSnapshot = dict[str, Any]
@@ -259,7 +259,13 @@ def _coerce_reasoning_content(reasoning_details: Any) -> str | None:
 
 
 def _build_agent_tools(base_url: str | None) -> list[Any]:
-    tools: list[Any] = [*TODO_TOOLS, *WORKSPACE_TOOLS, *SCHEDULE_TOOLS, *SUSTECH_MANUAL_TOOLS]
+    tools: list[Any] = [
+        *TODO_TOOLS,
+        *WORKSPACE_TOOLS,
+        *SCHEDULE_TOOLS,
+        *BLACKBOARD_TOOLS,
+        *SUSTECH_MANUAL_TOOLS,
+    ]
     if _should_register_hosted_web_search_tool(base_url):
         tools.append(AdaptiveChatCompletionClient.get_web_search_tool())
     return tools

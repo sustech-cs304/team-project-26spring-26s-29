@@ -299,6 +299,7 @@ class AdaptiveClientTests(BackendTestCase):
         xiaomi_tools = _build_agent_tools("https://token-plan-cn.xiaomimimo.com/v1")
         default_tools = _build_agent_tools(None)
 
+        self.assertTrue(any(getattr(tool, "name", None) == "sync_blackboard" for tool in default_tools))
         self.assertTrue(any(isinstance(tool, dict) and tool.get("type") == "web_search" for tool in xiaomi_tools))
         self.assertFalse(any(isinstance(tool, dict) and tool.get("type") == "web_search" for tool in default_tools))
 
