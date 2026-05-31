@@ -270,12 +270,13 @@ The current workspace tools are:
 - `search_workspace_text`
 - `read_workspace_file`
 - `preview_workspace_file`
+- `send_workspace_file`
 - `create_workspace_file`
 - `update_workspace_file`
 - `run_workspace_shell`
 - `run_workspace_python`
 
-The first four are read-only and do not require approval. File writes and command execution require approval.
+The first five are read-only and do not require approval. File writes and command execution require approval.
 
 The current SUSTech manual tools are:
 

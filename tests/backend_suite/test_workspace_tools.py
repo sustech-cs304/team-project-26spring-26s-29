@@ -14,6 +14,7 @@ from backend.agent.tools import (
     run_workspace_python_tool_impl,
     run_workspace_shell_tool_impl,
     search_workspace_text_tool_impl,
+    send_workspace_file_tool_impl,
     update_workspace_file,
 )
 from backend.services import resolve_workspace_path
@@ -62,6 +63,31 @@ class WorkspaceToolTests(BackendTestCase):
         self.assertIn("hello preview world", text_preview[1].text)
         self.assertEqual(pdf_preview[1].type, "text")
         self.assertIn("hello pdf preview", pdf_preview[1].text)
+
+    def test_send_workspace_file_returns_downloadable_file_item(self) -> None:
+        pptx_path = resolve_workspace_path("outputs/slides.pptx")
+        _write_pptx(pptx_path, "hello sendable pptx")
+
+        result = send_workspace_file_tool_impl("outputs/slides.pptx")
+
+        self.assertEqual(result[0].type, "text")
+        self.assertIn("Workspace file ready to send", result[0].text)
+        self.assertEqual(result[1].type, "uri")
+        self.assertEqual(result[1].media_type, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+        self.assertEqual(result[1].additional_properties["name"], "slides.pptx")
+        self.assertEqual(result[1].additional_properties["relativePath"], "outputs/slides.pptx")
+        self.assertEqual(result[1].additional_properties["sizeBytes"], pptx_path.stat().st_size)
+
+    def test_send_workspace_file_rejects_images(self) -> None:
+        image_path = resolve_workspace_path("outputs/image.png")
+        image_path.write_bytes(
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+            b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
+            b"\x1f\x15\xc4\x89"
+        )
+
+        with self.assertRaisesRegex(ValueError, "preview_workspace_file"):
+            send_workspace_file_tool_impl("outputs/image.png")
 
     def test_document_extraction_supports_common_formats_and_truncation(self) -> None:
         _write_docx(resolve_workspace_path("outputs/sample.docx"), "hello docx")
@@ -126,6 +152,7 @@ class WorkspaceToolTests(BackendTestCase):
         self.assertEqual(tool_modes["search_workspace_text"], "never_require")
         self.assertEqual(tool_modes["read_workspace_file"], "never_require")
         self.assertEqual(tool_modes["preview_workspace_file"], "never_require")
+        self.assertEqual(tool_modes["send_workspace_file"], "never_require")
         self.assertEqual(tool_modes["create_workspace_file"], "always_require")
         self.assertEqual(tool_modes["update_workspace_file"], "always_require")
         self.assertEqual(tool_modes["run_workspace_shell"], "always_require")
@@ -154,12 +181,19 @@ class WorkspaceContextTests(AsyncBackendTestCase):
         self.assertIn("workspace_info", context.metadata)
         self.assertIn("Workspace context:", context.instructions[0][1])
         self.assertIn("Markdown image URLs", context.instructions[0][1])
+        self.assertIn("Do not share non-image workspace files as Markdown links", context.instructions[0][1])
+        self.assertIn("Do not delete uploaded inputs or generated outputs", context.instructions[0][1])
 
     async def test_agent_instructions_prefer_markdown_for_workspace_image_display(self) -> None:
         instructions = build_agent_instructions("en")
 
         self.assertIn("![description](outputs/image.png)", instructions)
         self.assertIn("Do not call preview_workspace_file only to display a workspace image", instructions)
+        self.assertIn("use send_workspace_file for non-image files", instructions)
+        self.assertIn("asks to download an image file, call preview_workspace_file", instructions)
+        self.assertIn("Do not use preview_workspace_file to hand over non-image files", instructions)
+        self.assertIn("Do not delete uploaded inputs or generated workspace artifacts", instructions)
+        self.assertIn("Delete workspace files only when the user explicitly asks", instructions)
 
 
 def _sample_pdf_bytes(text: str) -> bytes:

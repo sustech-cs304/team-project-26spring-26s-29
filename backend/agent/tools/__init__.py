@@ -27,6 +27,8 @@ from .workspace_tool import (
     run_workspace_shell_tool_impl,
     search_workspace_text_tool,
     search_workspace_text_tool_impl,
+    send_workspace_file_tool,
+    send_workspace_file_tool_impl,
     update_workspace_file,
     update_workspace_file_tool,
 )
@@ -91,6 +93,8 @@ __all__ = [
     "read_workspace_file_tool",
     "preview_workspace_file_tool_impl",
     "preview_workspace_file_tool",
+    "send_workspace_file_tool_impl",
+    "send_workspace_file_tool",
     "create_workspace_file",
     "create_workspace_file_tool",
     "update_workspace_file",

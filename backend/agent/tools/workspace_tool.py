@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal
+from urllib.parse import quote
 
 from agent_framework import Content, tool
 from pydantic import Field
@@ -10,8 +11,11 @@ from pydantic import Field
 from ...services import (
     append_workspace_file,
     build_workspace_preview,
+    guess_workspace_media_type,
     list_workspace_entries,
+    normalize_relative_path,
     read_workspace_file,
+    resolve_workspace_path,
     run_workspace_python,
     run_workspace_shell,
     search_workspace_text,
@@ -131,6 +135,44 @@ def preview_workspace_file_tool_impl(
     return items
 
 
+def send_workspace_file_tool_impl(
+    relative_path: Annotated[
+        str,
+        Field(description="Workspace-relative file path to send as a downloadable file tile."),
+    ],
+) -> list[Content]:
+    """Send an existing non-image workspace file as a downloadable assistant file part."""
+    normalized = normalize_relative_path(relative_path)
+    file_path = resolve_workspace_path(normalized)
+    if file_path.is_dir():
+        raise IsADirectoryError(f"Workspace path is a directory: {normalized}")
+    if not file_path.exists():
+        raise FileNotFoundError(f"Workspace file does not exist: {normalized}")
+
+    media_type = guess_workspace_media_type(normalized)
+    if media_type.lower().startswith("image/"):
+        raise ValueError("Use preview_workspace_file when the user asks to download an image file.")
+
+    size_bytes = file_path.stat().st_size
+    summary = [
+        f"Workspace file ready to send: {normalized}.",
+        f"Media-Type: {media_type}",
+        f"Size Bytes: {size_bytes}",
+    ]
+    return [
+        Content.from_text("\n".join(summary)),
+        Content.from_uri(
+            uri=f"workspace:///{quote(normalized)}",
+            media_type=media_type,
+            additional_properties={
+                "name": file_path.name,
+                "relativePath": normalized,
+                "sizeBytes": size_bytes,
+            },
+        ),
+    ]
+
+
 def create_workspace_file(
     relative_path: Annotated[
         str,
@@ -241,10 +283,22 @@ preview_workspace_file_tool = tool(
     name="preview_workspace_file",
     description=(
         "Prepare an agent-readable preview for text, supported documents, or images. "
+        "Use this to inspect file contents yourself, or when the user asks to download/preview an image file. "
+        "Do not use this to hand over non-image files; use send_workspace_file instead. "
         "Audio, video, and unsupported binaries are not readable unless the user approves custom Python processing."
     ),
     approval_mode="never_require",
 )(preview_workspace_file_tool_impl)
+
+send_workspace_file_tool = tool(
+    name="send_workspace_file",
+    description=(
+        "Send an existing non-image workspace file as a downloadable file tile. "
+        "Use this instead of Markdown links when handing non-image files to the user. "
+        "Do not use this for image files; use Markdown for normal image display or preview_workspace_file for image downloads."
+    ),
+    approval_mode="never_require",
+)(send_workspace_file_tool_impl)
 
 create_workspace_file_tool = tool(
     name="create_workspace_file",
@@ -275,6 +329,7 @@ WORKSPACE_TOOLS = [
     search_workspace_text_tool,
     read_workspace_file_tool,
     preview_workspace_file_tool,
+    send_workspace_file_tool,
     create_workspace_file_tool,
     update_workspace_file_tool,
     run_workspace_shell_tool,

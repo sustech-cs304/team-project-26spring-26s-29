@@ -233,7 +233,7 @@ The Python agent runtime lives in `backend/agent/`.
 - `instructions.py` defines the base behavior prompt
 - `tools/todo_tool.py` exposes `list_todos`, `create_todo`, `update_todo`, and `delete_todo`
 - `tools/schedule_tool.py` exposes `manage_schedule` for listing and mutating schedule events
-- `tools/workspace_tool.py` exposes workspace file tools, preview helpers, plus approval-gated shell and Python tools
+- `tools/workspace_tool.py` exposes workspace file tools, preview/file-send helpers, plus approval-gated shell and Python tools
 - `tools/sustech_manual_tool.py` exposes read-only SUSTech manual search, record reads, and live source fetches
 - `context/current_info.py` injects runtime environment and network context before each run
 - `context/planning_snapshot.py` injects the nearest schedule/todo summary before each run
@@ -246,6 +246,7 @@ The current agent is therefore stateful enough to:
 - inspect local todos without approval and request approval before changing them
 - inspect and manage local schedule events with the schedule tool
 - inspect and edit workspace files with tool approval where appropriate
+- send non-image workspace files as downloadable file tiles instead of Markdown links
 - prepare inline previews for text, image, PDF, audio, and video workspace files
 - run local PowerShell and Python inside the workspace after approval
 - receive runtime environment context (time, host runtime info, and public IP metadata) on each run

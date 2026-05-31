@@ -534,7 +534,11 @@ def format_workspace_snapshot(snapshot: dict[str, Any]) -> str:
         f"- Generated outputs should usually go under: {snapshot['outputs_root']}",
         "- All workspace paths shared with the model use forward slashes and are relative to the workspace root.",
         "- Markdown image URLs in assistant replies are resolved relative to the workspace root.",
+        "- Do not share non-image workspace files as Markdown links; use send_workspace_file when the user needs a downloadable file.",
+        "- If the user asks to download a workspace image, use preview_workspace_file so the app can show a downloadable image preview.",
+        "- Use preview_workspace_file to inspect file contents yourself, not to hand over non-image files to the user.",
         "- Prefer workspace file tools for listing, reading, creating, and updating files.",
+        "- Do not delete uploaded inputs or generated outputs after finishing a task unless the user explicitly asks for deletion; the app owns workspace cleanup.",
         "- Use shell/python only when file tools are insufficient or you need program execution.",
     ]
     if snapshot["recent_files"]:
